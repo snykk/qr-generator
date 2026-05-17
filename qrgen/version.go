@@ -25,6 +25,12 @@ func (v Version) Size() int {
 	return 21 + 4*(int(v)-1)
 }
 
+// String returns the version printed as "V<n>", e.g. V1, V40. Useful as a
+// subtest name and in error messages.
+func (v Version) String() string {
+	return fmt.Sprintf("V%d", int(v))
+}
+
 // IsValid reports whether v is in the inclusive range [MinVersion, MaxVersion].
 func (v Version) IsValid() bool {
 	return v >= MinVersion && v <= MaxVersion

@@ -92,13 +92,13 @@ Goal: data codewords → data + EC codewords, properly interleaved.
 
 Goal: QR matrix populated with functional + data modules, before masking.
 
-- [ ] Matrix size = `21 + 4×(version-1)`.
-- [ ] Place **finder patterns** (3 corners) + separators.
-- [ ] **Alignment patterns** per the M2 table.
-- [ ] **Timing patterns**.
-- [ ] **Dark module** at `(8, 4*version+9)`.
-- [ ] Reserve the **format info & version info** areas.
-- [ ] Place **data bits** in zig-zag from the bottom-right, skipping functional areas.
+- [x] Matrix size = `21 + 4×(version-1)`. — `qrgen/matrix.go` `newMatrix`
+- [x] Place **finder patterns** (3 corners) + separators. — `qrgen/matrix.go` `placeFinderPatterns` / `placeSingleFinder`
+- [x] **Alignment patterns** per the M2 table. — `qrgen/matrix.go` `placeAlignmentPatterns` / `placeSingleAlignment`
+- [x] **Timing patterns**. — `qrgen/matrix.go` `placeTimingPatterns`
+- [x] **Dark module** at `(4*version+9, 8)`. — `qrgen/matrix.go` `placeDarkModule` (the original plan note had the coordinates swapped; the convention everywhere else is `(row, col)`).
+- [x] Reserve the **format info & version info** areas. — `qrgen/matrix.go` `reserveFormatInfoArea` + `reserveVersionInfoArea`
+- [x] Place **data bits** in zig-zag from the bottom-right, skipping functional areas. — `qrgen/matrix.go` `placeData` (validated against the `TestDataAreaCellsMatchesCapacity` invariant for all 40 versions).
 
 ### M6 — Masking & Format/Version Info `(M)`
 

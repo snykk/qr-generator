@@ -92,13 +92,13 @@ Tujuan: data codewords → data + EC codewords yang sudah ter-interleave.
 
 Tujuan: kerangka matrix QR terisi (fungsional + data) — sebelum masking.
 
-- [ ] Ukuran matrix = `21 + 4×(version-1)`.
-- [ ] Penempatan **finder patterns** (3 sudut) + separators.
-- [ ] **Alignment patterns** sesuai tabel M2.
-- [ ] **Timing patterns**.
-- [ ] **Dark module** (`(8, 4*version+9)`).
-- [ ] Area **format info & version info** di-reserve dulu.
-- [ ] Penempatan **data bits** secara zig-zag dari kanan-bawah, melompati area fungsional.
+- [x] Ukuran matrix = `21 + 4×(version-1)`. — `qrgen/matrix.go` `newMatrix`
+- [x] Penempatan **finder patterns** (3 sudut) + separators. — `qrgen/matrix.go` `placeFinderPatterns` / `placeSingleFinder`
+- [x] **Alignment patterns** sesuai tabel M2. — `qrgen/matrix.go` `placeAlignmentPatterns` / `placeSingleAlignment`
+- [x] **Timing patterns**. — `qrgen/matrix.go` `placeTimingPatterns`
+- [x] **Dark module** (`(4*version+9, 8)`). — `qrgen/matrix.go` `placeDarkModule` (catatan plan sebelumnya menulis koordinatnya terbalik; konvensi di tempat lain adalah `(row, col)`).
+- [x] Area **format info & version info** di-reserve dulu. — `qrgen/matrix.go` `reserveFormatInfoArea` + `reserveVersionInfoArea`
+- [x] Penempatan **data bits** secara zig-zag dari kanan-bawah, melompati area fungsional. — `qrgen/matrix.go` `placeData` (divalidasi terhadap invariant `TestDataAreaCellsMatchesCapacity` untuk semua 40 versi).
 
 ### M6 — Masking & Format/Version Info `(M)`
 
