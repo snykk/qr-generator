@@ -155,10 +155,10 @@ Tujuan: keyakinan bahwa output benar & stabil.
 
 Tujuan: siap dipakai orang lain.
 
-- [ ] `README.md` final: badge, contoh kode, ringkasan API, kompatibilitas Go.
-- [ ] `CHANGELOG.md` (Keep a Changelog).
-- [ ] Tag `v0.1.0`.
-- [ ] Verifikasi `go install` dan `go get` jalan dari module path.
+- [x] `README.md` final: badge, contoh kode, ringkasan API, kompatibilitas Go. — badge pkg.go.dev, versi Go, license, dan CI ditambahkan; tabel ringkasan API plus snippet terminal-render disertakan.
+- [x] `CHANGELOG.md` (Keep a Changelog). — `CHANGELOG.md` mendokumentasikan permukaan v0.1.0 dan bukti validasi.
+- [ ] Tag `v0.1.0`. — menunggu push pertama ke GitHub; setelah remote punya commit M11, jalankan `git tag v0.1.0 && git push origin v0.1.0`.
+- [x] Verifikasi `go install` dan `go get` jalan dari module path. — `go install ./cmd/qrgen` membangun & menjalankan binary lokal yang menghasilkan PNG valid; setelah repo di-push, `go install github.com/snykk/qr-generator/cmd/qrgen@latest` akan resolve.
 
 ---
 

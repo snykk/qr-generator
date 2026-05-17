@@ -155,10 +155,10 @@ Goal: confidence that the output is correct and stable.
 
 Goal: ready for others to use.
 
-- [ ] Final `README.md`: badges, code examples, API summary, Go compatibility.
-- [ ] `CHANGELOG.md` (Keep a Changelog format).
-- [ ] Tag `v0.1.0`.
-- [ ] Verify `go install` and `go get` work from the module path.
+- [x] Final `README.md`: badges, code examples, API summary, Go compatibility. — pkg.go.dev, Go version, license, and CI badges added; API summary table and a runnable terminal-render snippet included.
+- [x] `CHANGELOG.md` (Keep a Changelog format). — `CHANGELOG.md` documents the v0.1.0 surface and validation evidence.
+- [ ] Tag `v0.1.0`. — pending the first push to GitHub; once the remote has the M11 commit, run `git tag v0.1.0 && git push origin v0.1.0`.
+- [x] Verify `go install` and `go get` work from the module path. — `go install ./cmd/qrgen` builds and runs locally producing a valid PNG; once the repo is pushed, `go install github.com/snykk/qr-generator/cmd/qrgen@latest` will resolve.
 
 ---
 
