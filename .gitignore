@@ -1,0 +1,29 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test binaries and coverage
+*.test
+*.out
+coverage.html
+
+# Build artifacts
+/bin/
+/dist/
+
+# Vendored dependencies (we do not vendor)
+/vendor/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Local env
+.env
+.env.local
