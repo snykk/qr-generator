@@ -67,7 +67,7 @@ Tujuan: data statis dari spec siap dipakai oleh layer encoder.
 - [x] Tabel **jumlah & ukuran block error correction** per (version × EC level). — `qrgen/version.go`
 - [x] Tabel **posisi alignment pattern** per version. — `qrgen/version.go`
 - [x] Tabel **format info** (BCH-encoded) dan **version info** (untuk version ≥ 7). — `qrgen/formatinfo.go`
-- [ ] Generator polynomial Reed–Solomon per ukuran EC codeword. — ditunda ke M4 (dihitung via GF(256) setelah arithmetic-nya tersedia).
+- [x] Generator polynomial Reed–Solomon per ukuran EC codeword. — `qrgen/reedsolomon.go` `genPoly` (divalidasi terhadap tabel α-exponent untuk semua 13 ukuran block EC).
 
 ### M3 — Data Encoding `(M)`
 
@@ -82,11 +82,11 @@ Tujuan: input string → bit stream final (sebelum RS).
 
 Tujuan: data codewords → data + EC codewords yang sudah ter-interleave.
 
-- [ ] **GF(256)** arithmetic: tabel exp/log dengan primitive polynomial `0x11D`.
-- [ ] Polynomial multiply/divide di GF(256).
-- [ ] Generate **generator polynomial** untuk n EC codewords.
-- [ ] Reed–Solomon encoder per block.
-- [ ] Pembagian data ke blocks sesuai tabel M2, lalu **interleave** data & EC.
+- [x] **GF(256)** arithmetic: tabel exp/log dengan primitive polynomial `0x11D`. — `qrgen/gf256.go` `expTable` / `logTable` / `gf256Mul`
+- [x] Polynomial multiply/divide di GF(256). — `qrgen/gf256.go` `polyMul` / `polyMod` (divisor monic; generator QR selalu monic)
+- [x] Generate **generator polynomial** untuk n EC codewords. — `qrgen/reedsolomon.go` `genPoly`
+- [x] Reed–Solomon encoder per block. — `qrgen/reedsolomon.go` `encodeBlock` (divalidasi terhadap 10 EC codeword dari worked example "HELLO WORLD")
+- [x] Pembagian data ke blocks sesuai tabel M2, lalu **interleave** data & EC. — `qrgen/reedsolomon.go` `splitAndEncodeBlocks` + `interleaveBlocks` + `rsEncode`
 
 ### M5 — Matrix Construction `(M)`
 

@@ -67,7 +67,7 @@ Goal: static data from the spec is ready for the encoder layer.
 - [x] **Error correction block count & size** table per (version × EC level). — `qrgen/version.go`
 - [x] **Alignment pattern positions** table per version. — `qrgen/version.go`
 - [x] **Format info** (BCH-encoded) and **version info** (for version ≥ 7) bit strings. — `qrgen/formatinfo.go`
-- [ ] Reed–Solomon **generator polynomial** per EC codeword count. — deferred to M4 (computed via GF(256) once arithmetic is in place).
+- [x] Reed–Solomon **generator polynomial** per EC codeword count. — `qrgen/reedsolomon.go` `genPoly` (validated against the α-exponent table for all 13 EC block sizes used by QR).
 
 ### M3 — Data Encoding `(M)`
 
@@ -82,11 +82,11 @@ Goal: input string → final bit stream (pre-RS).
 
 Goal: data codewords → data + EC codewords, properly interleaved.
 
-- [ ] **GF(256)** arithmetic: exp/log tables using primitive polynomial `0x11D`.
-- [ ] Polynomial multiply/divide over GF(256).
-- [ ] Build the **generator polynomial** for n EC codewords.
-- [ ] Reed–Solomon encoder per block.
-- [ ] Split data into blocks per the M2 tables, then **interleave** data & EC.
+- [x] **GF(256)** arithmetic: exp/log tables using primitive polynomial `0x11D`. — `qrgen/gf256.go` `expTable` / `logTable` / `gf256Mul`
+- [x] Polynomial multiply/divide over GF(256). — `qrgen/gf256.go` `polyMul` / `polyMod` (monic divisor; QR's generator is always monic)
+- [x] Build the **generator polynomial** for n EC codewords. — `qrgen/reedsolomon.go` `genPoly`
+- [x] Reed–Solomon encoder per block. — `qrgen/reedsolomon.go` `encodeBlock` (validated against the "HELLO WORLD" worked example's 10 EC codewords)
+- [x] Split data into blocks per the M2 tables, then **interleave** data & EC. — `qrgen/reedsolomon.go` `splitAndEncodeBlocks` + `interleaveBlocks` + `rsEncode`
 
 ### M5 — Matrix Construction `(M)`
 
