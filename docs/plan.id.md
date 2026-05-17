@@ -125,13 +125,13 @@ Tujuan: matrix `[][]bool` → byte PNG.
 
 Tujuan: permukaan library yang nyaman dipakai.
 
-- [ ] Functional options: `WithECLevel`, `WithVersion`, `WithMask`, `WithModuleSize`, `WithQuietZone`, `WithColors`, dst.
-- [ ] Entry points:
+- [x] Functional options: `WithECLevel`, `WithVersion`, `WithMask`, `WithModuleSize`, `WithQuietZone`, `WithColors`, dst. — `qrgen/options.go`
+- [x] Entry points: — `qrgen/api.go`
   - `qrgen.Encode(text string, opts ...Option) ([]byte, error)` → PNG bytes.
   - `qrgen.EncodeToFile(text, path string, opts ...Option) error`.
   - `qrgen.Matrix(text string, opts ...Option) ([][]bool, error)` (raw access).
-- [ ] Godoc lengkap untuk semua simbol publik.
-- [ ] `examples/basic/main.go` & `examples/styled/main.go`.
+- [x] Godoc lengkap untuk semua simbol publik. — semua simbol exported di `qrgen/*.go` punya doc comment yang diawali nama simbolnya.
+- [x] `examples/basic/main.go` & `examples/styled/main.go`. — bisa dijalankan via `go run ./examples/basic` dan `go run ./examples/styled`.
 
 ### M9 — CLI Tipis `(S)`
 

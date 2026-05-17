@@ -17,7 +17,7 @@ import (
 )
 
 func TestRenderPNGHelloWorld(t *testing.T) {
-	m, _, err := buildMatrix("HELLO WORLD", ECLevelM)
+	m, _, err := buildMatrix("HELLO WORLD", defaultsForEC(ECLevelM))
 	if err != nil {
 		t.Fatalf("buildMatrix: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestRenderPNGHelloWorld(t *testing.T) {
 }
 
 func TestRenderPNGCustomColors(t *testing.T) {
-	m, _, err := buildMatrix("HELLO WORLD", ECLevelM)
+	m, _, err := buildMatrix("HELLO WORLD", defaultsForEC(ECLevelM))
 	if err != nil {
 		t.Fatalf("buildMatrix: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestRenderPNGCustomColors(t *testing.T) {
 }
 
 func TestRenderPNGModuleSizeAndQuietZone(t *testing.T) {
-	m, _, err := buildMatrix("HELLO WORLD", ECLevelM)
+	m, _, err := buildMatrix("HELLO WORLD", defaultsForEC(ECLevelM))
 	if err != nil {
 		t.Fatalf("buildMatrix: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestRenderPNGModuleSizeAndQuietZone(t *testing.T) {
 // against the matrix entry, verifying the renderer's coordinate mapping for a
 // V1 symbol.
 func TestRenderPNGMatrixDarkPixelsMatchModules(t *testing.T) {
-	m, _, err := buildMatrix("HELLO WORLD", ECLevelM)
+	m, _, err := buildMatrix("HELLO WORLD", defaultsForEC(ECLevelM))
 	if err != nil {
 		t.Fatalf("buildMatrix: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestRenderPNGMatrixDarkPixelsMatchModules(t *testing.T) {
 }
 
 func TestRenderPNGUsesGrayForDefault(t *testing.T) {
-	m, _, err := buildMatrix("HELLO WORLD", ECLevelM)
+	m, _, err := buildMatrix("HELLO WORLD", defaultsForEC(ECLevelM))
 	if err != nil {
 		t.Fatalf("buildMatrix: %v", err)
 	}

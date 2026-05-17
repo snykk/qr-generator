@@ -286,7 +286,7 @@ func TestDataAreaCellsMatchesCapacity(t *testing.T) {
 // TestPlaceDataHelloWorld feeds the full HELLO WORLD M3+M4 byte stream into
 // the matrix and verifies the walk consumes exactly the expected bits.
 func TestPlaceDataHelloWorld(t *testing.T) {
-	data, v, _, err := encodeText("HELLO WORLD", ECLevelM)
+	data, v, _, err := encodeText("HELLO WORLD", ECLevelM, 0)
 	if err != nil {
 		t.Fatalf("encodeText: %v", err)
 	}

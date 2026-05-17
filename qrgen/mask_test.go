@@ -186,7 +186,7 @@ func TestPenaltyRule4DarkRatio(t *testing.T) {
 // test does not pin it to a specific value (see TestMaskScoresHelloWorld for
 // the per-mask scores).
 func TestSelectAndApplyMaskHelloWorld(t *testing.T) {
-	m, mask, err := buildMatrix("HELLO WORLD", ECLevelM)
+	m, mask, err := buildMatrix("HELLO WORLD", defaultsForEC(ECLevelM))
 	if err != nil {
 		t.Fatalf("buildMatrix: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestSelectAndApplyMaskHelloWorld(t *testing.T) {
 // worked example so the picked mask is auditable. The picked mask must
 // genuinely be the minimum (with index breaking ties).
 func TestMaskScoresHelloWorld(t *testing.T) {
-	data, v, _, err := encodeText("HELLO WORLD", ECLevelM)
+	data, v, _, err := encodeText("HELLO WORLD", ECLevelM, 0)
 	if err != nil {
 		t.Fatalf("encodeText: %v", err)
 	}
@@ -265,7 +265,7 @@ func TestMaskScoresHelloWorld(t *testing.T) {
 	t.Logf("lowest-penalty mask = %d (score %d)", minIdx, scores[minIdx])
 
 	// The same selection that buildMatrix uses must agree.
-	_, gotMask, err := buildMatrix("HELLO WORLD", ECLevelM)
+	_, gotMask, err := buildMatrix("HELLO WORLD", defaultsForEC(ECLevelM))
 	if err != nil {
 		t.Fatalf("buildMatrix: %v", err)
 	}

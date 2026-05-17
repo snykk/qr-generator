@@ -173,39 +173,60 @@ func writeByte(bb *bitBuffer, text string) {
 	}
 }
 
-// buildMatrix runs the M3..M6 pipeline end-to-end: encode the text, run
-// Reed–Solomon, place the codewords in the matrix together with all functional
-// patterns, write version info (V7+), then pick and apply the lowest-penalty
-// mask along with its matching format-info codeword. The returned matrix is
-// the final, scannable QR symbol; callers only need to render it to pixels.
-func buildMatrix(text string, ec ECLevel) (*matrix, int, error) {
-	data, v, _, err := encodeText(text, ec)
+// buildMatrix runs the M3..M6 pipeline end-to-end using the resolved options:
+// encode the text, run Reed–Solomon, place the codewords in the matrix together
+// with all functional patterns, write version info (V7+), then pick and apply
+// the mask (auto-selected or forced via opts.mask) along with its matching
+// format-info codeword. The returned matrix is the final, scannable QR symbol;
+// callers only need to render it to pixels.
+func buildMatrix(text string, opts *options) (*matrix, int, error) {
+	data, v, _, err := encodeText(text, opts.ec, opts.version)
 	if err != nil {
 		return nil, 0, err
 	}
-	stream := rsEncode(data, v, ec)
+	stream := rsEncode(data, v, opts.ec)
 	m := newMatrix(v)
 	m.placeFunctionalPatterns()
 	if err := m.placeData(stream, v.RemainderBits()); err != nil {
 		return nil, 0, err
 	}
 	m.writeVersionInfo()
-	mask := m.selectAndApplyMask(ec)
+
+	var mask int
+	if opts.mask >= 0 {
+		m.applyMask(opts.mask)
+		m.writeFormatInfo(opts.ec, opts.mask)
+		mask = opts.mask
+	} else {
+		mask = m.selectAndApplyMask(opts.ec)
+	}
 	return m, mask, nil
 }
 
-// encodeText runs the M3 pipeline end-to-end: it analyzes the mode, picks the
-// smallest version that fits, then emits header + payload + terminator + bit
-// padding + pad bytes to fill the data-codeword capacity exactly. The
-// returned slice has length v.DataCodewords(ec) and is ready to feed Reed–
-// Solomon (M4).
+// encodeText runs the M3 pipeline end-to-end: it analyzes the mode, picks
+// (or accepts) a version that fits, then emits header + payload + terminator
+// + bit padding + pad bytes to fill the data-codeword capacity exactly.
+// forceVersion = 0 means auto-pick the smallest fitting version; any other
+// value is validated against the payload size.
 //
 // See docs/theory/02-data-encoding.md and docs/theory/10-worked-example.md.
-func encodeText(text string, ec ECLevel) (data []byte, v Version, m Mode, err error) {
+func encodeText(text string, ec ECLevel, forceVersion Version) (data []byte, v Version, m Mode, err error) {
 	m = analyzeMode(text)
-	v, err = selectVersion(m, text, ec)
-	if err != nil {
-		return nil, 0, 0, err
+	if forceVersion == 0 {
+		v, err = selectVersion(m, text, ec)
+		if err != nil {
+			return nil, 0, 0, err
+		}
+	} else {
+		if !forceVersion.IsValid() {
+			return nil, 0, 0, fmt.Errorf("qrgen: invalid version %d (want 1..40)", forceVersion)
+		}
+		needed := 4 + m.CharCountBits(forceVersion) + payloadBitLength(m, text)
+		capacity := forceVersion.DataCodewords(ec) * 8
+		if needed > capacity {
+			return nil, 0, 0, fmt.Errorf("qrgen: payload (%d bits) does not fit in V%d-%s (capacity %d bits)", needed, forceVersion, ec, capacity)
+		}
+		v = forceVersion
 	}
 
 	capacityBits := v.DataCodewords(ec) * 8

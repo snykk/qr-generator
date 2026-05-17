@@ -2,7 +2,7 @@
 
 A pure-Go QR code generator implemented from scratch, following **ISO/IEC 18004:2015**, with no runtime dependencies beyond the Go standard library.
 
-> **Status:** in development (pre-v0.1.0). The public API is unstable and the encoder is still being built. Not yet ready for production use.
+> **Status:** in development (pre-v0.1.0). The encoder works end-to-end (text → scannable PNG) but the public API may still shift before v0.1.0 is tagged.
 
 ## Goals
 
@@ -17,21 +17,47 @@ A pure-Go QR code generator implemented from scratch, following **ISO/IEC 18004:
 - [Theory & references](docs/theory/README.md) — literature review of the algorithms used (data encoding, Reed–Solomon, masking, BCH, rendering)
 - [LICENSE](LICENSE) — Apache License 2.0
 
-## Planned usage (preview, not yet implemented)
+## Install
+
+```sh
+go get github.com/snykk/qr-generator/qrgen
+```
+
+## Usage
+
+The fastest path — encode a string and write the PNG to disk:
 
 ```go
-import "github.com/snykk/qr-generator/qrgen"
+package main
 
-png, err := qrgen.Encode("https://example.com",
-    qrgen.WithECLevel(qrgen.ECLevelM),
-    qrgen.WithModuleSize(8),
-    qrgen.WithQuietZone(4),
+import (
+	"log"
+
+	"github.com/snykk/qr-generator/qrgen"
 )
-if err != nil {
-    log.Fatal(err)
+
+func main() {
+	if err := qrgen.EncodeToFile("HELLO WORLD", "qr.png"); err != nil {
+		log.Fatal(err)
+	}
 }
-_ = os.WriteFile("qr.png", png, 0o644)
 ```
+
+Or get the PNG bytes back and handle the output yourself:
+
+```go
+data, err := qrgen.Encode("https://example.com",
+	qrgen.WithECLevel(qrgen.ECLevelQ), // higher recovery
+	qrgen.WithModuleSize(10),          // bigger pixels per module
+	qrgen.WithQuietZone(4),            // background margin around the symbol
+)
+```
+
+For non-PNG rendering targets, `qrgen.Matrix` gives the underlying `[][]bool`
+module grid (true = dark) you can render to SVG, terminal characters, or any
+other canvas. Full option list: `WithECLevel`, `WithVersion`, `WithMask`,
+`WithModuleSize`, `WithQuietZone`, `WithColors`. See [examples/basic](examples/basic/main.go)
+and [examples/styled](examples/styled/main.go) for runnable demos.
 
 ## Scope (target v0.1.0)
 
@@ -43,8 +69,6 @@ _ = os.WriteFile("qr.png", png, 0o644)
 Out of scope for v0.1: Kanji, ECI, Micro QR, structured append, logo embedding, SVG/terminal output, decoder. See the [plan](docs/plan.md) for details.
 
 ## Development
-
-Once milestones M2+ produce code, the standard Go workflow applies:
 
 ```sh
 go build ./...

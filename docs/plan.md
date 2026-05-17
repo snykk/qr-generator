@@ -125,13 +125,13 @@ Goal: `[][]bool` matrix → PNG bytes.
 
 Goal: a comfortable library surface.
 
-- [ ] Functional options: `WithECLevel`, `WithVersion`, `WithMask`, `WithModuleSize`, `WithQuietZone`, `WithColors`, etc.
-- [ ] Entry points:
+- [x] Functional options: `WithECLevel`, `WithVersion`, `WithMask`, `WithModuleSize`, `WithQuietZone`, `WithColors`, etc. — `qrgen/options.go`
+- [x] Entry points: — `qrgen/api.go`
   - `qrgen.Encode(text string, opts ...Option) ([]byte, error)` → PNG bytes.
   - `qrgen.EncodeToFile(text, path string, opts ...Option) error`.
   - `qrgen.Matrix(text string, opts ...Option) ([][]bool, error)` (raw access).
-- [ ] Full godoc for every exported symbol.
-- [ ] `examples/basic/main.go` & `examples/styled/main.go`.
+- [x] Full godoc for every exported symbol. — all exports across `qrgen/*.go` carry doc comments starting with the symbol name.
+- [x] `examples/basic/main.go` & `examples/styled/main.go`. — runnable via `go run ./examples/basic` and `go run ./examples/styled`.
 
 ### M9 — Thin CLI `(S)`
 

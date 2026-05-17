@@ -169,7 +169,7 @@ func TestSelectVersionCapacityExceeded(t *testing.T) {
 // docs/theory/10-worked-example.md: encoding "HELLO WORLD" at EC level M
 // must produce exactly the 16 data codewords listed there.
 func TestEncodeTextHelloWorld(t *testing.T) {
-	data, v, m, err := encodeText("HELLO WORLD", ECLevelM)
+	data, v, m, err := encodeText("HELLO WORLD", ECLevelM, 0)
 	if err != nil {
 		t.Fatalf("encodeText: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestEncodeTextLengthAlwaysMatchesCapacity(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			data, v, _, err := encodeText(c.text, c.ec)
+			data, v, _, err := encodeText(c.text, c.ec, 0)
 			if err != nil {
 				t.Fatalf("encodeText: %v", err)
 			}
