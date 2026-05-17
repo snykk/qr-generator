@@ -20,7 +20,7 @@ A pure-Go QR code generator implemented from scratch, following **ISO/IEC 18004:
 ## Planned usage (preview, not yet implemented)
 
 ```go
-import "github.com/najibfikri/qr-generator/qrgen"
+import "github.com/snykk/qr-generator/qrgen"
 
 png, err := qrgen.Encode("https://example.com",
     qrgen.WithECLevel(qrgen.ECLevelM),
