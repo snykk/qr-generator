@@ -261,3 +261,71 @@ func (m *matrix) dataAreaCells() int {
 	}
 	return count
 }
+
+// clone returns a deep copy of m. Used by the mask-selection trial loop so the
+// search can score each candidate without mutating the original matrix.
+func (m *matrix) clone() *matrix {
+	out := &matrix{
+		size:     m.size,
+		version:  m.version,
+		modules:  make([][]bool, m.size),
+		reserved: make([][]bool, m.size),
+	}
+	for i := 0; i < m.size; i++ {
+		out.modules[i] = append([]bool(nil), m.modules[i]...)
+		out.reserved[i] = append([]bool(nil), m.reserved[i]...)
+	}
+	return out
+}
+
+// writeFormatInfo writes the 15-bit format-information codeword for the given
+// (EC level, mask) into both redundant strips around the finder patterns. Bit
+// 0 is the LSB. See docs/theory/07-format-version-info.md.
+func (m *matrix) writeFormatInfo(ec ECLevel, mask int) {
+	bits := uint32(formatInfo(ec, mask))
+	n := m.size
+
+	// First copy around the top-left finder.
+	for i := 0; i < 6; i++ {
+		m.modules[8][i] = bitOf(bits, i)
+	}
+	m.modules[8][7] = bitOf(bits, 6)
+	m.modules[8][8] = bitOf(bits, 7)
+	m.modules[7][8] = bitOf(bits, 8)
+	for i := 9; i < 15; i++ {
+		m.modules[14-i][8] = bitOf(bits, i)
+	}
+
+	// Second copy: bits 0..7 along the right side of row 8, bits 8..14 down
+	// column 8 of the bottom-left finder.
+	for i := 0; i < 8; i++ {
+		m.modules[8][n-1-i] = bitOf(bits, i)
+	}
+	for i := 8; i < 15; i++ {
+		m.modules[n-15+i][8] = bitOf(bits, i)
+	}
+}
+
+// writeVersionInfo writes the 18-bit version-information codeword to both
+// 6x3 / 3x6 redundant blocks. No-op for versions below 7.
+// See docs/theory/07-format-version-info.md.
+func (m *matrix) writeVersionInfo() {
+	if m.version < 7 {
+		return
+	}
+	bits := versionInfo(m.version)
+	n := m.size
+	for i := 0; i < 18; i++ {
+		b := bitOf(bits, i)
+		row := n - 11 + i%3
+		col := i / 3
+		// Same bit goes into two transposed positions.
+		m.modules[row][col] = b
+		m.modules[col][row] = b
+	}
+}
+
+// bitOf returns true if bit idx of value is set. Index 0 is the LSB.
+func bitOf(value uint32, idx int) bool {
+	return (value>>uint(idx))&1 == 1
+}

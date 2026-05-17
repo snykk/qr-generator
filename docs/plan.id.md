@@ -104,12 +104,12 @@ Tujuan: kerangka matrix QR terisi (fungsional + data) — sebelum masking.
 
 Tujuan: pilih mask terbaik, tulis format & version info final.
 
-- [ ] Implementasi **8 mask patterns** (mask 0..7).
-- [ ] Apply mask hanya ke modul data (bukan area fungsional).
-- [ ] **Penalty evaluation** (4 aturan dari spec).
-- [ ] Pilih mask dengan total penalty terendah.
-- [ ] Encode **format info** (EC level + mask) dengan BCH(15,5) + XOR mask `0x5412`.
-- [ ] Encode **version info** untuk version ≥ 7 dengan BCH(18,6).
+- [x] Implementasi **8 mask patterns** (mask 0..7). — `qrgen/mask.go` `maskCondition`
+- [x] Apply mask hanya ke modul data (bukan area fungsional). — `qrgen/mask.go` `applyMask` (melewati cell reserved)
+- [x] **Penalty evaluation** (4 aturan dari spec). — `qrgen/mask.go` `penalty` / `penaltyRule1..4`
+- [x] Pilih mask dengan total penalty terendah. — `qrgen/mask.go` `selectAndApplyMask` (clone matrix per trial; tie diputuskan dengan index terkecil)
+- [x] Encode **format info** (EC level + mask) dengan BCH(15,5) + XOR mask `0x5412`. — `qrgen/matrix.go` `writeFormatInfo` (tabel BCH-nya di-precompute di `qrgen/formatinfo.go` dari M2)
+- [x] Encode **version info** untuk version ≥ 7 dengan BCH(18,6). — `qrgen/matrix.go` `writeVersionInfo`
 
 ### M7 — Renderer PNG `(S)`
 

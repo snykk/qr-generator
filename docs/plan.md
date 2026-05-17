@@ -104,12 +104,12 @@ Goal: QR matrix populated with functional + data modules, before masking.
 
 Goal: pick the best mask, write final format & version info.
 
-- [ ] Implement the **8 mask patterns** (mask 0..7).
-- [ ] Apply mask only to data modules (not functional areas).
-- [ ] **Penalty evaluation** (the 4 rules from the spec).
-- [ ] Choose the mask with the lowest total penalty.
-- [ ] Encode **format info** (EC level + mask) using BCH(15,5) + XOR mask `0x5412`.
-- [ ] Encode **version info** for version ≥ 7 using BCH(18,6).
+- [x] Implement the **8 mask patterns** (mask 0..7). — `qrgen/mask.go` `maskCondition`
+- [x] Apply mask only to data modules (not functional areas). — `qrgen/mask.go` `applyMask` (skips reserved cells)
+- [x] **Penalty evaluation** (the 4 rules from the spec). — `qrgen/mask.go` `penalty` / `penaltyRule1..4`
+- [x] Choose the mask with the lowest total penalty. — `qrgen/mask.go` `selectAndApplyMask` (clones the matrix per trial; ties broken by lowest index)
+- [x] Encode **format info** (EC level + mask) using BCH(15,5) + XOR mask `0x5412`. — `qrgen/matrix.go` `writeFormatInfo` (the BCH table is precomputed in `qrgen/formatinfo.go` from M2)
+- [x] Encode **version info** for version ≥ 7 using BCH(18,6). — `qrgen/matrix.go` `writeVersionInfo`
 
 ### M7 — PNG Renderer `(S)`
 

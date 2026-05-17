@@ -173,6 +173,27 @@ func writeByte(bb *bitBuffer, text string) {
 	}
 }
 
+// buildMatrix runs the M3..M6 pipeline end-to-end: encode the text, run
+// Reed–Solomon, place the codewords in the matrix together with all functional
+// patterns, write version info (V7+), then pick and apply the lowest-penalty
+// mask along with its matching format-info codeword. The returned matrix is
+// the final, scannable QR symbol; callers only need to render it to pixels.
+func buildMatrix(text string, ec ECLevel) (*matrix, int, error) {
+	data, v, _, err := encodeText(text, ec)
+	if err != nil {
+		return nil, 0, err
+	}
+	stream := rsEncode(data, v, ec)
+	m := newMatrix(v)
+	m.placeFunctionalPatterns()
+	if err := m.placeData(stream, v.RemainderBits()); err != nil {
+		return nil, 0, err
+	}
+	m.writeVersionInfo()
+	mask := m.selectAndApplyMask(ec)
+	return m, mask, nil
+}
+
 // encodeText runs the M3 pipeline end-to-end: it analyzes the mode, picks the
 // smallest version that fits, then emits header + payload + terminator + bit
 // padding + pad bytes to fill the data-codeword capacity exactly. The

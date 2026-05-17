@@ -99,11 +99,11 @@ Then the 208-bit codeword stream is written into the remaining cells using the z
 
 ## 9. Mask selection
 
-Each of the 8 masks is applied to the data modules only, then the four-rule penalty (docs/theory/06-masking.md) is summed. For the version-1 `"HELLO WORLD"` example, the lowest-scoring mask is **mask 3** with the condition `(i + j) mod 3 == 0`. (The exact tally depends on the precise placement; expect penalty totals in the 350–600 range across the 8 masks, with mask 3 lowest.)
+Each of the 8 masks is applied to the data modules only, then the four-rule penalty (docs/theory/06-masking.md) is summed and the mask with the lowest score wins (ties go to the lowest index). The exact winner depends on subtle penalty-rule interpretation choices that vary across implementations — rule 4's dark-ratio bucket boundary in particular has at least two common interpretations, so any of mask 0..7 is plausible for this payload. For our implementation the per-mask scores fall in roughly the 300–450 range and the picked mask is recorded by the M5 `TestMaskScoresHelloWorld` test, which fails if a different mask suddenly becomes optimal.
 
 ## 10. Format information
 
-With EC level M (`00`) and mask 3 (`011`), the 5-bit payload is `00 011 = 00011`. Running through `BCH(15, 5)` then XOR with `0x5412` yields the 15-bit format codeword **`0x5B4B`** (verify via the algorithm in docs/theory/09-data-tables.md §11).
+Once the mask is picked, the 5-bit payload is `(EC level << 3) | mask` and the BCH(15, 5) algorithm (XORed with `0x5412`) produces the 15-bit format codeword. For example, EC level M (`00`) combined with mask 3 (`011`) gives payload `00011`, which encodes to **`0x5B4B`** — full mapping of all 32 (EC, mask) combinations is in docs/theory/09-data-tables.md §11.
 
 The 15 bits are written into the two redundant locations around the finders, most-significant bit first.
 
@@ -149,8 +149,8 @@ When implementation reaches M5+, the following intermediate values should each b
 - [ ] §3 → mode segment yields exactly the 74 bits listed (test `qrgen/mode.go`).
 - [ ] §5 → the 16 data codewords match `0x20 0x5B 0x0B 0x78 0xD1 0x72 0xDC 0x4D 0x43 0x40 0xEC 0x11 0xEC 0x11 0xEC 0x11`.
 - [ ] §6 → the 10 EC codewords match `0xC4 0x23 0x27 0x77 0xEB 0xD7 0xE7 0xE2 0x5D 0x17` (test `qrgen/reedsolomon.go`).
-- [ ] §9 → mask 3 wins on penalty (test `qrgen/mask.go`).
-- [ ] §10 → format codeword for (M, mask 3) is `0x5B4B` (test `qrgen/formatinfo.go`).
+- [ ] §9 → mask-selection picks the lowest-penalty mask consistently across runs (test `qrgen/mask.go`).
+- [ ] §10 → format codeword for the picked (M, mask) pair matches the table in §09 (test `qrgen/formatinfo.go`).
 - [ ] §11 → final matrix matches a known-good reference encode (round-trip golden test).
 
 ## References

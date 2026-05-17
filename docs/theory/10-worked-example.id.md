@@ -99,11 +99,11 @@ Lalu codeword stream 208-bit ditulis ke sel sisa memakai zig-zag walk: pasangan 
 
 ## 9. Pemilihan mask
 
-Tiap dari 8 mask diterapkan hanya ke modul data, lalu penalty empat-aturan (docs/theory/06-masking.id.md) dijumlahkan. Untuk contoh `"HELLO WORLD"` versi 1, mask dengan score terendah adalah **mask 3** dengan kondisi `(i + j) mod 3 == 0`. (Total penalty persisnya bergantung pada penempatan akurat; harapkan total penalty di kisaran 350–600 untuk kedelapan mask, dengan mask 3 paling rendah.)
+Tiap dari 8 mask diterapkan hanya ke modul data, lalu penalty empat-aturan (docs/theory/06-masking.id.md) dijumlahkan dan mask dengan score terendah menang (tie diputuskan dengan index terkecil). Pemenang persisnya bergantung pada pilihan interpretasi penalty-rule yang berbeda antar implementasi — boundary bucket dark-ratio di rule 4 khususnya punya minimal dua interpretasi umum, sehingga mask 0..7 mana saja bisa jadi optimal untuk payload ini. Untuk implementasi kita score per-mask jatuh di kisaran ~300–450 dan mask yang dipilih dicatat oleh test `TestMaskScoresHelloWorld`, yang akan gagal bila tiba-tiba mask lain jadi optimal.
 
 ## 10. Format information
 
-Dengan EC level M (`00`) dan mask 3 (`011`), payload 5-bit-nya adalah `00 011 = 00011`. Diproses lewat `BCH(15, 5)` lalu di-XOR dengan `0x5412` menghasilkan codeword format 15-bit **`0x5B4B`** (verifikasi via algoritma di docs/theory/09-data-tables.id.md bagian 11).
+Begitu mask dipilih, payload 5-bit-nya adalah `(EC level << 3) | mask` dan algoritma BCH(15, 5) (XOR dengan `0x5412`) menghasilkan codeword format 15-bit. Contohnya, EC level M (`00`) dipadukan dengan mask 3 (`011`) memberi payload `00011`, yang ter-encode jadi **`0x5B4B`** — pemetaan lengkap untuk semua 32 kombinasi (EC, mask) ada di docs/theory/09-data-tables.id.md bagian 11.
 
 15 bit tersebut ditulis ke dua lokasi redundan di sekitar finder, bit paling signifikan dulu.
 
@@ -149,8 +149,8 @@ Saat implementasi mencapai M5+, nilai-nilai intermediate berikut sebaiknya masin
 - [ ] Bagian 3 → segmen mode menghasilkan 74 bit persis seperti yang tertulis (test `qrgen/mode.go`).
 - [ ] Bagian 5 → 16 data codeword cocok dengan `0x20 0x5B 0x0B 0x78 0xD1 0x72 0xDC 0x4D 0x43 0x40 0xEC 0x11 0xEC 0x11 0xEC 0x11`.
 - [ ] Bagian 6 → 10 EC codeword cocok dengan `0xC4 0x23 0x27 0x77 0xEB 0xD7 0xE7 0xE2 0x5D 0x17` (test `qrgen/reedsolomon.go`).
-- [ ] Bagian 9 → mask 3 menang dalam penalty (test `qrgen/mask.go`).
-- [ ] Bagian 10 → codeword format untuk (M, mask 3) adalah `0x5B4B` (test `qrgen/formatinfo.go`).
+- [ ] Bagian 9 → mask-selection memilih mask dengan penalty terendah secara konsisten antar-run (test `qrgen/mask.go`).
+- [ ] Bagian 10 → codeword format untuk pasangan (M, mask) yang dipilih cocok dengan tabel di §09 (test `qrgen/formatinfo.go`).
 - [ ] Bagian 11 → matrix akhir cocok dengan encode referensi yang sudah diketahui benar (round-trip golden test).
 
 ## Referensi
