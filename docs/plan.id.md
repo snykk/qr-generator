@@ -62,12 +62,12 @@ Tujuan: kerangka project siap dipakai untuk milestone berikutnya.
 
 Tujuan: data statis dari spec siap dipakai oleh layer encoder.
 
-- [ ] Tabel **character count indicator** (jumlah bit untuk panjang data per mode × range version).
-- [ ] Tabel **kapasitas data** per (version × EC level).
-- [ ] Tabel **jumlah & ukuran block error correction** per (version × EC level).
-- [ ] Tabel **posisi alignment pattern** per version.
-- [ ] Tabel **format info** (BCH-encoded) dan **version info** (untuk version ≥ 7).
-- [ ] Generator polynomial Reed–Solomon per ukuran EC codeword.
+- [x] Tabel **character count indicator** (jumlah bit untuk panjang data per mode × range version). — `qrgen/mode.go`
+- [x] Tabel **kapasitas data** per (version × EC level). — `qrgen/version.go`
+- [x] Tabel **jumlah & ukuran block error correction** per (version × EC level). — `qrgen/version.go`
+- [x] Tabel **posisi alignment pattern** per version. — `qrgen/version.go`
+- [x] Tabel **format info** (BCH-encoded) dan **version info** (untuk version ≥ 7). — `qrgen/formatinfo.go`
+- [ ] Generator polynomial Reed–Solomon per ukuran EC codeword. — ditunda ke M4 (dihitung via GF(256) setelah arithmetic-nya tersedia).
 
 ### M3 — Data Encoding `(M)`
 

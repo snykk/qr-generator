@@ -62,12 +62,12 @@ Goal: project skeleton ready for the next milestones.
 
 Goal: static data from the spec is ready for the encoder layer.
 
-- [ ] **Character count indicator** table (bit width per mode × version range).
-- [ ] **Data capacity** table per (version × EC level).
-- [ ] **Error correction block count & size** table per (version × EC level).
-- [ ] **Alignment pattern positions** table per version.
-- [ ] **Format info** (BCH-encoded) and **version info** (for version ≥ 7) bit strings.
-- [ ] Reed–Solomon **generator polynomial** per EC codeword count.
+- [x] **Character count indicator** table (bit width per mode × version range). — `qrgen/mode.go`
+- [x] **Data capacity** table per (version × EC level). — `qrgen/version.go`
+- [x] **Error correction block count & size** table per (version × EC level). — `qrgen/version.go`
+- [x] **Alignment pattern positions** table per version. — `qrgen/version.go`
+- [x] **Format info** (BCH-encoded) and **version info** (for version ≥ 7) bit strings. — `qrgen/formatinfo.go`
+- [ ] Reed–Solomon **generator polynomial** per EC codeword count. — deferred to M4 (computed via GF(256) once arithmetic is in place).
 
 ### M3 — Data Encoding `(M)`
 
