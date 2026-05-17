@@ -73,10 +73,10 @@ Tujuan: data statis dari spec siap dipakai oleh layer encoder.
 
 Tujuan: input string → bit stream final (sebelum RS).
 
-- [ ] **Mode analyzer**: deteksi numeric / alphanumeric / byte (algoritma greedy cukup untuk MVP; nanti bisa diganti optimal segmentation).
-- [ ] Encoder per mode → bit stream.
-- [ ] Pemilihan **versi minimum** berdasarkan panjang data + EC level.
-- [ ] Mode indicator + character count indicator + payload + **terminator + pad bytes**.
+- [x] **Mode analyzer**: deteksi numeric / alphanumeric / byte (algoritma greedy cukup untuk MVP; nanti bisa diganti optimal segmentation). — `qrgen/encode.go` `analyzeMode`
+- [x] Encoder per mode → bit stream. — `qrgen/encode.go` `writeNumeric` / `writeAlphanumeric` / `writeByte`
+- [x] Pemilihan **versi minimum** berdasarkan panjang data + EC level. — `qrgen/encode.go` `selectVersion`
+- [x] Mode indicator + character count indicator + payload + **terminator + pad bytes**. — `qrgen/encode.go` `encodeText` (divalidasi end-to-end dengan worked example "HELLO WORLD").
 
 ### M4 — Reed–Solomon Error Correction `(M)`
 

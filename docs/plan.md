@@ -73,10 +73,10 @@ Goal: static data from the spec is ready for the encoder layer.
 
 Goal: input string → final bit stream (pre-RS).
 
-- [ ] **Mode analyzer**: detect numeric / alphanumeric / byte (greedy is fine for MVP; optimal segmentation can come later).
-- [ ] Per-mode encoder → bit stream.
-- [ ] Pick the **minimum version** based on payload length + EC level.
-- [ ] Mode indicator + character count indicator + payload + **terminator + pad bytes**.
+- [x] **Mode analyzer**: detect numeric / alphanumeric / byte (greedy is fine for MVP; optimal segmentation can come later). — `qrgen/encode.go` `analyzeMode`
+- [x] Per-mode encoder → bit stream. — `qrgen/encode.go` `writeNumeric` / `writeAlphanumeric` / `writeByte`
+- [x] Pick the **minimum version** based on payload length + EC level. — `qrgen/encode.go` `selectVersion`
+- [x] Mode indicator + character count indicator + payload + **terminator + pad bytes**. — `qrgen/encode.go` `encodeText` (validated end-to-end against the "HELLO WORLD" worked example).
 
 ### M4 — Reed–Solomon Error Correction `(M)`
 
