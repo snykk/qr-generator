@@ -115,11 +115,11 @@ Goal: pick the best mask, write final format & version info.
 
 Goal: `[][]bool` matrix → PNG bytes.
 
-- [ ] Convert matrix → `image.Gray` (or RGBA when custom colors are used).
-- [ ] **Quiet zone** (default 4 modules) around the matrix.
-- [ ] Configurable **module size** in pixels.
-- [ ] Configurable **foreground & background color**.
-- [ ] Encode via `image/png`.
+- [x] Convert matrix → `image.Gray` (or RGBA when custom colors are used). — `qrgen/render_png.go` `renderGray` / `renderRGBA` (default monochrome path keeps the PNG small).
+- [x] **Quiet zone** (default 4 modules) around the matrix. — `qrgen/render_png.go` `renderOptions.quietZone` (default 4).
+- [x] Configurable **module size** in pixels. — `qrgen/render_png.go` `renderOptions.moduleSize` (default 8).
+- [x] Configurable **foreground & background color**. — `qrgen/render_png.go` `renderOptions.foreground` / `background`.
+- [x] Encode via `image/png`. — `qrgen/render_png.go` `renderPNG` (validated via round-trip decode against pixel-centre sampling).
 
 ### M8 — Public API & Examples `(S)`
 

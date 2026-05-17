@@ -115,11 +115,11 @@ Tujuan: pilih mask terbaik, tulis format & version info final.
 
 Tujuan: matrix `[][]bool` → byte PNG.
 
-- [ ] Konversi matrix → `image.Gray` (atau RGBA bila warna kustom).
-- [ ] **Quiet zone** (default 4 modul) di sekeliling.
-- [ ] Konfigurasi **module size** dalam piksel.
-- [ ] Konfigurasi **foreground & background color**.
-- [ ] Encode lewat `image/png`.
+- [x] Konversi matrix → `image.Gray` (atau RGBA bila warna kustom). — `qrgen/render_png.go` `renderGray` / `renderRGBA` (path default monokrom menjaga PNG tetap kecil).
+- [x] **Quiet zone** (default 4 modul) di sekeliling. — `qrgen/render_png.go` `renderOptions.quietZone` (default 4).
+- [x] Konfigurasi **module size** dalam piksel. — `qrgen/render_png.go` `renderOptions.moduleSize` (default 8).
+- [x] Konfigurasi **foreground & background color**. — `qrgen/render_png.go` `renderOptions.foreground` / `background`.
+- [x] Encode lewat `image/png`. — `qrgen/render_png.go` `renderPNG` (divalidasi via round-trip decode dengan sampling pixel-centre).
 
 ### M8 — Public API & Examples `(S)`
 
