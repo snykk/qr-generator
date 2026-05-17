@@ -180,7 +180,7 @@ qr-generator/
 ├── docs/
 │   ├── plan.md             # versi English
 │   ├── plan.id.md          # dokumen ini
-│   └── notes/              # catatan belajar per topik (RS, masking, dst.)
+│   └── theory/             # tinjauan pustaka bilingual (algoritma + tabel data + contoh end-to-end)
 ├── qrgen/                  # package utama (importable)
 │   ├── qrgen.go            # entry points + doc package
 │   ├── options.go          # functional options
