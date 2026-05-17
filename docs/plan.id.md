@@ -137,15 +137,9 @@ Tujuan: permukaan library yang nyaman dipakai.
 
 Tujuan: binary `qrgen` untuk pemakaian cepat & demo.
 
-- [ ] `cmd/qrgen/main.go` dengan flags:
-  - `-text` (opsional; fallback ke stdin).
-  - `-out` (path file output; default `qr.png`).
-  - `-size` (module size px).
-  - `-ec` (`L|M|Q|H`).
-  - `-fg`, `-bg` (hex color).
-  - `-quiet-zone` (jumlah modul).
-- [ ] Exit code & pesan error yang jelas.
-- [ ] Contoh penggunaan di README.
+- [x] `cmd/qrgen/main.go` dengan flags: — sudah mencakup `-text`, `-out` (pakai `-` untuk stdout), `-size`, `-ec`, `-fg`, `-bg`, `-quiet-zone`, plus tambahan `-version` dan `-mask`.
+- [x] Exit code & pesan error yang jelas. — `run()` mengembalikan error yang dicetak `main` dengan prefix `qrgen:` lalu exit 1.
+- [x] Contoh penggunaan di README. — section CLI ditambahkan dengan install, contoh basic, stdin-pipe, dan styled.
 
 ### M10 — Quality Gate `(M)`
 

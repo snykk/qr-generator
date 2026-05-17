@@ -59,6 +59,26 @@ other canvas. Full option list: `WithECLevel`, `WithVersion`, `WithMask`,
 `WithModuleSize`, `WithQuietZone`, `WithColors`. See [examples/basic](examples/basic/main.go)
 and [examples/styled](examples/styled/main.go) for runnable demos.
 
+## CLI
+
+A thin command-line wrapper around the library ships in `cmd/qrgen`.
+
+```sh
+go install github.com/snykk/qr-generator/cmd/qrgen@latest
+
+# Simplest case — writes qr.png in the current directory.
+qrgen -text "HELLO WORLD"
+
+# Styled output: higher EC, bigger modules, custom colours, fixed file path.
+qrgen -text "https://example.com" -ec Q -size 12 -fg "#102E57" -bg "#FFF8E7" -out url.png
+
+# Read the payload from stdin and pipe the PNG out to another tool.
+echo -n "HELLO" | qrgen -out - | open -f -a Preview
+```
+
+Run `qrgen -h` for the full flag list. The binary exits 1 with a clear
+`qrgen: …` message on invalid input or oversize payloads.
+
 ## Scope (target v0.1.0)
 
 - Modes: numeric, alphanumeric, byte (UTF-8).

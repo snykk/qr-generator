@@ -137,15 +137,9 @@ Goal: a comfortable library surface.
 
 Goal: a `qrgen` binary for quick usage & demos.
 
-- [ ] `cmd/qrgen/main.go` with flags:
-  - `-text` (optional; falls back to stdin).
-  - `-out` (output file path; defaults to `qr.png`).
-  - `-size` (module size in px).
-  - `-ec` (`L|M|Q|H`).
-  - `-fg`, `-bg` (hex colors).
-  - `-quiet-zone` (module count).
-- [ ] Clear exit codes & error messages.
-- [ ] Usage examples in the README.
+- [x] `cmd/qrgen/main.go` with flags: — covers `-text`, `-out` (with `-` for stdout), `-size`, `-ec`, `-fg`, `-bg`, `-quiet-zone`, plus bonus `-version` and `-mask` overrides.
+- [x] Clear exit codes & error messages. — `run()` returns errors that `main` prints with a `qrgen:` prefix and exits 1.
+- [x] Usage examples in the README. — CLI section added with install, basic, stdin-pipe, and styled examples.
 
 ### M10 — Quality Gate `(M)`
 
