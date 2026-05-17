@@ -145,11 +145,11 @@ Goal: a `qrgen` binary for quick usage & demos.
 
 Goal: confidence that the output is correct and stable.
 
-- [ ] Per-component unit tests (gf256, RS, per-mode encoder, matrix, mask).
-- [ ] **Golden tests** for selected (input, EC level) pairs — compare matrices against known-good references (e.g. Nayuki).
-- [ ] Round-trip test using a third-party decoder as a test-only dependency (allowed, since it isn't a runtime dependency).
-- [ ] Benchmarks for the main encode path.
-- [ ] `go test -race ./...` clean.
+- [x] Per-component unit tests (gf256, RS, per-mode encoder, matrix, mask). — split across `qrgen/*_test.go`; over 80 cases including alpha-exponent tables, GF(256) commutativity sweep, alignment counts per version, mask involutivity, etc.
+- [x] **Golden tests** for selected (input, EC level) pairs — compare matrices against known-good references (e.g. Nayuki). — `TestEncodeTextHelloWorld`, `TestEncodeBlockHelloWorld`, `TestRSEncodeHelloWorld`, plus per-mode generator-polynomial table from Nayuki in `TestGenPolyAlphaExponents`.
+- [x] Round-trip test using a third-party decoder as a test-only dependency (allowed, since it isn't a runtime dependency). — `qrgen/roundtrip_test.go` exercises 12 (text, EC, version) cases through `github.com/makiuchi-d/gozxing`.
+- [x] Benchmarks for the main encode path. — `qrgen/bench_test.go` covers small/URL/multi-block/large payloads plus a matrix-only variant.
+- [x] `go test -race ./...` clean. — every CI run executes with `-race`; no data races detected.
 
 ### M11 — Polish & Release `(S)`
 

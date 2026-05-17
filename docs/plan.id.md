@@ -145,11 +145,11 @@ Tujuan: binary `qrgen` untuk pemakaian cepat & demo.
 
 Tujuan: keyakinan bahwa output benar & stabil.
 
-- [ ] Unit test per komponen (gf256, RS, encoder per mode, matrix, mask).
-- [ ] **Golden tests** untuk beberapa pasangan (input, EC level) → bandingkan matrix dengan referensi yang diketahui benar (mis. dari Nayuki).
-- [ ] Round-trip test pakai decoder pihak ketiga di test-only dependency (boleh, karena ini bukan dependency runtime).
-- [ ] Benchmarks untuk path encode utama.
-- [ ] `go test -race ./...` bersih.
+- [x] Unit test per komponen (gf256, RS, encoder per mode, matrix, mask). — tersebar di `qrgen/*_test.go`; lebih dari 80 kasus, termasuk tabel alpha-exponent, sweep komutativitas GF(256), jumlah alignment per versi, involutivitas mask, dst.
+- [x] **Golden tests** untuk beberapa pasangan (input, EC level) → bandingkan matrix dengan referensi yang diketahui benar (mis. dari Nayuki). — `TestEncodeTextHelloWorld`, `TestEncodeBlockHelloWorld`, `TestRSEncodeHelloWorld`, plus tabel generator-polynomial dari Nayuki di `TestGenPolyAlphaExponents`.
+- [x] Round-trip test pakai decoder pihak ketiga di test-only dependency (boleh, karena ini bukan dependency runtime). — `qrgen/roundtrip_test.go` menjalankan 12 kasus (text, EC, versi) melalui `github.com/makiuchi-d/gozxing`.
+- [x] Benchmarks untuk path encode utama. — `qrgen/bench_test.go` mencakup payload small/URL/multi-block/large plus varian matrix-only.
+- [x] `go test -race ./...` bersih. — tiap run CI menjalankan dengan `-race`; tidak terdeteksi data race.
 
 ### M11 — Polish & Release `(S)`
 
