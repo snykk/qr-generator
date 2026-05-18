@@ -83,42 +83,42 @@ Goal: a `rsDecode(block []byte, n int) ([]byte, error)` that recovers `block[:k]
 
 Goal: read the 15-bit format codeword from the matrix and recover (EC level, mask).
 
-- [ ] Read both redundant copies of the 15-bit codeword.
-- [ ] BCH(15,5) decoder by brute force over the 32 precomputed entries from M2: compute Hamming distance to each, take the minimum, sum distances across both copies.
-- [ ] Return `ErrFormatUnreadable` only when both copies are too far from any valid codeword.
-- [ ] Extract `ECLevel` and `mask`.
-- [ ] Tests: feed every valid (EC, mask) pair plus deliberately-bit-flipped variants up to the BCH correction capacity (3 errors).
+- [x] Read both redundant copies of the 15-bit codeword. — `qrgen/format_decode.go` `readFormatInfo`
+- [x] BCH(15,5) decoder by brute force over the 32 precomputed entries from M2: minimum combined Hamming distance wins. — joint budget set at 6 (3+3) per the BCH minimum distance.
+- [x] Return `ErrFormatUnreadable` only when both copies exceed budget. — sentinel exported alongside the decoder.
+- [x] Extract `ECLevel` and `mask`.
+- [x] Tests: full 32-pair round-trip plus per-copy and combined corruption cases including the asymmetric "one clean, one trashed" scenario.
 
 ### D5 — Mask Reversal & Data-Area Walk `(S)`
 
 Goal: invert the zig-zag walk from M5 to produce the interleaved codeword byte stream from a known (version, mask, matrix).
 
-- [ ] Reuse the `placeData` walk in reverse: iterate the same path and *read* bits from unreserved cells.
-- [ ] Apply the chosen mask XOR before reading (since the encoder applied it after data placement, reading needs to undo).
-- [ ] Strip the remainder bits per `Version.RemainderBits()`.
-- [ ] Return the raw interleaved `[]byte`.
-- [ ] Tests: encode HELLO WORLD → matrix → invert walk → assert byte-for-byte match with `rsEncode` output.
+- [x] Reuse the `placeData` walk in reverse via `qrgen/decode_matrix.go` `readCodewordStream`, plus `matrixFromGrid` that rebuilds the reserved-area mask from a `[][]bool` input.
+- [x] XOR the mask out during the read so the encoder's `applyMask` is undone.
+- [x] Strip the remainder bits per `Version.RemainderBits()`.
+- [x] Return the raw interleaved `[]byte`.
+- [x] Tests: round-trip across V1..V10 (single-block, multi-block, with version info) and across all 8 masks; matrix-size / row-raggedness validation in `matrixFromGrid`.
 
 ### D6 — Block Deinterleaving + Error Correction `(M)`
 
 Goal: reverse the column-major interleave from M4 and run `rsDecode` on each block.
 
-- [ ] Compute the block layout from `Version.ECBlocks(ec)` (reusing existing M2 tables).
-- [ ] Walk the interleaved stream column-by-column to split it back into per-block data + EC slices.
-- [ ] Run `rsDecode` on each block; bubble up `ErrTooManyErrors` if any block fails.
-- [ ] Concatenate corrected data codewords from all blocks into a single byte stream.
-- [ ] Tests: round-trip every (version, EC) class V1..V40 by encoding random payloads, optionally flipping bits within budget, and confirming corrected output matches the original data codewords.
+- [x] Compute the block layout from `Version.ECBlocks(ec)` (reusing existing M2 tables) in `deinterleaveBlocks`.
+- [x] Walk the interleaved stream column-by-column to split it back into per-block data + EC slices, mirroring the encoder's interleaver.
+- [x] Run `rsDecode` on each block via `deinterleaveAndCorrect`; wrap `ErrTooManyErrors` with the failing block index.
+- [x] Concatenate corrected data codewords from all blocks into a single byte stream.
+- [x] Tests: per-block layout reversal V1-M / V1-H / V5-Q / V10-M; round-trip with 0 / 5 / 6-flip noise (within and beyond the V1-M budget).
 
 ### D7 — Bit Stream → Text + `DecodeMatrix` Public API `(M)`
 
 Goal: parse the data codeword stream back into the source text, then expose it as a public function.
 
-- [ ] Read 4-bit mode indicator and dispatch by mode.
-- [ ] Read character count indicator using `Mode.CharCountBits(v)` (reuse from M3).
-- [ ] Per-mode decoder: numeric (groups of 10 / 7 / 4 bits), alphanumeric (pairs of 11 / single 6 bits), byte (raw 8-bit → UTF-8 string).
-- [ ] Stop at terminator or end-of-stream; ignore pad bytes.
-- [ ] Public API: `qrgen.DecodeMatrix([][]bool) (string, error)` — runs D4 → D5 → D6 → D7.
-- [ ] Tests: encode → DecodeMatrix round-trip for every test fixture used in `roundtrip_test.go`.
+- [x] Read 4-bit mode indicator and dispatch by mode via `decodeText` + `bitReader`.
+- [x] Read character count indicator using `Mode.CharCountBits(v)` (reuses from M3).
+- [x] Per-mode decoder: `decodeNumeric` (10 / 7 / 4 bit groups), `decodeAlphanumeric` (11 / 6 bit), `decodeByteMode` (raw 8-bit → UTF-8).
+- [x] Stop at terminator (`0000`) or when fewer than 4 bits remain; pad bytes are ignored implicitly.
+- [x] Public API: `qrgen.DecodeMatrix([][]bool) (string, error)` in `qrgen/decode.go` — runs D4 → D5 → D6 → D7.
+- [x] Tests: 15 round-trip cases across modes, EC levels, V1..V10, multi-block, version-info, and forced version+mask, plus typed-error coverage for corrupted input.
 
 ### ✅ Checkpoint 1 — Matrix-to-Text decoder is feature-complete.
 

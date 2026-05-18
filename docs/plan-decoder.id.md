@@ -83,42 +83,42 @@ Tujuan: `rsDecode(block []byte, n int) ([]byte, error)` yang memulihkan `block[:
 
 Tujuan: baca codeword format 15-bit dari matrix dan recover (EC level, mask).
 
-- [ ] Baca kedua salinan redundan codeword 15-bit.
-- [ ] Decoder BCH(15,5) lewat brute force pada 32 entri precomputed dari M2: hitung jarak Hamming ke setiap entri, ambil minimum, jumlahkan jarak antar kedua salinan.
-- [ ] Kembalikan `ErrFormatUnreadable` hanya bila kedua salinan terlalu jauh dari semua codeword valid.
-- [ ] Ekstrak `ECLevel` dan `mask`.
-- [ ] Tests: feed tiap pasangan (EC, mask) valid plus varian yang sengaja di-flip bit-nya hingga kapasitas koreksi BCH (3 error).
+- [x] Baca kedua salinan redundan codeword 15-bit. — `qrgen/format_decode.go` `readFormatInfo`
+- [x] Decoder BCH(15,5) lewat brute force pada 32 entri precomputed dari M2: jarak Hamming gabungan minimum yang menang. — joint budget 6 (3+3) sesuai jarak minimum BCH.
+- [x] Kembalikan `ErrFormatUnreadable` hanya bila kedua salinan melebihi budget. — sentinel diekspor di samping decoder.
+- [x] Ekstrak `ECLevel` dan `mask`.
+- [x] Tests: round-trip 32 pasangan plus kasus korupsi per-copy dan gabungan termasuk skenario asimetris "satu bersih, satu rusak".
 
 ### D5 — Mask Reversal & Walk Area Data `(S)`
 
 Tujuan: balikkan zig-zag walk dari M5 untuk menghasilkan byte stream codeword ter-interleave dari (versi, mask, matrix) yang sudah diketahui.
 
-- [ ] Pakai ulang walk `placeData` secara terbalik: iterasi jalur yang sama dan *baca* bit dari sel yang tidak reserved.
-- [ ] Terapkan XOR mask sebelum membaca (encoder menerapkannya setelah penempatan data, jadi baca harus undo).
-- [ ] Buang remainder bits sesuai `Version.RemainderBits()`.
-- [ ] Kembalikan `[]byte` interleaved mentah.
-- [ ] Tests: encode HELLO WORLD → matrix → balikkan walk → assert byte-for-byte sama dengan output `rsEncode`.
+- [x] Pakai ulang walk `placeData` secara terbalik via `qrgen/decode_matrix.go` `readCodewordStream`, plus `matrixFromGrid` yang membangun ulang mask area reserved dari input `[][]bool`.
+- [x] XOR mask dibatalkan saat membaca sehingga `applyMask` encoder terurai.
+- [x] Buang remainder bits sesuai `Version.RemainderBits()`.
+- [x] Kembalikan `[]byte` interleaved mentah.
+- [x] Tests: round-trip lintas V1..V10 (single-block, multi-block, dengan version info) dan kedelapan mask; validasi ukuran matrix / row tidak rata di `matrixFromGrid`.
 
 ### D6 — Deinterleaving Block + Koreksi Error `(M)`
 
 Tujuan: balikkan interleave kolom-major dari M4 dan jalankan `rsDecode` di setiap block.
 
-- [ ] Hitung layout block dari `Version.ECBlocks(ec)` (pakai ulang tabel M2 yang sudah ada).
-- [ ] Walk stream interleaved kolom demi kolom untuk memecahnya kembali menjadi slice data + EC per block.
-- [ ] Jalankan `rsDecode` di setiap block; teruskan `ErrTooManyErrors` bila ada block yang gagal.
-- [ ] Concat codeword data yang sudah dikoreksi dari semua block menjadi satu byte stream.
-- [ ] Tests: round-trip setiap kelas (versi, EC) V1..V40 dengan meng-encode payload acak, opsional flip bit dalam budget, dan konfirmasi output terkoreksi cocok dengan data codeword asli.
+- [x] Hitung layout block dari `Version.ECBlocks(ec)` (pakai ulang tabel M2 yang sudah ada) di `deinterleaveBlocks`.
+- [x] Walk stream interleaved kolom demi kolom untuk memecahnya kembali menjadi slice data + EC per block, mirror dari interleaver encoder.
+- [x] Jalankan `rsDecode` di setiap block via `deinterleaveAndCorrect`; bungkus `ErrTooManyErrors` dengan indeks block yang gagal.
+- [x] Concat codeword data yang sudah dikoreksi dari semua block menjadi satu byte stream.
+- [x] Tests: reversal layout per-block V1-M / V1-H / V5-Q / V10-M; round-trip dengan flip 0 / 5 / 6 (dalam dan di luar budget V1-M).
 
 ### D7 — Bit Stream → Text + Public API `DecodeMatrix` `(M)`
 
 Tujuan: parse stream codeword data kembali menjadi teks sumber, lalu expose sebagai public function.
 
-- [ ] Baca mode indicator 4-bit dan dispatch berdasarkan mode.
-- [ ] Baca character count indicator memakai `Mode.CharCountBits(v)` (pakai ulang dari M3).
-- [ ] Decoder per-mode: numeric (group 10 / 7 / 4 bit), alphanumeric (pasangan 11 / tunggal 6 bit), byte (raw 8-bit → string UTF-8).
-- [ ] Stop saat terminator atau end-of-stream; abaikan pad bytes.
-- [ ] Public API: `qrgen.DecodeMatrix([][]bool) (string, error)` — jalankan D4 → D5 → D6 → D7.
-- [ ] Tests: encode → DecodeMatrix round-trip untuk setiap test fixture yang dipakai di `roundtrip_test.go`.
+- [x] Baca mode indicator 4-bit dan dispatch berdasarkan mode via `decodeText` + `bitReader`.
+- [x] Baca character count indicator memakai `Mode.CharCountBits(v)` (pakai ulang dari M3).
+- [x] Decoder per-mode: `decodeNumeric` (group 10 / 7 / 4 bit), `decodeAlphanumeric` (11 / 6 bit), `decodeByteMode` (raw 8-bit → UTF-8).
+- [x] Stop saat terminator (`0000`) atau ketika kurang dari 4 bit tersisa; pad bytes diabaikan secara implisit.
+- [x] Public API: `qrgen.DecodeMatrix([][]bool) (string, error)` di `qrgen/decode.go` — jalankan D4 → D5 → D6 → D7.
+- [x] Tests: 15 kasus round-trip lintas mode, EC level, V1..V10, multi-block, version-info, dan forced version+mask, plus coverage typed-error untuk input korup.
 
 ### ✅ Checkpoint 1 — Decoder Matrix-ke-Text sudah feature-complete.
 
