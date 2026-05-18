@@ -62,11 +62,11 @@ Tujuan: dokumentasikan algoritma baru di `docs/theory/` sebelum kode masuk, meng
 
 Tujuan: perluas `qrgen/gf256.go` dengan operasi field dan polynomial yang dibutuhkan RS decoding.
 
-- [ ] `gf256Inverse(a) uint8` — invers perkalian memakai tabel log/exp yang sudah ada.
-- [ ] `polyDivQR(dividend, divisor) (quotient, remainder []uint8)` — division penuh yang mengembalikan keduanya (`polyMod` yang ada hanya mengembalikan remainder).
-- [ ] `polyEval(p []uint8, x uint8) uint8` — evaluasi Horner, dipakai Chien search.
-- [ ] `polyDeriv(p []uint8) []uint8` — turunan formal (dependency algoritma Forney).
-- [ ] Tests: round-trip `polyMul`/`polyDivQR`; verifikasi `polyEval` cocok dengan komputasi langsung; spot-check `gf256Inverse` lewat `a · a⁻¹ = 1` di seluruh field.
+- [x] `gf256Inverse(a) uint8` — invers perkalian memakai tabel log/exp yang sudah ada. Panic untuk input nol.
+- [x] `polyDivQR(dividend, divisor) (quotient, remainder []uint8)` — division penuh yang mengembalikan keduanya; toleran terhadap divisor non-monic dengan menormalkan koefisien pemimpin.
+- [x] `polyEval(p []uint8, x uint8) uint8` — evaluasi Horner, dipakai kalkulasi syndrome, Chien search, dan Forney.
+- [x] `polyDeriv(p []uint8) []uint8` — turunan formal; hanya menyimpan term berdegree ganjil (kolaps karakteristik-2).
+- [x] Tests: sweep eksahustif 255-elemen untuk `gf256Inverse` (`a · a⁻¹ = 1`); test panic untuk input nol; kasus table-driven untuk `polyEval` / `polyDeriv`; `polyDivQR` correctness pada kasus langsung plus 11-pair property test yang merekonstruksi dividend via `q · divisor + r`.
 
 ### D3 — Decoder Reed–Solomon `(M)`
 

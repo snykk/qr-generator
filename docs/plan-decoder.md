@@ -62,11 +62,11 @@ Goal: cover the new algorithms in `docs/theory/` before any code lands, matching
 
 Goal: extend `qrgen/gf256.go` with the polynomial and field operations RS decoding needs.
 
-- [ ] `gf256Inverse(a) uint8` — multiplicative inverse using the existing log/exp tables.
-- [ ] `polyDivQR(dividend, divisor) (quotient, remainder []uint8)` — full division returning both parts (the existing `polyMod` only returns the remainder).
-- [ ] `polyEval(p []uint8, x uint8) uint8` — Horner's method evaluation, used by Chien search.
-- [ ] `polyDeriv(p []uint8) []uint8` — formal derivative (Forney's algorithm dependency).
-- [ ] Tests: round-trip `polyMul`/`polyDivQR`; verify `polyEval` matches direct computation; spot-check `gf256Inverse` via `a · a⁻¹ = 1` across the field.
+- [x] `gf256Inverse(a) uint8` — multiplicative inverse using the existing log/exp tables. Panics on zero.
+- [x] `polyDivQR(dividend, divisor) (quotient, remainder []uint8)` — full division returning both parts; tolerates non-monic divisors by normalising the leading coefficient.
+- [x] `polyEval(p []uint8, x uint8) uint8` — Horner's method evaluation, used by syndrome calculation, Chien search, and Forney.
+- [x] `polyDeriv(p []uint8) []uint8` — formal derivative; keeps only odd-degree terms (characteristic-2 collapse).
+- [x] Tests: exhaustive 255-element sweep for `gf256Inverse` (`a · a⁻¹ = 1`); panic test for zero input; table-driven cases for `polyEval` / `polyDeriv`; `polyDivQR` correctness on direct cases plus an 11-pair property test that reconstructs the dividend via `q · divisor + r`.
 
 ### D3 — Reed–Solomon Decoder `(M)`
 

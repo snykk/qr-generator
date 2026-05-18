@@ -122,3 +122,147 @@ func TestPolyMod(t *testing.T) {
 		})
 	}
 }
+
+// TestGF256InverseRoundTrip asserts a * inverse(a) == 1 for every non-zero
+// element of GF(256) — an exhaustive 255-case sweep.
+func TestGF256InverseRoundTrip(t *testing.T) {
+	for a := 1; a < 256; a++ {
+		inv := gf256Inverse(uint8(a))
+		if got := gf256Mul(uint8(a), inv); got != 1 {
+			t.Errorf("a=0x%02X * inverse(a)=0x%02X = 0x%02X, want 1", a, inv, got)
+		}
+	}
+}
+
+// TestGF256InverseZeroPanics confirms gf256Inverse(0) panics, since the zero
+// element has no multiplicative inverse.
+func TestGF256InverseZeroPanics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("gf256Inverse(0) did not panic")
+		}
+	}()
+	gf256Inverse(0)
+}
+
+func TestPolyEval(t *testing.T) {
+	cases := []struct {
+		name string
+		p    []uint8
+		x    uint8
+		want uint8
+	}{
+		// Empty polynomial evaluates to 0.
+		{"empty", nil, 5, 0},
+		// Constant: p(x) = 7 for all x.
+		{"constant", []uint8{7}, 99, 7},
+		// p(x) = x → p(5) = 5.
+		{"identity", []uint8{1, 0}, 5, 5},
+		// p(x) = x + 1 → p(5) = 5 ^ 1 = 4 (XOR over GF(2^8)).
+		{"x plus 1 at 5", []uint8{1, 1}, 5, 4},
+		// p(x) = (x + α)(x + α^2) at x = α^2 → (α^2 + α)(α^2 + α^2) = something * 0 = 0.
+		{"factored at root", []uint8{1, 2 ^ 4, gf256Mul(2, 4)}, 4, 0},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := polyEval(c.p, c.x); got != c.want {
+				t.Errorf("polyEval(%v, %d) = %d, want %d", c.p, c.x, got, c.want)
+			}
+		})
+	}
+}
+
+func TestPolyDeriv(t *testing.T) {
+	cases := []struct {
+		name string
+		p    []uint8
+		want []uint8
+	}{
+		// Constant: derivative is empty.
+		{"constant", []uint8{7}, nil},
+		// p(x) = x: derivative is 1.
+		{"x", []uint8{1, 0}, []uint8{1}},
+		// p(x) = x^2: derivative is 2x = 0 in GF(2^8).
+		{"x squared", []uint8{1, 0, 0}, []uint8{0, 0}},
+		// p(x) = x^3: derivative is 3x^2 = x^2 (odd integer multiplier).
+		{"x cubed", []uint8{1, 0, 0, 0}, []uint8{1, 0, 0}},
+		// p(x) = x^3 + x: derivative is 3x^2 + 1 = x^2 + 1.
+		{"x cubed plus x", []uint8{1, 0, 1, 0}, []uint8{1, 0, 1}},
+		// p(x) = x^2 + 1: derivative is 2x = 0.
+		{"x squared plus 1", []uint8{1, 0, 1}, []uint8{0, 0}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := polyDeriv(c.p)
+			if !bytes.Equal(got, c.want) {
+				t.Errorf("polyDeriv(%v) = %v, want %v", c.p, got, c.want)
+			}
+		})
+	}
+}
+
+func TestPolyDivQR(t *testing.T) {
+	cases := []struct {
+		name      string
+		dividend  []uint8
+		divisor   []uint8
+		wantQ     []uint8
+		wantR     []uint8
+	}{
+		// (x^2 + 1) / (x + 1) = (x + 1) remainder 0 over GF(2) since (x+1)^2 = x^2 + 1.
+		{"perfect division", []uint8{1, 0, 1}, []uint8{1, 1}, []uint8{1, 1}, []uint8{0}},
+		// x^3 / (x + 1) = x^2 + x + 1 remainder 1.
+		{"x3 by x+1", []uint8{1, 0, 0, 0}, []uint8{1, 1}, []uint8{1, 1, 1}, []uint8{1}},
+		// Dividend shorter than divisor → quotient 0, remainder = dividend padded.
+		{"short dividend", []uint8{1}, []uint8{1, 0, 1}, []uint8{0}, []uint8{0, 1}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			gotQ, gotR := polyDivQR(c.dividend, c.divisor)
+			if !bytes.Equal(gotQ, c.wantQ) {
+				t.Errorf("quotient = %v, want %v", gotQ, c.wantQ)
+			}
+			if !bytes.Equal(gotR, c.wantR) {
+				t.Errorf("remainder = %v, want %v", gotR, c.wantR)
+			}
+		})
+	}
+}
+
+// TestPolyDivQRReconstructsDividend is a property test: for every (a, b) pair
+// from a small but non-trivial set, dividend = quotient * divisor + remainder
+// must hold byte-for-byte over GF(256). Catches sign / shift / off-by-one bugs.
+func TestPolyDivQRReconstructsDividend(t *testing.T) {
+	dividends := [][]uint8{
+		{1, 2, 3, 4, 5},
+		{0x1D, 0x20, 0x08, 0x40},
+		{1, 0, 0, 0, 0, 0, 0, 0},
+		{0xC4, 0x23, 0x27, 0x77, 0xEB, 0xD7, 0xE7, 0xE2, 0x5D, 0x17},
+	}
+	divisors := [][]uint8{
+		{1, 1},
+		{1, 2, 4},
+		{1, 0, 0, 0, 1}, // x^4 + 1
+	}
+	for di, dividend := range dividends {
+		for dj, divisor := range divisors {
+			if len(dividend) < len(divisor) {
+				continue
+			}
+			t.Run("", func(t *testing.T) {
+				q, r := polyDivQR(dividend, divisor)
+				// reconstructed = q * divisor + r (padded to dividend length).
+				prod := polyMul(q, divisor)
+				// Align r to the low end of prod.
+				if len(r) > 0 {
+					for i := 0; i < len(r); i++ {
+						prod[len(prod)-len(r)+i] ^= r[i]
+					}
+				}
+				if !bytes.Equal(prod, dividend) {
+					t.Errorf("d=%d j=%d: reconstruction = %v, want %v", di, dj, prod, dividend)
+				}
+			})
+		}
+	}
+}
