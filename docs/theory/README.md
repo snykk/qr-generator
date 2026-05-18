@@ -15,6 +15,12 @@ This folder contains the literature review and theoretical foundation for the `q
 9. [Data Tables & Lookup Values](09-data-tables.md) — every static table needed by the encoder: mode indicators, alphanumeric mapping, capacity, EC block structure, alignment positions, generator polynomials, format/version codewords.
 10. [Worked Example: `HELLO WORLD`](10-worked-example.md) — end-to-end encode at EC-M with every intermediate value, ready to use as a golden fixture.
 
+### Decoder side (v0.2.0)
+
+11. [Reed–Solomon Decoding](11-rs-decoding.md) — syndromes, Berlekamp–Massey, Chien search, Forney's algorithm. The inverse of doc 04 but algorithmically different.
+12. [Image Processing](12-image-processing.md) — grayscale, Otsu binarisation, finder-pattern scanning, homography, module sampling.
+13. [Decoder Pipeline](13-decoder-pipeline.md) — end-to-end stage diagram, what each stage can fail on, and the error-handling philosophy.
+
 ## Primary references
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* The normative source.
@@ -44,5 +50,8 @@ Additional references appear at the end of each document.
 | 08-rendering.md                     | `qrgen/render_png.go`              |
 | 09-data-tables.md                   | `qrgen/version.go`, `qrgen/formatinfo.go`, `qrgen/matrix.go` |
 | 10-worked-example.md                | golden test fixtures under `qrgen/testdata/` |
+| 11-rs-decoding.md                   | `qrgen/rs_decode.go` (planned, D3)            |
+| 12-image-processing.md              | `qrgen/decode_image.go` (planned, D8–D12)     |
+| 13-decoder-pipeline.md              | `qrgen/decode.go` (planned, D7 + D12)         |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.

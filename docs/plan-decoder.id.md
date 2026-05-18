@@ -52,11 +52,11 @@ Milestone dipecah menurut checkpoint. **Checkpoint 1** (setelah D7) memberikan d
 
 Tujuan: dokumentasikan algoritma baru di `docs/theory/` sebelum kode masuk, mengikuti pendekatan spec-first dari encoder.
 
-- [ ] `docs/theory/11-rs-decoding.md` — syndrome, Berlekamp–Massey, Chien search, Forney, koreksi error vs. erasure.
-- [ ] `docs/theory/12-image-processing.md` — konversi grayscale, Otsu thresholding, scan finder-pattern, homography, refinement alignment-pattern.
-- [ ] `docs/theory/13-decoder-pipeline.md` — alur menyeluruh `image → matrix → text` plus aturan error-handling.
-- [ ] Versi Indonesia untuk masing-masing.
-- [ ] Update index `docs/theory/README.md` agar mencakup entri baru.
+- [x] `docs/theory/11-rs-decoding.md` — syndrome, Berlekamp–Massey, Chien search, Forney, koreksi error vs. erasure.
+- [x] `docs/theory/12-image-processing.md` — konversi grayscale, Otsu thresholding, scan finder-pattern, homography, refinement alignment-pattern.
+- [x] `docs/theory/13-decoder-pipeline.md` — alur menyeluruh `image → matrix → text` plus aturan error-handling.
+- [x] Versi Indonesia untuk masing-masing.
+- [x] Update index `docs/theory/README.md` agar mencakup entri baru.
 
 ### D2 — Operasi GF(256) Sisi Decoder `(S)`
 

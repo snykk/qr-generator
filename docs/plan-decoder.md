@@ -52,11 +52,11 @@ Milestones are split by checkpoint. **Checkpoint 1** (after D7) gives a working 
 
 Goal: cover the new algorithms in `docs/theory/` before any code lands, matching the spec-first approach from the encoder.
 
-- [ ] `docs/theory/11-rs-decoding.md` — syndromes, Berlekamp–Massey, Chien search, Forney's algorithm, error vs. erasure correction.
-- [ ] `docs/theory/12-image-processing.md` — grayscale conversion, Otsu thresholding, finder-pattern scanning, homography, alignment-pattern refinement.
-- [ ] `docs/theory/13-decoder-pipeline.md` — overall flow `image → matrix → text` plus error-handling rules.
-- [ ] Indonesian counterparts for each.
-- [ ] Update `docs/theory/README.md` index to include the new entries.
+- [x] `docs/theory/11-rs-decoding.md` — syndromes, Berlekamp–Massey, Chien search, Forney's algorithm, error vs. erasure correction.
+- [x] `docs/theory/12-image-processing.md` — grayscale conversion, Otsu thresholding, finder-pattern scanning, homography, alignment-pattern refinement.
+- [x] `docs/theory/13-decoder-pipeline.md` — overall flow `image → matrix → text` plus error-handling rules.
+- [x] Indonesian counterparts for each.
+- [x] Update `docs/theory/README.md` index to include the new entries.
 
 ### D2 — GF(256) Decode-Side Operations `(S)`
 

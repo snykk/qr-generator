@@ -17,6 +17,12 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 9. [Tabel Data & Nilai Lookup](09-data-tables.id.md) — semua tabel statis yang dibutuhkan encoder: mode indicator, pemetaan alphanumeric, kapasitas, struktur block EC, posisi alignment, generator polynomial, codeword format/version.
 10. [Contoh End-to-End: `HELLO WORLD`](10-worked-example.id.md) — encode end-to-end di EC-M dengan setiap nilai intermediate, siap dijadikan golden fixture.
 
+### Sisi decoder (v0.2.0)
+
+11. [Decoding Reed–Solomon](11-rs-decoding.id.md) — syndrome, Berlekamp–Massey, Chien search, algoritma Forney. Kebalikan doc 04 tapi secara algoritmik berbeda.
+12. [Image Processing](12-image-processing.id.md) — grayscale, binarisasi Otsu, scan finder-pattern, homography, sampling modul.
+13. [Pipeline Decoder](13-decoder-pipeline.id.md) — diagram tahap end-to-end, apa yang bisa gagal di tiap tahap, dan filosofi penanganan error.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -46,5 +52,8 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 08-rendering.id.md                     | `qrgen/render_png.go`              |
 | 09-data-tables.id.md                   | `qrgen/version.go`, `qrgen/formatinfo.go`, `qrgen/matrix.go` |
 | 10-worked-example.id.md                | golden test fixture di `qrgen/testdata/` |
+| 11-rs-decoding.id.md                   | `qrgen/rs_decode.go` (direncanakan, D3)       |
+| 12-image-processing.id.md              | `qrgen/decode_image.go` (direncanakan, D8–D12)|
+| 13-decoder-pipeline.id.md              | `qrgen/decode.go` (direncanakan, D7 + D12)    |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.
