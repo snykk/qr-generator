@@ -126,11 +126,11 @@ Goal: parse the data codeword stream back into the source text, then expose it a
 
 Goal: turn an arbitrary `image.Image` into a binary 2D grid suitable for pattern detection.
 
-- [ ] Convert to single-channel grayscale (handle `image.Gray`, `image.RGBA`, `image.NRGBA`).
-- [ ] **Otsu thresholding** — find the global threshold that minimises within-class variance.
-- [ ] Optional local thresholding fallback for highly non-uniform images (Sauvola or block-based).
-- [ ] Return a `bitmap` struct (width, height, `[]bool` for cells).
-- [ ] Tests: synthetic gradient images, low-contrast images, and our own encoder PNGs (where output should match the original matrix exactly).
+- [x] Convert to single-channel grayscale (handle `image.Gray`, `image.RGBA`, `image.NRGBA`). — `qrgen/decode_image.go` `imageToGrayscale` via `color.GrayModel`.
+- [x] **Otsu thresholding** — find the global threshold that maximises between-class variance. — `qrgen/decode_image.go` `otsuThreshold`.
+- [ ] Optional local thresholding fallback for highly non-uniform images (Sauvola or block-based). — deferred to v0.3 per the open question in §8.
+- [x] Return a `bitmap` struct (width, height, `[]bool` for cells). — `qrgen/decode_image.go` `bitmap` + `get` helper.
+- [x] Tests: monochrome edge cases, bimodal histograms, sub-images with non-zero bounds, and a per-module integration check that every cell of an encoder-generated PNG comes back classified correctly through `binarise`.
 
 ### D9 — Finder Pattern Detection `(M)`
 

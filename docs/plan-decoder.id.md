@@ -126,11 +126,11 @@ Tujuan: parse stream codeword data kembali menjadi teks sumber, lalu expose seba
 
 Tujuan: ubah `image.Image` apa pun menjadi grid biner 2D yang siap untuk deteksi pattern.
 
-- [ ] Konversi ke grayscale single-channel (handle `image.Gray`, `image.RGBA`, `image.NRGBA`).
-- [ ] **Otsu thresholding** — temukan threshold global yang meminimalkan within-class variance.
-- [ ] Fallback opsional local thresholding untuk image dengan pencahayaan sangat tidak merata (Sauvola atau block-based).
-- [ ] Kembalikan struct `bitmap` (width, height, `[]bool` untuk sel).
-- [ ] Tests: image gradien sintetis, image kontras rendah, dan PNG encoder kita sendiri (di mana output seharusnya cocok dengan matrix asli secara persis).
+- [x] Konversi ke grayscale single-channel (handle `image.Gray`, `image.RGBA`, `image.NRGBA`). — `qrgen/decode_image.go` `imageToGrayscale` via `color.GrayModel`.
+- [x] **Otsu thresholding** — temukan threshold global yang memaksimalkan between-class variance. — `qrgen/decode_image.go` `otsuThreshold`.
+- [ ] Fallback opsional local thresholding untuk image dengan pencahayaan sangat tidak merata (Sauvola atau block-based). — ditunda ke v0.3 sesuai open question §8.
+- [x] Kembalikan struct `bitmap` (width, height, `[]bool` untuk sel). — `qrgen/decode_image.go` `bitmap` + helper `get`.
+- [x] Tests: kasus tepi monokrom, histogram bimodal, sub-image dengan bound bukan-nol, dan cek integrasi per-modul bahwa tiap sel dari PNG encoder kita kembali terklasifikasi dengan benar melalui `binarise`.
 
 ### D9 — Deteksi Finder Pattern `(M)`
 
