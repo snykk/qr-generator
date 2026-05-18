@@ -72,12 +72,12 @@ Goal: extend `qrgen/gf256.go` with the polynomial and field operations RS decodi
 
 Goal: a `rsDecode(block []byte, n int) ([]byte, error)` that recovers `block[:k]` from up to `floor(n/2)` corrupted codewords.
 
-- [ ] **Syndrome calculation** — `n` syndromes by evaluating the received polynomial at `α⁰..α^(n−1)`.
-- [ ] **Berlekamp–Massey** — find the error-locator polynomial Λ(x).
-- [ ] **Chien search** — find roots of Λ(x) over GF(256) → error positions.
-- [ ] **Forney's algorithm** — compute error magnitudes from the evaluator polynomial.
-- [ ] Return `ErrTooManyErrors` when degree(Λ) exceeds correction capacity or no valid solution exists.
-- [ ] Tests: corrupt 1..⌊n/2⌋ bytes in the HELLO WORLD encoded block from M4 and assert exact recovery.
+- [x] **Syndrome calculation** — `n` syndromes by evaluating the received polynomial at `α⁰..α^(n−1)` via `polyEval`.
+- [x] **Berlekamp–Massey** — `berlekampMassey` works in lowest-degree-first internally and returns Λ reversed to high-degree-first for downstream stages.
+- [x] **Chien search** — `chienSearch` returns parallel `(positions, locators)` slices for the rest of the pipeline.
+- [x] **Forney's algorithm** — `forneyMagnitudes` uses the standard `Y_k = X_k · Ω(X_k^{-1}) / Λ'(X_k^{-1})` form (generator roots start at α⁰).
+- [x] Return `ErrTooManyErrors` when degree(Λ) exceeds correction capacity or the position count disagrees with `L`.
+- [x] Tests: HELLO WORLD fixture with 0, 1, 2..5 byte corruptions, an over-capacity bucket, and a 250-trial random property test across V1-M / V1-L / V1-H / V5-M / larger block shapes.
 
 ### D4 — Format Information Reader `(S)`
 

@@ -72,12 +72,12 @@ Tujuan: perluas `qrgen/gf256.go` dengan operasi field dan polynomial yang dibutu
 
 Tujuan: `rsDecode(block []byte, n int) ([]byte, error)` yang memulihkan `block[:k]` dari maksimum `floor(n/2)` codeword yang korup.
 
-- [ ] **Kalkulasi syndrome** — `n` syndrome dengan mengevaluasi polinomial yang diterima pada `α⁰..α^(n−1)`.
-- [ ] **Berlekamp–Massey** — temukan polinomial error-locator Λ(x).
-- [ ] **Chien search** — temukan akar Λ(x) di atas GF(256) → posisi error.
-- [ ] **Algoritma Forney** — hitung magnitude error dari polinomial evaluator.
-- [ ] Kembalikan `ErrTooManyErrors` ketika degree(Λ) melebihi kapasitas koreksi atau tidak ada solusi valid.
-- [ ] Tests: korup 1..⌊n/2⌋ byte di block encoded HELLO WORLD dari M4 dan assert pemulihan persis.
+- [x] **Kalkulasi syndrome** — `n` syndrome dengan mengevaluasi polinomial yang diterima pada `α⁰..α^(n−1)` lewat `polyEval`.
+- [x] **Berlekamp–Massey** — `berlekampMassey` bekerja di lowest-degree-first secara internal dan mengembalikan Λ yang sudah dibalik ke high-degree-first untuk tahap selanjutnya.
+- [x] **Chien search** — `chienSearch` mengembalikan slice paralel `(positions, locators)` untuk pipeline selanjutnya.
+- [x] **Algoritma Forney** — `forneyMagnitudes` memakai bentuk standar `Y_k = X_k · Ω(X_k^{-1}) / Λ'(X_k^{-1})` (akar generator mulai dari α⁰).
+- [x] Kembalikan `ErrTooManyErrors` ketika degree(Λ) melebihi kapasitas koreksi atau jumlah posisi tidak sesuai dengan `L`.
+- [x] Tests: fixture HELLO WORLD dengan korupsi 0, 1, 2..5 byte, bucket over-capacity, dan property test 250 trial acak di bentuk block V1-M / V1-L / V1-H / V5-M / lebih besar.
 
 ### D4 — Reader Format Information `(S)`
 
