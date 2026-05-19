@@ -136,13 +136,13 @@ Goal: turn an arbitrary `image.Image` into a binary 2D grid suitable for pattern
 
 Goal: locate the three finder patterns in the bitmap.
 
-- [ ] Horizontal scan for the **1:1:3:1:1 dark/light ratio** across rows.
-- [ ] Vertical scan to confirm candidates.
-- [ ] Cluster candidate centres and validate **triple geometry** (right-angle triangle, similar module sizes).
-- [ ] Compute estimated module pitch from finder spacing.
-- [ ] Return three `(x, y)` centres ordered as top-left, top-right, bottom-left.
-- [ ] `ErrFinderNotFound` if fewer than three valid finders are detected.
-- [ ] Tests: detect finders in our own encoder PNGs at various sizes and rotations.
+- [x] Horizontal scan for the **1:1:3:1:1 dark/light ratio** across rows. — `qrgen/decode_image.go` `scanRowForFinders`.
+- [x] Vertical scan to confirm candidates. — `crossCheckVertical` cross-validates each row hit and refines the centre y.
+- [x] Cluster candidate centres and validate **triple geometry** (right-angle triangle, similar module sizes). — `clusterFinderCandidates` + `orderFinderTriple` (leg ratio < 1.5, Pythagoras within 15%).
+- [x] Compute estimated module pitch from finder spacing. — exposed via `finderCandidate.moduleSize`, averaged from horizontal and vertical fits.
+- [x] Return three `(x, y)` centres ordered as top-left, top-right, bottom-left. — assumes right-side-up symbol; full-rotation support deferred.
+- [x] `ErrFinderNotFound` exported when fewer than three valid finders survive clustering or the triple's geometry is implausible.
+- [x] Tests: V1 and forced-V5 encoder PNGs with centre-within-2px tolerance, plus all-white rejection and a wiped-corner negative case. Arbitrary rotations are roadmap.
 
 ### D10 — Perspective Transform `(M)`
 

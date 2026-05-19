@@ -136,13 +136,13 @@ Tujuan: ubah `image.Image` apa pun menjadi grid biner 2D yang siap untuk deteksi
 
 Tujuan: tempatkan tiga finder pattern di bitmap.
 
-- [ ] Horizontal scan untuk **rasio gelap/terang 1:1:3:1:1** di antar baris.
-- [ ] Vertical scan untuk konfirmasi kandidat.
-- [ ] Cluster centre kandidat dan validasi **geometri triple** (segitiga siku-siku, ukuran modul yang mirip).
-- [ ] Hitung pitch modul estimasi dari jarak antar finder.
-- [ ] Kembalikan tiga centre `(x, y)` terurut sebagai kiri-atas, kanan-atas, kiri-bawah.
-- [ ] `ErrFinderNotFound` bila kurang dari tiga finder valid yang terdeteksi.
-- [ ] Tests: deteksi finder di PNG encoder kita sendiri pada berbagai ukuran dan rotasi.
+- [x] Horizontal scan untuk **rasio gelap/terang 1:1:3:1:1** di antar baris. — `qrgen/decode_image.go` `scanRowForFinders`.
+- [x] Vertical scan untuk konfirmasi kandidat. — `crossCheckVertical` cross-validate tiap row hit dan refine centre y.
+- [x] Cluster centre kandidat dan validasi **geometri triple** (segitiga siku-siku, ukuran modul yang mirip). — `clusterFinderCandidates` + `orderFinderTriple` (rasio leg < 1.5, Pythagoras toleransi 15%).
+- [x] Hitung pitch modul estimasi dari jarak antar finder. — diekspos via `finderCandidate.moduleSize`, rata-rata dari fit horizontal dan vertikal.
+- [x] Kembalikan tiga centre `(x, y)` terurut sebagai kiri-atas, kanan-atas, kiri-bawah. — asumsi simbol right-side-up; support rotasi penuh ditunda.
+- [x] `ErrFinderNotFound` diekspor saat kurang dari tiga finder valid yang bertahan setelah clustering atau geometri triple-nya tidak masuk akal.
+- [x] Tests: PNG encoder V1 dan forced-V5 dengan toleransi centre ±2px, plus penolakan image all-white dan kasus negatif sudut yang dihapus. Rotasi arbitrer masuk roadmap.
 
 ### D10 — Perspective Transform `(M)`
 

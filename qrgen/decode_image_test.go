@@ -131,6 +131,125 @@ func TestBinariseAllBlack(t *testing.T) {
 	}
 }
 
+// TestFindFindersInEncoderPNG runs the row-scan + vertical-check + clustering
+// + geometry pipeline against a real encoder PNG and asserts the three
+// returned centres land within a pixel or two of where the encoder placed the
+// finder patterns. Tolerance accounts for the half-module rounding in the
+// scan-line centre estimate.
+func TestFindFindersInEncoderPNG(t *testing.T) {
+	cases := []struct {
+		name              string
+		text              string
+		opts              []Option
+		modules           int // matrix side
+		tlX, tlY, trX, trY, blX, blY float64
+	}{
+		{
+			name: "V1 default",
+			text: "HELLO WORLD",
+			// V1: 21 modules; module 8 px; quiet 4 → centres of finders at
+			// modules (3,3), (3,17), (17,3) → pixels (60,60), (172,60), (60,172).
+			modules: 21,
+			tlX: 60, tlY: 60,
+			trX: 172, trY: 60,
+			blX: 60, blY: 172,
+		},
+		{
+			name: "V5 forced",
+			text: "ABC123ABC123",
+			opts: []Option{WithECLevel(ECLevelQ), WithVersion(5)},
+			// V5: 37 modules; module 8 px; quiet 4 → centres at modules
+			// (3,3), (3,33), (33,3) → pixels (60,60), (300,60), (60,300).
+			modules: 37,
+			tlX: 60, tlY: 60,
+			trX: 300, trY: 60,
+			blX: 60, blY: 300,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			data, err := Encode(c.text, c.opts...)
+			if err != nil {
+				t.Fatalf("Encode: %v", err)
+			}
+			img, err := png.Decode(bytes.NewReader(data))
+			if err != nil {
+				t.Fatalf("png.Decode: %v", err)
+			}
+			bm := binarise(img)
+			tri, err := findFinders(bm)
+			if err != nil {
+				t.Fatalf("findFinders: %v", err)
+			}
+			const tol = 2.0
+			checks := []struct {
+				name           string
+				gotX, gotY     float64
+				wantX, wantY   float64
+			}{
+				{"top-left", tri.topLeft.x, tri.topLeft.y, c.tlX, c.tlY},
+				{"top-right", tri.topRight.x, tri.topRight.y, c.trX, c.trY},
+				{"bottom-left", tri.bottomLeft.x, tri.bottomLeft.y, c.blX, c.blY},
+			}
+			for _, ck := range checks {
+				dx := ck.gotX - ck.wantX
+				dy := ck.gotY - ck.wantY
+				if dx < -tol || dx > tol || dy < -tol || dy > tol {
+					t.Errorf("%s centre = (%.1f, %.1f), want (%.1f, %.1f) ±%g",
+						ck.name, ck.gotX, ck.gotY, ck.wantX, ck.wantY, tol)
+				}
+			}
+			// Module pitch should be ≈ 8 px for the encoder defaults.
+			avgPitch := (tri.topLeft.moduleSize + tri.topRight.moduleSize + tri.bottomLeft.moduleSize) / 3.0
+			if avgPitch < 7 || avgPitch > 9 {
+				t.Errorf("avg module pitch = %.2f, want ~8", avgPitch)
+			}
+		})
+	}
+}
+
+func TestFindFindersRejectsNoise(t *testing.T) {
+	// All-white image: no finders.
+	img := image.NewRGBA(image.Rect(0, 0, 100, 100))
+	for y := range 100 {
+		for x := range 100 {
+			img.Set(x, y, color.White)
+		}
+	}
+	bm := binarise(img)
+	if _, err := findFinders(bm); err == nil {
+		t.Error("expected ErrFinderNotFound on all-white image, got nil")
+	}
+}
+
+func TestFindFindersRejectsTwoFinders(t *testing.T) {
+	// Encode a real QR, then erase the bottom-left finder by overpainting
+	// that corner of the PNG with white pixels.
+	data, err := Encode("HELLO WORLD")
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	img, err := png.Decode(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("png.Decode: %v", err)
+	}
+	bm := binarise(img)
+	// Wipe the bottom-left 8×8 module finder + separator (16×16 px region
+	// starting at the matrix-area's bottom-left corner).
+	const moduleSize = 8
+	const quietZone = 4
+	startX := quietZone * moduleSize
+	startY := (14 + quietZone) * moduleSize // V1 bottom-left finder at row 14
+	for y := startY; y < startY+8*moduleSize; y++ {
+		for x := startX; x < startX+8*moduleSize; x++ {
+			bm.pixels[y*bm.width+x] = false
+		}
+	}
+	if _, err := findFinders(bm); err == nil {
+		t.Error("expected ErrFinderNotFound after wiping a corner, got nil")
+	}
+}
+
 // TestBinariseRoundTripsEncoderPNG is the integration check: feed a real
 // encoder PNG back into the binariser and sample each module's centre. The
 // dark/light verdict at every sample must match the original [][]bool.
