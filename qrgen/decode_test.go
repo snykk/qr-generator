@@ -9,7 +9,10 @@
 package qrgen
 
 import (
+	"bytes"
 	"errors"
+	"image/color"
+	"image/png"
 	"math/rand/v2"
 	"strings"
 	"testing"
@@ -122,6 +125,93 @@ func TestDecodeMatrixToleratesNoise(t *testing.T) {
 	}
 	if got != text {
 		t.Errorf("noisy decode mismatch: got %q, want %q", got, text)
+	}
+}
+
+// TestDecodeRoundTripPNG closes the encode-to-decode loop using our own
+// public API: encode a string to PNG bytes, then DecodeBytes them back. This
+// is the Checkpoint 2 acceptance test and no third-party decoder is involved.
+func TestDecodeRoundTripPNG(t *testing.T) {
+	cases := []struct {
+		name string
+		text string
+		opts []Option
+	}{
+		{"V1 alphanumeric default", "HELLO WORLD", nil},
+		{"V1 numeric", "12345", nil},
+		{"V1 byte mixed case", "Hello, World!", nil},
+		{"V1 utf8", "café", nil},
+		{"V2 forced", "HELLO WORLD ABC123", []Option{WithVersion(2)}},
+		{"V5 forced multi-block", "ABC123ABC123", []Option{WithVersion(5), WithECLevel(ECLevelQ)}},
+		{"V7 version info area", strings.Repeat("ABC123", 30), []Option{WithECLevel(ECLevelL)}},
+		{"V10 long byte", strings.Repeat("The quick brown fox. ", 12), []Option{WithECLevel(ECLevelL)}},
+		// Custom render knobs exercise the image pipeline at non-default scales.
+		{"bigger modules", "HELLO WORLD", []Option{WithModuleSize(12)}},
+		{"larger quiet zone", "HELLO WORLD", []Option{WithQuietZone(8)}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			pngBytes, err := Encode(c.text, c.opts...)
+			if err != nil {
+				t.Fatalf("Encode: %v", err)
+			}
+			got, err := DecodeBytes(pngBytes)
+			if err != nil {
+				t.Fatalf("DecodeBytes: %v", err)
+			}
+			if got != c.text {
+				t.Errorf("round-trip mismatch:\n got  %q\n want %q", got, c.text)
+			}
+		})
+	}
+}
+
+// TestDecodeCustomColours confirms that colour-customised PNGs still decode
+// once binarisation has converted them to a clean bitmap.
+func TestDecodeCustomColours(t *testing.T) {
+	const text = "https://github.com/snykk/qr-generator"
+	fg := color.RGBA{R: 0x10, G: 0x2E, B: 0x57, A: 0xFF}
+	bg := color.RGBA{R: 0xFF, G: 0xF8, B: 0xE7, A: 0xFF}
+	pngBytes, err := Encode(text, WithColors(fg, bg))
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	got, err := DecodeBytes(pngBytes)
+	if err != nil {
+		t.Fatalf("DecodeBytes: %v", err)
+	}
+	if got != text {
+		t.Errorf("got %q, want %q", got, text)
+	}
+}
+
+// TestDecodeAcceptsImageInterface drives the alternate entry point that
+// accepts an already-decoded image.Image.
+func TestDecodeAcceptsImageInterface(t *testing.T) {
+	const text = "HELLO WORLD"
+	pngBytes, err := Encode(text)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	img, err := png.Decode(bytes.NewReader(pngBytes))
+	if err != nil {
+		t.Fatalf("png.Decode: %v", err)
+	}
+	got, err := Decode(img)
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	if got != text {
+		t.Errorf("got %q, want %q", got, text)
+	}
+}
+
+func TestDecodeBytesRejectsBadInput(t *testing.T) {
+	if _, err := DecodeBytes([]byte("not an image")); err == nil {
+		t.Error("expected error from invalid byte slice, got nil")
+	}
+	if _, err := DecodeBytes(nil); err == nil {
+		t.Error("expected error from empty byte slice, got nil")
 	}
 }
 

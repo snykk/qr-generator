@@ -624,6 +624,52 @@ func refineHomography(bm *bitmap, h0 homography, tri finderTriple, v Version) ho
 	return refined
 }
 
+// sampleMatrix uses the homography to sample one pixel per module centre out
+// of the binarised image and returns the resulting [][]bool grid of side n.
+// Out-of-bounds samples fall back to false (light), which is correct for
+// pixels in the quiet zone or just beyond the image edge.
+//
+// See docs/theory/12-image-processing.md §8.
+func sampleMatrix(bm *bitmap, h homography, n int) [][]bool {
+	grid := make([][]bool, n)
+	for r := range n {
+		grid[r] = make([]bool, n)
+		for c := range n {
+			px, py := h.apply(float64(c), float64(r))
+			ix := int(math.Round(px))
+			iy := int(math.Round(py))
+			if ix < 0 || iy < 0 || ix >= bm.width || iy >= bm.height {
+				continue
+			}
+			grid[r][c] = bm.get(ix, iy)
+		}
+	}
+	return grid
+}
+
+// decodeImage runs the full image-side pipeline (D8..D12): binarise the
+// image, locate the three finder patterns, estimate the version from the
+// finder spacing, build and refine the perspective transform, and finally
+// sample the boolean module grid that DecodeMatrix can consume.
+func decodeImage(img image.Image) (string, error) {
+	bm := binarise(img)
+	tri, err := findFinders(bm)
+	if err != nil {
+		return "", err
+	}
+	v, err := estimateVersion(tri)
+	if err != nil {
+		return "", err
+	}
+	h, err := homographyFromFinders(tri, v)
+	if err != nil {
+		return "", err
+	}
+	h = refineHomography(bm, h, tri, v)
+	grid := sampleMatrix(bm, h, v.Size())
+	return DecodeMatrix(grid)
+}
+
 // findFinders locates the three finder patterns in a binarised image and
 // orders them as (top-left, top-right, bottom-left) assuming the symbol is
 // approximately right-side-up. Returns ErrFinderNotFound if fewer than three

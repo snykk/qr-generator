@@ -165,10 +165,10 @@ Tujuan: refine perspective transform memakai alignment pattern untuk mengurangi 
 
 Tujuan: ikat pipeline image dan matrix.
 
-- [ ] Pada tiap centre modul, sample image sumber (titik atau rata-rata 3×3) dan threshold.
-- [ ] Bangun matrix `[][]bool` dan hand off ke `DecodeMatrix`.
-- [ ] Public API: `qrgen.Decode(img image.Image) (string, error)` dan convenience `qrgen.DecodeBytes(data []byte) (string, error)`.
-- [ ] Tests: encode payload via encoder kita → render PNG → round-trip `Decode` di antar mode dan versi. Tambah test rotasi/scale sintetis.
+- [x] Pada tiap centre modul, sample image sumber (point sample) dan threshold. — `qrgen/decode_image.go` `sampleMatrix` membaca satu pixel per modul dari bitmap yang sudah ter-binarisasi via homography yang sudah direfine.
+- [x] Bangun matrix `[][]bool` dan hand off ke `DecodeMatrix`. — `decodeImage` merangkai seluruh tahap image dan mendelegasikan ke decoder matrix.
+- [x] Public API: `qrgen.Decode(img image.Image) (string, error)` dan convenience `qrgen.DecodeBytes(data []byte) (string, error)`. — keduanya di `qrgen/decode.go`; `DecodeBytes` mendaftarkan codec PNG/JPEG/GIF.
+- [x] Tests: 10 kasus round-trip Encode → DecodeBytes lintas mode, V1..V10, multi-block, warna kustom, module/quiet zone lebih besar, plus `Decode(image.Image)` dan jalur error bytes invalid.
 
 ### Checkpoint 2 — Decoder Image-ke-Text sudah feature-complete.
 

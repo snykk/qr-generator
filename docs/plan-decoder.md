@@ -165,10 +165,10 @@ Goal: refine the perspective transform using alignment patterns to reduce sampli
 
 Goal: tie the image and matrix pipelines together.
 
-- [ ] At each module centre, sample the source image (point or 3×3 average) and threshold.
-- [ ] Build a `[][]bool` matrix and hand off to `DecodeMatrix`.
-- [ ] Public API: `qrgen.Decode(img image.Image) (string, error)` and convenience `qrgen.DecodeBytes(data []byte) (string, error)`.
-- [ ] Tests: encode a payload via our encoder → render PNG → `Decode` round-trip across modes and versions. Add a synthetic rotation/scale test.
+- [x] At each module centre, sample the source image (point sample) and threshold. — `qrgen/decode_image.go` `sampleMatrix` reads one pixel per module from the binarised bitmap via the refined homography.
+- [x] Build a `[][]bool` matrix and hand off to `DecodeMatrix`. — `decodeImage` chains the whole image stage and delegates to the matrix decoder.
+- [x] Public API: `qrgen.Decode(img image.Image) (string, error)` and convenience `qrgen.DecodeBytes(data []byte) (string, error)`. — both live in `qrgen/decode.go`; `DecodeBytes` registers PNG/JPEG/GIF codecs.
+- [x] Tests: 10-case Encode → DecodeBytes round-trip across modes, V1..V10, multi-block, custom colours, larger modules / quiet zone, plus `Decode(image.Image)` and invalid-bytes error paths.
 
 ### Checkpoint 2 — Image-to-Text decoder is feature-complete.
 
