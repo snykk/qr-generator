@@ -186,10 +186,11 @@ Goal: ensure the decoder is robust before release.
 
 Goal: cut `v0.2.0`.
 
-- [ ] README updates: new API summary rows, decode usage examples, updated Limitations (decoder added, ECI/Kanji still pending).
-- [ ] `CHANGELOG.md` `v0.2.0` entry under "Added" and "Validated".
-- [ ] New `examples/decode/main.go` showing `Decode` on a saved PNG.
-- [ ] Tag `v0.2.0`.
+- [x] README updates: new API summary rows for `Decode`/`DecodeBytes`/`DecodeMatrix` and the five sentinel errors, a dedicated "Decoding QR codes" section, updated Scope/Limitations/Roadmap reflecting the v0.2 surface.
+- [x] `CHANGELOG.md` `v0.2.0` entry under "Added" and "Validated" with concrete pointers to image stage, matrix stage, public API, errors, theory docs, and validation evidence.
+- [x] New `examples/decode/main.go` with a built-in round-trip demo plus an optional `path` argument to decode a pre-existing PNG.
+- [x] `cmd/qrgen` CLI gains `-decode` mode with `-in` for an input file (or stdin), `-out` for the recovered text (or stdout), and matching help / README sections. — completes the v0.2 surface so encoder and decoder are both reachable from the binary.
+- [ ] Tag `v0.2.0`. — left for the first push to GitHub so the tag lands on the commit the remote sees; run `git tag -a v0.2.0 -m "Initial decoder release" && git push origin v0.2.0`.
 
 ---
 

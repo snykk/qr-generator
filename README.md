@@ -5,14 +5,15 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![CI](https://github.com/snykk/qr-generator/actions/workflows/ci.yml/badge.svg)](https://github.com/snykk/qr-generator/actions/workflows/ci.yml)
 
-A pure-Go QR code generator implemented from scratch, following **ISO/IEC 18004:2015**, with no runtime dependencies beyond the Go standard library.
+A pure-Go QR code generator **and decoder** implemented from scratch, following **ISO/IEC 18004:2015**, with no runtime dependencies beyond the Go standard library.
 
-The encoder produces scannable PNG output for every QR version (1–40), every error-correction level (L/M/Q/H), and the three text-mode payloads (numeric, alphanumeric, byte). It is shipped as both an importable library (`qrgen`) and a thin CLI (`cmd/qrgen`).
+The encoder produces scannable PNG output for every QR version (1–40), every error-correction level (L/M/Q/H), and the three text-mode payloads (numeric, alphanumeric, byte). The decoder closes the loop: given a PNG, a JPEG, or a raw `image.Image`, it runs binarisation, finder-pattern detection, perspective transform, alignment refinement, Reed–Solomon error correction, and segment parsing to return the original string. The library is shipped together with a thin CLI (`cmd/qrgen`).
 
 ## Contents
 
 - [Install](#install)
 - [Library usage](#library-usage)
+- [Decoding QR codes](#decoding-qr-codes)
 - [CLI usage](#cli-usage)
 - [API summary](#api-summary)
 - [Compatibility](#compatibility)
@@ -83,9 +84,29 @@ for _, row := range modules {
 }
 ```
 
-Runnable demos live in [examples/basic](examples/basic/main.go) and [examples/styled](examples/styled/main.go).
+Runnable demos live in [examples/encode/basic](examples/encode/basic/main.go) and [examples/encode/styled](examples/encode/styled/main.go).
+
+## Decoding QR codes
+
+`qrgen.DecodeBytes` reads PNG, JPEG, or GIF bytes back into the original text:
+
+```go
+data, err := os.ReadFile("qr.png")
+if err != nil { log.Fatal(err) }
+text, err := qrgen.DecodeBytes(data)
+if err != nil { log.Fatal(err) }
+fmt.Println(text)
+```
+
+If you already have an `image.Image` (e.g. decoded by another part of your program), call `qrgen.Decode` to skip the PNG-parsing step. For callers that have a clean top-down boolean matrix from a non-PNG source — say a custom rasteriser, a screenshot capture, or a deliberately constructed test fixture — `qrgen.DecodeMatrix` runs only the matrix stage (mask reversal, Reed–Solomon, segment parsing) and bypasses the image pipeline entirely.
+
+Decoder failures are returned as typed sentinel errors so callers can branch with `errors.Is`: `ErrFinderNotFound` when the three finder patterns can't be located, `ErrInvalidVersion` when the finder spacing implies a version outside 1..40, `ErrFormatUnreadable` when the format-info strips are too corrupted, `ErrTooManyErrors` when any Reed–Solomon block exceeds its correction budget, and `ErrCorruptedPayload` when the recovered bit stream contains an unparseable segment header.
+
+Runnable demos live in [examples/decode/basic](examples/decode/basic/main.go) and [examples/decode/styled](examples/decode/styled/main.go).
 
 ## CLI usage
+
+**Encoding:**
 
 ```sh
 # Simplest case — writes qr.png in the current directory.
@@ -98,9 +119,24 @@ qrgen -text "https://example.com" -ec Q -size 12 -fg "#102E57" -bg "#FFF8E7" -ou
 echo -n "HELLO" | qrgen -out - | open -f -a Preview
 ```
 
-Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: …` message on invalid input or oversize payloads.
+**Decoding:**
+
+```sh
+# Decode a PNG file, write text to stdout.
+qrgen -decode -in qr.png
+
+# Pipe PNG bytes in from another process.
+cat qr.png | qrgen -decode
+
+# Decode and save the recovered text to a file.
+qrgen -decode -in qr.png -out text.txt
+```
+
+Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: …` message on invalid input, oversize payloads, or undecodable images.
 
 ## API summary
+
+**Encoding:**
 
 | Symbol | Purpose |
 |---|---|
@@ -114,42 +150,62 @@ Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: �
 | `WithQuietZone(modules)` | Module margin around the symbol. Default `4` (spec minimum). |
 | `WithColors(fg, bg)` | Custom foreground/background `color.Color`. Default black-on-white. |
 
-Validation errors (invalid EC level, out-of-range version, oversize payload, etc.) are returned as plain `error` values so callers can inspect with `errors.Is` against `qrgen.ErrCapacityExceeded` or the wrapped messages.
+**Decoding:**
+
+| Symbol | Purpose |
+|---|---|
+| `Decode(img image.Image) (string, error)` | Image → text. Runs the full image pipeline. |
+| `DecodeBytes(data []byte) (string, error)` | PNG / JPEG / GIF bytes → text. Convenience wrapper around `Decode`. |
+| `DecodeMatrix(grid [][]bool) (string, error)` | Boolean module grid → text. Skips the image pipeline. |
+
+**Sentinel errors** (use `errors.Is`):
+
+| Error | Stage |
+|---|---|
+| `ErrCapacityExceeded` | Encoder: payload too large for any version at the chosen EC level. |
+| `ErrFinderNotFound` | Decoder: image stage could not locate three valid finder patterns. |
+| `ErrInvalidVersion` | Decoder: estimated version is outside 1..40. |
+| `ErrFormatUnreadable` | Decoder: both format-info copies exceed the BCH correction budget. |
+| `ErrTooManyErrors` | Decoder: a Reed–Solomon block exceeded its correction capacity. |
+| `ErrCorruptedPayload` | Decoder: recovered bit stream has an unparseable segment header. |
 
 ## Compatibility
 
 - **Go version:** 1.25 or newer (matches the `go` directive in `go.mod`).
 - **Runtime dependencies:** none beyond the Go standard library.
-- **Test-only dependencies:** `github.com/makiuchi-d/gozxing` is imported by the round-trip test to validate output against an independent decoder. It never appears in `go list -deps` of `qrgen` or `cmd/qrgen`.
+- **Test-only dependencies:** `github.com/makiuchi-d/gozxing` is imported by one round-trip test for independent cross-validation; our own decoder closes a parallel loop without it. It never appears in `go list -deps` of `qrgen` or `cmd/qrgen`.
 - **OS:** anywhere Go runs (Linux, macOS, Windows, BSD).
 
 ## Scope
 
-In scope for v0.1:
+In scope as of v0.2.0:
 
 - Encoding modes: numeric, alphanumeric, byte (UTF-8 passthrough).
 - Versions: 1–40.
 - Error-correction levels: L, M, Q, H.
 - PNG output (grayscale or RGBA, depending on colour options).
+- Image decoding (PNG / JPEG / GIF / `image.Image`) with binarisation, finder detection, perspective transform, and alignment refinement.
+- Matrix decoding from `[][]bool` for callers that already have a clean grid.
 
-Out of scope for v0.1 (kept open as roadmap items): Kanji mode, ECI segments, Micro QR, structured-append, logo embedding, SVG/terminal renderers, decoder.
+Still out of scope (kept open as roadmap items): Kanji mode, ECI segments, Micro QR, structured-append, logo embedding, SVG/terminal renderers, rotated-image decoding.
 
 ## Limitations
 
-The library is intentionally narrow for v0.1.0; the following are known not-yet-supported behaviours and intentional non-goals:
+The library covers the encoder and the decoder end-to-end as of v0.2.0; the following are known not-yet-supported behaviours and intentional non-goals:
 
-- **Encoder only.** This package generates QR images; it does not decode them. Use any standard QR scanner (phone camera, ZXing-based tools, `gozxing` in tests) to read the output back.
-- **No ECI segment.** Byte-mode payloads are emitted as raw UTF-8 without an ECI character-set declaration. Modern decoders guess UTF-8 correctly in practice, but this is a known spec non-conformance.
-- **No Kanji mode.** Japanese strings fall through to byte mode and pay roughly 4× the bits per character compared to native Kanji encoding.
+- **No ECI segment.** Byte-mode payloads are emitted as raw UTF-8 without an ECI character-set declaration, and the decoder treats byte segments as UTF-8 implicitly. Modern QR scanners assume UTF-8 anyway, but this is a known spec non-conformance on both sides.
+- **No Kanji mode.** Japanese strings fall through to byte mode on encode and decode, and pay roughly 4× the bits per character compared to native Kanji encoding.
 - **No Micro QR or rMQR.** Only the standard 40-version family is supported.
 - **No structured-append.** Long payloads must fit in a single symbol (V40 caps at ~2,953 bytes in byte mode at EC-L).
 - **No logo embedding.** Centred logos with automatic EC compensation are a roadmap item.
+- **No rotated-image decoding.** The decoder assumes the source image is approximately right-side-up; arbitrary rotations are roadmap.
+- **No local thresholding.** The decoder uses a single global Otsu threshold, which is fine for synthetic PNGs and evenly-lit photos but can fail on images with strong gradients or shadows.
 - **Greedy mode analyzer.** A single mode is chosen for the whole input; mixed-mode segmentation (DP-optimal) is deferred. A string like `"PHONE: 12345"` is encoded entirely in alphanumeric instead of splitting into alphanumeric + numeric.
 - **Rule-4 mask penalty.** The dark-ratio bucket boundary uses the Thonky-style floor formula; other implementations use a ceiling-style formula and may pick a different mask for the same input. Output remains spec-compliant either way.
 
 ## Roadmap
 
-Candidates for future minor releases (post-v0.1.0):
+Candidates for future minor releases (post-v0.2.0):
 
 - **Additional renderers:** SVG, terminal/ASCII, JPEG, PDF.
 - **Encoding completeness:** ECI segments, Kanji mode, mixed-mode segmentation for tighter packing.
@@ -157,14 +213,16 @@ Candidates for future minor releases (post-v0.1.0):
 - **Logo embedding:** centred logo with automatic EC-level bump for the occluded area.
 - **Micro QR & rMQR:** smaller form factors for short payloads.
 - **Structured-append:** split long text across multiple linked QR symbols.
-- **Performance:** reduce allocations on the hot encode path (current baseline: ~450 allocs/op for `HELLO WORLD`).
+- **Decoder robustness:** arbitrary rotations, local thresholding (Sauvola or block-based) for uneven lighting, multi-symbol detection.
+- **Performance:** reduce allocations on the hot encode and decode paths.
 
 Contributions for any of these are welcome — please open an issue first so we can sketch the API together.
 
 ## Documentation
 
-- [Implementation plan](docs/plan.md) — milestones and progress. ([Indonesian](docs/plan.id.md))
-- [Theory & references](docs/theory/README.md) — bilingual literature review covering every encoder stage (data encoding, GF(2⁸), Reed–Solomon, matrix construction, masking, BCH, rendering, plus data tables and a worked end-to-end example for `"HELLO WORLD"`).
+- [Encoder plan](docs/plan.md) — encoder milestones M1..M11 ([Indonesian](docs/plan.id.md)).
+- [Decoder plan](docs/plan-decoder.md) — decoder milestones D1..D14 ([Indonesian](docs/plan-decoder.id.md)).
+- [Theory & references](docs/theory/README.md) — bilingual literature review covering every encoder and decoder stage (data encoding, GF(2⁸), Reed–Solomon both encoding and decoding, matrix construction, masking, BCH, rendering, image processing, decoder pipeline, plus data tables and a worked end-to-end example for `"HELLO WORLD"`).
 - [CHANGELOG](CHANGELOG.md) — release notes.
 
 ## Development

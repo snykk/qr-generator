@@ -186,10 +186,11 @@ Tujuan: pastikan decoder robust sebelum release.
 
 Tujuan: tag `v0.2.0`.
 
-- [ ] Update README: baris API summary baru, contoh penggunaan decode, update Limitations (decoder ditambahkan, ECI/Kanji masih tertunda).
-- [ ] Entri `CHANGELOG.md` `v0.2.0` di bawah "Added" dan "Validated".
-- [ ] `examples/decode/main.go` baru yang menampilkan `Decode` pada PNG yang sudah disimpan.
-- [ ] Tag `v0.2.0`.
+- [x] Update README: baris API summary baru untuk `Decode`/`DecodeBytes`/`DecodeMatrix` plus lima sentinel error, section khusus "Decoding QR codes", update Scope/Limitations/Roadmap yang mencerminkan permukaan v0.2.
+- [x] Entri `CHANGELOG.md` `v0.2.0` di bawah "Added" dan "Validated" dengan rujukan konkret ke tahap image, tahap matrix, public API, error, theory docs, dan bukti validasi.
+- [x] `examples/decode/main.go` baru dengan demo round-trip built-in plus argumen `path` opsional untuk decode PNG yang sudah ada.
+- [x] CLI `cmd/qrgen` mendapat mode `-decode` dengan `-in` untuk file input (atau stdin), `-out` untuk teks hasil (atau stdout), plus section help / README yang sesuai. — melengkapi permukaan v0.2 sehingga encoder dan decoder sama-sama bisa diakses dari binary.
+- [ ] Tag `v0.2.0`. — ditunda untuk push pertama ke GitHub agar tag mendarat di commit yang dilihat remote; jalankan `git tag -a v0.2.0 -m "Initial decoder release" && git push origin v0.2.0`.
 
 ---
 

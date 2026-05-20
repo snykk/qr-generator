@@ -6,17 +6,19 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-// Command qrgen renders text into a QR code PNG.
+// Command qrgen renders text into a QR code PNG and decodes QR images back to
+// text. Run with `-h` for a flag listing. Typical usage:
 //
-// Run with `-h` for a flag listing. Typical usage:
-//
-//	qrgen -text "HELLO WORLD"                                # writes qr.png
+//	qrgen -text "HELLO WORLD"                                # encode → qr.png
 //	qrgen -text "https://example.com" -ec Q -size 12 -out url.png
 //	echo -n "HELLO" | qrgen -out hello.png                   # text from stdin
 //	qrgen -text "HELLO" -out - > qr.png                      # PNG to stdout
+//	qrgen -decode -in qr.png                                 # decode → stdout
+//	cat qr.png | qrgen -decode                               # decode from stdin
+//	qrgen -decode -in qr.png -out text.txt                   # decode → file
 //
-// All flags map directly to options in the qrgen library; see the README and
-// godoc for the underlying option semantics.
+// All encoding flags map directly to options in the qrgen library; see the
+// README and godoc for the underlying option semantics.
 package main
 
 import (
@@ -34,42 +36,51 @@ import (
 // cliConfig collects every CLI flag in one place so the run() function below
 // is easy to test without going through the flag package.
 type cliConfig struct {
-	text      string
-	out       string
+	decode     bool
+	in         string
+	text       string
+	out        string
 	moduleSize int
-	ec        string
-	fg        string
-	bg        string
-	quietZone int
-	version   int
-	mask      int
+	ec         string
+	fg         string
+	bg         string
+	quietZone  int
+	version    int
+	mask       int
 }
 
 func main() {
 	cfg := cliConfig{}
-	flag.StringVar(&cfg.text, "text", "", "text to encode; if empty, read from stdin")
-	flag.StringVar(&cfg.out, "out", "qr.png", "output file path; use \"-\" to write PNG to stdout")
-	flag.IntVar(&cfg.moduleSize, "size", 8, "module size in pixels")
-	flag.StringVar(&cfg.ec, "ec", "M", "error-correction level: L, M, Q, or H")
-	flag.StringVar(&cfg.fg, "fg", "", "foreground hex colour (e.g. #102E57); default black")
-	flag.StringVar(&cfg.bg, "bg", "", "background hex colour (e.g. #FFF8E7); default white")
-	flag.IntVar(&cfg.quietZone, "quiet-zone", 4, "modules of background around the symbol")
-	flag.IntVar(&cfg.version, "version", 0, "force QR version 1..40 (0 = auto)")
-	flag.IntVar(&cfg.mask, "mask", -1, "force mask 0..7 (-1 = auto)")
+	flag.BoolVar(&cfg.decode, "decode", false, "decode mode: read a QR image and print its text")
+	flag.StringVar(&cfg.in, "in", "", "decode mode: input image path (default: read from stdin)")
+	flag.StringVar(&cfg.text, "text", "", "encode mode: text to encode; if empty, read from stdin")
+	flag.StringVar(&cfg.out, "out", "", "output path; default qr.png for encode, stdout for decode. Use \"-\" to force stdout")
+	flag.IntVar(&cfg.moduleSize, "size", 8, "encode mode: module size in pixels")
+	flag.StringVar(&cfg.ec, "ec", "M", "encode mode: error-correction level L, M, Q, or H")
+	flag.StringVar(&cfg.fg, "fg", "", "encode mode: foreground hex colour (e.g. #102E57); default black")
+	flag.StringVar(&cfg.bg, "bg", "", "encode mode: background hex colour (e.g. #FFF8E7); default white")
+	flag.IntVar(&cfg.quietZone, "quiet-zone", 4, "encode mode: modules of background around the symbol")
+	flag.IntVar(&cfg.version, "version", 0, "encode mode: force QR version 1..40 (0 = auto)")
+	flag.IntVar(&cfg.mask, "mask", -1, "encode mode: force mask 0..7 (-1 = auto)")
 
 	flag.Usage = func() {
 		fmt.Fprintln(flag.CommandLine.Output(), "Usage: qrgen [flags]")
 		fmt.Fprintln(flag.CommandLine.Output(), "")
-		fmt.Fprintln(flag.CommandLine.Output(), "Encode text into a QR code PNG.")
+		fmt.Fprintln(flag.CommandLine.Output(), "Encode text into a QR code PNG, or decode a QR image back to text.")
 		fmt.Fprintln(flag.CommandLine.Output(), "")
 		fmt.Fprintln(flag.CommandLine.Output(), "Flags:")
 		flag.PrintDefaults()
 		fmt.Fprintln(flag.CommandLine.Output(), "")
-		fmt.Fprintln(flag.CommandLine.Output(), "Examples:")
+		fmt.Fprintln(flag.CommandLine.Output(), "Encode examples:")
 		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"HELLO WORLD\"")
 		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"https://example.com\" -ec Q -size 12 -out url.png")
 		fmt.Fprintln(flag.CommandLine.Output(), "  echo -n \"HELLO\" | qrgen -out hello.png")
 		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"HELLO\" -out - > qr.png")
+		fmt.Fprintln(flag.CommandLine.Output(), "")
+		fmt.Fprintln(flag.CommandLine.Output(), "Decode examples:")
+		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -decode -in qr.png")
+		fmt.Fprintln(flag.CommandLine.Output(), "  cat qr.png | qrgen -decode")
+		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -decode -in qr.png -out text.txt")
 	}
 	flag.Parse()
 
@@ -79,9 +90,18 @@ func main() {
 	}
 }
 
-// run executes the CLI end-to-end. stdin is consumed only when cfg.text is
-// empty; stdout receives the PNG only when cfg.out == "-".
+// run dispatches to the encode or decode path based on cfg.decode.
 func run(cfg cliConfig, stdin io.Reader, stdout io.Writer) error {
+	if cfg.decode {
+		return runDecode(cfg, stdin, stdout)
+	}
+	return runEncode(cfg, stdin, stdout)
+}
+
+// runEncode performs the encode pipeline: resolve text from -text or stdin,
+// build the option list from the encoding flags, encode to PNG, and write
+// either to -out or stdout (when -out is "-").
+func runEncode(cfg cliConfig, stdin io.Reader, stdout io.Writer) error {
 	text, err := resolveText(cfg.text, stdin)
 	if err != nil {
 		return err
@@ -120,13 +140,53 @@ func run(cfg cliConfig, stdin io.Reader, stdout io.Writer) error {
 		return err
 	}
 
-	if cfg.out == "-" {
+	out := cfg.out
+	if out == "" {
+		out = "qr.png"
+	}
+	if out == "-" {
 		if _, err := stdout.Write(data); err != nil {
 			return fmt.Errorf("write stdout: %w", err)
 		}
 		return nil
 	}
-	if err := os.WriteFile(cfg.out, data, 0o644); err != nil {
+	if err := os.WriteFile(out, data, 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", out, err)
+	}
+	return nil
+}
+
+// runDecode performs the decode pipeline: read PNG/JPEG/GIF bytes from -in
+// or stdin, call qrgen.DecodeBytes, and write the decoded text to -out or
+// stdout. An empty or "-" -out goes to stdout.
+func runDecode(cfg cliConfig, stdin io.Reader, stdout io.Writer) error {
+	var data []byte
+	if cfg.in != "" {
+		b, err := os.ReadFile(cfg.in)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", cfg.in, err)
+		}
+		data = b
+	} else {
+		b, err := io.ReadAll(stdin)
+		if err != nil {
+			return fmt.Errorf("read stdin: %w", err)
+		}
+		data = b
+	}
+
+	text, err := qrgen.DecodeBytes(data)
+	if err != nil {
+		return err
+	}
+
+	if cfg.out == "" || cfg.out == "-" {
+		if _, err := fmt.Fprintln(stdout, text); err != nil {
+			return fmt.Errorf("write stdout: %w", err)
+		}
+		return nil
+	}
+	if err := os.WriteFile(cfg.out, []byte(text), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", cfg.out, err)
 	}
 	return nil
