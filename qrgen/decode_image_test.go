@@ -371,6 +371,154 @@ func TestHomographyFromFindersV1SamplesMatrix(t *testing.T) {
 	}
 }
 
+// TestRefineHomographyV1IsNoOp asserts that refineHomography returns the
+// original transform unchanged for V1, which has no alignment patterns.
+func TestRefineHomographyV1IsNoOp(t *testing.T) {
+	data, _ := Encode("HELLO WORLD")
+	img, _ := png.Decode(bytes.NewReader(data))
+	bm := binarise(img)
+	tri, err := findFinders(bm)
+	if err != nil {
+		t.Fatalf("findFinders: %v", err)
+	}
+	h0, err := homographyFromFinders(tri, 1)
+	if err != nil {
+		t.Fatalf("homographyFromFinders: %v", err)
+	}
+	h1 := refineHomography(bm, h0, tri, 1)
+	for i, v := range h0 {
+		if h1[i] != v {
+			t.Errorf("V1 refinement changed h[%d] from %v to %v (expected no-op)", i, v, h1[i])
+		}
+	}
+}
+
+// TestRefineHomographyV2FindsAlignment confirms that for a V2+ symbol the
+// refiner locates the bottom-right alignment pattern and that the refined
+// transform still samples every module of the original matrix correctly.
+func TestRefineHomographyV2FindsAlignment(t *testing.T) {
+	const text = "HELLO WORLD"
+	grid, err := Matrix(text, WithVersion(2))
+	if err != nil {
+		t.Fatalf("Matrix: %v", err)
+	}
+	data, err := Encode(text, WithVersion(2))
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	img, _ := png.Decode(bytes.NewReader(data))
+	bm := binarise(img)
+	tri, err := findFinders(bm)
+	if err != nil {
+		t.Fatalf("findFinders: %v", err)
+	}
+	h0, err := homographyFromFinders(tri, 2)
+	if err != nil {
+		t.Fatalf("homographyFromFinders: %v", err)
+	}
+	h1 := refineHomography(bm, h0, tri, 2)
+
+	// Sanity: the refined transform must still map every module to a dark/light
+	// value matching the original matrix.
+	n := len(grid)
+	for r := range n {
+		for c := range n {
+			px, py := h1.apply(float64(c), float64(r))
+			ix := int(math.Round(px))
+			iy := int(math.Round(py))
+			if ix < 0 || ix >= bm.width || iy < 0 || iy >= bm.height {
+				t.Errorf("module (%d,%d) → pixel (%d,%d) out of bounds", r, c, ix, iy)
+				continue
+			}
+			if got := bm.get(ix, iy); got != grid[r][c] {
+				t.Errorf("module (r=%d, c=%d) sampled %v, want %v", r, c, got, grid[r][c])
+			}
+		}
+	}
+}
+
+// TestRefineHomographyV7AlignmentRefinement runs the same per-module check on
+// a higher-version symbol so the alignment pattern is well separated from the
+// finder corners and the refiner has a meaningful effect.
+func TestRefineHomographyV7AlignmentRefinement(t *testing.T) {
+	const text = "HELLO WORLD"
+	grid, err := Matrix(text, WithVersion(7))
+	if err != nil {
+		t.Fatalf("Matrix: %v", err)
+	}
+	data, err := Encode(text, WithVersion(7))
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	img, _ := png.Decode(bytes.NewReader(data))
+	bm := binarise(img)
+	tri, err := findFinders(bm)
+	if err != nil {
+		t.Fatalf("findFinders: %v", err)
+	}
+	h0, err := homographyFromFinders(tri, 7)
+	if err != nil {
+		t.Fatalf("homographyFromFinders: %v", err)
+	}
+	h1 := refineHomography(bm, h0, tri, 7)
+
+	n := len(grid)
+	for r := range n {
+		for c := range n {
+			px, py := h1.apply(float64(c), float64(r))
+			ix := int(math.Round(px))
+			iy := int(math.Round(py))
+			if ix < 0 || ix >= bm.width || iy < 0 || iy >= bm.height {
+				t.Errorf("V7 module (%d,%d) → pixel (%d,%d) out of bounds", r, c, ix, iy)
+				continue
+			}
+			if got := bm.get(ix, iy); got != grid[r][c] {
+				t.Errorf("V7 module (r=%d, c=%d) sampled %v, want %v", r, c, got, grid[r][c])
+			}
+		}
+	}
+}
+
+// TestRefineHomographyMissingAlignmentFallsBack covers the path where the
+// search window contains no valid alignment pattern (e.g. the area has been
+// wiped). The refiner must return the input homography unchanged so the rest
+// of the pipeline still gets something to sample with.
+func TestRefineHomographyMissingAlignmentFallsBack(t *testing.T) {
+	const text = "HELLO WORLD"
+	data, _ := Encode(text, WithVersion(2))
+	img, _ := png.Decode(bytes.NewReader(data))
+	bm := binarise(img)
+	tri, err := findFinders(bm)
+	if err != nil {
+		t.Fatalf("findFinders: %v", err)
+	}
+	h0, err := homographyFromFinders(tri, 2)
+	if err != nil {
+		t.Fatalf("homographyFromFinders: %v", err)
+	}
+	// Wipe the area where the alignment pattern lives so the shape check fails.
+	// V2 alignment is at module (18, 18). The 5×5 region is modules 16..20.
+	// In pixel space that's around (quietZone + 16)*8 .. (quietZone + 21)*8 =
+	// 160..168 for module 16, etc. Just zero out a 40×40 px region centred on
+	// the predicted location.
+	predX, predY := h0.apply(18, 18)
+	cx, cy := int(math.Round(predX)), int(math.Round(predY))
+	for dy := -20; dy <= 20; dy++ {
+		for dx := -20; dx <= 20; dx++ {
+			x, y := cx+dx, cy+dy
+			if x >= 0 && x < bm.width && y >= 0 && y < bm.height {
+				bm.pixels[y*bm.width+x] = false
+			}
+		}
+	}
+	h1 := refineHomography(bm, h0, tri, 2)
+	for i := range h0 {
+		if h0[i] != h1[i] {
+			t.Errorf("missing alignment should fall back to h0; differs at index %d (%v vs %v)", i, h0[i], h1[i])
+		}
+	}
+}
+
 func TestFindFindersRejectsTwoFinders(t *testing.T) {
 	// Encode a real QR, then erase the bottom-left finder by overpainting
 	// that corner of the PNG with white pixels.

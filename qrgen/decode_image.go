@@ -517,6 +517,113 @@ func homographyFromFinders(tri finderTriple, v Version) (homography, error) {
 	return computeHomography(srcMod, dstPx)
 }
 
+// checkAlignmentAt reports whether the bitmap at (cx, cy) plausibly sits on
+// the centre of a 5×5 alignment pattern given the local module pitch. The
+// check samples nine pixels: the centre, the light ring one module away, and
+// the dark ring two modules away.
+//
+// See docs/theory/12-image-processing.md §7.
+func checkAlignmentAt(bm *bitmap, cx, cy int, moduleSize float64) bool {
+	if cx < 0 || cy < 0 || cx >= bm.width || cy >= bm.height {
+		return false
+	}
+	if !bm.get(cx, cy) {
+		return false
+	}
+	m1 := int(math.Round(moduleSize))
+	m2 := int(math.Round(moduleSize * 2))
+	if m1 < 1 {
+		return false
+	}
+	sampleAt := func(dx, dy int, wantDark bool) bool {
+		x, y := cx+dx, cy+dy
+		if x < 0 || y < 0 || x >= bm.width || y >= bm.height {
+			return false
+		}
+		return bm.get(x, y) == wantDark
+	}
+	// Inner light ring at ±1 module along each cardinal direction.
+	if !sampleAt(-m1, 0, false) || !sampleAt(m1, 0, false) || !sampleAt(0, -m1, false) || !sampleAt(0, m1, false) {
+		return false
+	}
+	// Outer dark ring at ±2 modules along each cardinal direction.
+	if !sampleAt(-m2, 0, true) || !sampleAt(m2, 0, true) || !sampleAt(0, -m2, true) || !sampleAt(0, m2, true) {
+		return false
+	}
+	return true
+}
+
+// searchAlignmentPattern walks a square window of ±radius (~one module)
+// around (predX, predY) and averages every candidate that passes the
+// 5×5 alignment-pattern shape check, returning the mean centre. Falls back
+// to ok = false if no candidate matched.
+func searchAlignmentPattern(bm *bitmap, predX, predY, moduleSize float64) (float64, float64, bool) {
+	cx0 := int(math.Round(predX))
+	cy0 := int(math.Round(predY))
+	radius := int(math.Ceil(moduleSize))
+	if radius < 1 {
+		radius = 1
+	}
+	var sumX, sumY float64
+	count := 0
+	for dy := -radius; dy <= radius; dy++ {
+		for dx := -radius; dx <= radius; dx++ {
+			x, y := cx0+dx, cy0+dy
+			if checkAlignmentAt(bm, x, y, moduleSize) {
+				sumX += float64(x)
+				sumY += float64(y)
+				count++
+			}
+		}
+	}
+	if count == 0 {
+		return 0, 0, false
+	}
+	return sumX / float64(count), sumY / float64(count), true
+}
+
+// refineHomography sharpens the initial perspective transform by locating
+// the bottom-right alignment pattern (V2+) and using its actual centre as
+// the fourth homography anchor in place of the parallelogram-completed
+// matrix corner. For V1 (no alignment patterns) the original homography is
+// returned unchanged, as it is when the alignment pattern is not found or
+// the recomputed homography is numerically degenerate.
+//
+// See docs/theory/12-image-processing.md §7.
+func refineHomography(bm *bitmap, h0 homography, tri finderTriple, v Version) homography {
+	centers := v.AlignmentCenters()
+	if len(centers) == 0 {
+		return h0
+	}
+	// The bottom-right alignment centre is the last entry on the diagonal.
+	alignMod := centers[len(centers)-1]
+	predX, predY := h0.apply(float64(alignMod), float64(alignMod))
+	avgModule := (tri.topLeft.moduleSize + tri.topRight.moduleSize + tri.bottomLeft.moduleSize) / 3.0
+	foundX, foundY, ok := searchAlignmentPattern(bm, predX, predY, avgModule)
+	if !ok {
+		return h0
+	}
+	n := v.Size()
+	farMod := float64(n - 4)
+	srcMod := [4][2]float64{
+		{3, 3},
+		{farMod, 3},
+		{3, farMod},
+		{float64(alignMod), float64(alignMod)},
+	}
+	dstPx := [4][2]float64{
+		{tri.topLeft.x, tri.topLeft.y},
+		{tri.topRight.x, tri.topRight.y},
+		{tri.bottomLeft.x, tri.bottomLeft.y},
+		{foundX, foundY},
+	}
+	refined, err := computeHomography(srcMod, dstPx)
+	if err != nil {
+		return h0
+	}
+	return refined
+}
+
 // findFinders locates the three finder patterns in a binarised image and
 // orders them as (top-left, top-right, bottom-left) assuming the symbol is
 // approximately right-side-up. Returns ErrFinderNotFound if fewer than three

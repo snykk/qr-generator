@@ -120,7 +120,7 @@ Goal: parse the data codeword stream back into the source text, then expose it a
 - [x] Public API: `qrgen.DecodeMatrix([][]bool) (string, error)` in `qrgen/decode.go` — runs D4 → D5 → D6 → D7.
 - [x] Tests: 15 round-trip cases across modes, EC levels, V1..V10, multi-block, version-info, and forced version+mask, plus typed-error coverage for corrupted input.
 
-### ✅ Checkpoint 1 — Matrix-to-Text decoder is feature-complete.
+### Checkpoint 1 — Matrix-to-Text decoder is feature-complete.
 
 ### D8 — Image Preprocessing `(S)`
 
@@ -157,9 +157,9 @@ Goal: map source pixel coordinates → grid module coordinates.
 
 Goal: refine the perspective transform using alignment patterns to reduce sampling error at high versions.
 
-- [ ] For each expected alignment-pattern centre, search a small window in the source image for a 5×5 alignment pattern.
-- [ ] Adjust the homography or interpolate local corrections.
-- [ ] Skip cleanly when no alignment pattern is found (V1 always; very damaged symbols).
+- [x] For each expected alignment-pattern centre, search a small window in the source image for a 5×5 alignment pattern. — `qrgen/decode_image.go` `checkAlignmentAt` + `searchAlignmentPattern`.
+- [x] Adjust the homography by replacing the parallelogram-completed BR anchor with the located alignment-pattern centre. — `refineHomography`.
+- [x] Skip cleanly when no alignment pattern is found (V1 always; very damaged symbols). — falls back to the input transform if the search window contains no valid pattern or if the recomputed system is singular.
 
 ### D12 — Module Sampling + `Decode` Public API `(M)`
 
@@ -170,7 +170,7 @@ Goal: tie the image and matrix pipelines together.
 - [ ] Public API: `qrgen.Decode(img image.Image) (string, error)` and convenience `qrgen.DecodeBytes(data []byte) (string, error)`.
 - [ ] Tests: encode a payload via our encoder → render PNG → `Decode` round-trip across modes and versions. Add a synthetic rotation/scale test.
 
-### ✅ Checkpoint 2 — Image-to-Text decoder is feature-complete.
+### Checkpoint 2 — Image-to-Text decoder is feature-complete.
 
 ### D13 — Quality Gate `(M)`
 

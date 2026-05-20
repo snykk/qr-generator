@@ -120,7 +120,7 @@ Tujuan: parse stream codeword data kembali menjadi teks sumber, lalu expose seba
 - [x] Public API: `qrgen.DecodeMatrix([][]bool) (string, error)` di `qrgen/decode.go` — jalankan D4 → D5 → D6 → D7.
 - [x] Tests: 15 kasus round-trip lintas mode, EC level, V1..V10, multi-block, version-info, dan forced version+mask, plus coverage typed-error untuk input korup.
 
-### ✅ Checkpoint 1 — Decoder Matrix-ke-Text sudah feature-complete.
+### Checkpoint 1 — Decoder Matrix-ke-Text sudah feature-complete.
 
 ### D8 — Preprocessing Image `(S)`
 
@@ -157,9 +157,9 @@ Tujuan: peta koordinat pixel sumber → koordinat modul grid.
 
 Tujuan: refine perspective transform memakai alignment pattern untuk mengurangi error sampling pada versi tinggi.
 
-- [ ] Untuk tiap centre alignment-pattern yang diharapkan, cari di jendela kecil pada image sumber untuk alignment pattern 5×5.
-- [ ] Adjust homography atau interpolasi koreksi lokal.
-- [ ] Skip dengan bersih ketika alignment pattern tidak ditemukan (V1 selalu; simbol yang sangat rusak).
+- [x] Untuk tiap centre alignment-pattern yang diharapkan, cari di jendela kecil pada image sumber untuk alignment pattern 5×5. — `qrgen/decode_image.go` `checkAlignmentAt` + `searchAlignmentPattern`.
+- [x] Adjust homography dengan mengganti anchor BR yang di-complete parallelogram dengan centre alignment-pattern yang ditemukan. — `refineHomography`.
+- [x] Skip dengan bersih ketika alignment pattern tidak ditemukan (V1 selalu; simbol yang sangat rusak). — fallback ke transform input bila search window tidak punya pattern valid atau bila sistem yang dihitung ulang singular.
 
 ### D12 — Sampling Modul + Public API `Decode` `(M)`
 
@@ -170,7 +170,7 @@ Tujuan: ikat pipeline image dan matrix.
 - [ ] Public API: `qrgen.Decode(img image.Image) (string, error)` dan convenience `qrgen.DecodeBytes(data []byte) (string, error)`.
 - [ ] Tests: encode payload via encoder kita → render PNG → round-trip `Decode` di antar mode dan versi. Tambah test rotasi/scale sintetis.
 
-### ✅ Checkpoint 2 — Decoder Image-ke-Text sudah feature-complete.
+### Checkpoint 2 — Decoder Image-ke-Text sudah feature-complete.
 
 ### D13 — Quality Gate `(M)`
 
