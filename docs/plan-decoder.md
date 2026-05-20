@@ -176,11 +176,11 @@ Goal: tie the image and matrix pipelines together.
 
 Goal: ensure the decoder is robust before release.
 
-- [ ] Cross-validation: encode → decode round-trip across the same 12-case matrix used for the encoder's `roundtrip_test.go` (now closing the loop without a third-party decoder).
-- [ ] Robustness: deliberately corrupt N bytes per block (within RS capacity) and assert recovery.
-- [ ] Image robustness: render with custom colours, low contrast, rotated, downscaled.
-- [ ] Benchmarks: `BenchmarkDecodeSmall`, `BenchmarkDecodeMultiBlock`, `BenchmarkDecodeImage`.
-- [ ] `go test -race ./...` remains clean.
+- [x] Cross-validation: encode → decode round-trip across the same 12-case matrix used for the encoder's `roundtrip_test.go`, now closing the loop with our own `DecodeBytes`. — `qrgen/decode_roundtrip_test.go` `TestRoundTripWithOwnDecoder`.
+- [x] Robustness: deliberately corrupt N modules in the matrix (within RS capacity) and assert recovery. — `TestRoundTripRobustnessFlippedBits` covers V1-Q with 3 flips and V1-H with 5 flips.
+- [x] Image robustness: render with custom colours, low contrast, varied module sizes, larger quiet zone. — `TestRoundTripImageRobustness`. Arbitrary rotations stay roadmap.
+- [x] Benchmarks: `BenchmarkDecodeMatrixSmall` / `MultiBlock`, `BenchmarkDecodeImageSmall` / `MultiBlock` / `URL`, plus `FromPNGDecode` that isolates CV cost from PNG parsing. — `qrgen/decode_bench_test.go`.
+- [x] `go test -race ./...` remains clean.
 
 ### D14 — Polish & Release `(S)`
 

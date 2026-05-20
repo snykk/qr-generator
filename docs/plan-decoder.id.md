@@ -176,11 +176,11 @@ Tujuan: ikat pipeline image dan matrix.
 
 Tujuan: pastikan decoder robust sebelum release.
 
-- [ ] Cross-validation: encode → decode round-trip pada 12-case matrix yang sama yang dipakai `roundtrip_test.go` encoder (sekarang menutup loop tanpa decoder pihak ketiga).
-- [ ] Robustness: sengaja korup N byte per block (dalam kapasitas RS) dan assert pemulihan.
-- [ ] Robustness image: render dengan warna kustom, kontras rendah, dirotasi, di-downscale.
-- [ ] Benchmarks: `BenchmarkDecodeSmall`, `BenchmarkDecodeMultiBlock`, `BenchmarkDecodeImage`.
-- [ ] `go test -race ./...` tetap bersih.
+- [x] Cross-validation: encode → decode round-trip pada 12-case matrix yang sama yang dipakai `roundtrip_test.go` encoder, sekarang menutup loop dengan `DecodeBytes` kita sendiri. — `qrgen/decode_roundtrip_test.go` `TestRoundTripWithOwnDecoder`.
+- [x] Robustness: sengaja korup N modul di matrix (dalam kapasitas RS) dan assert pemulihan. — `TestRoundTripRobustnessFlippedBits` mencakup V1-Q dengan 3 flip dan V1-H dengan 5 flip.
+- [x] Robustness image: render dengan warna kustom, kontras rendah, ukuran modul beragam, quiet zone lebih besar. — `TestRoundTripImageRobustness`. Rotasi arbitrer tetap roadmap.
+- [x] Benchmarks: `BenchmarkDecodeMatrixSmall` / `MultiBlock`, `BenchmarkDecodeImageSmall` / `MultiBlock` / `URL`, plus `FromPNGDecode` yang memisahkan biaya CV dari parsing PNG. — `qrgen/decode_bench_test.go`.
+- [x] `go test -race ./...` tetap bersih.
 
 ### D14 — Polish & Release `(S)`
 

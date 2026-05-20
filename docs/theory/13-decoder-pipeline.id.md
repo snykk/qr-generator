@@ -1,6 +1,6 @@
 # Pipeline Decoder
 
-Dokumen ini adalah pandangan-elang tentang bagaimana `qrgen.Decode(image.Image) (string, error)` bekerja end-to-end. Algoritma individual didetailkan di [11-rs-decoding.id.md](11-rs-decoding.id.md) dan [12-image-processing.id.md](12-image-processing.id.md); di sini kita menjelaskan bagaimana mereka berkomposisi, apa yang bisa gagal di tiap tahap, dan jenis error apa yang caller lihat di tiap kasus.
+Dokumen ini memberikan gambaran menyeluruh tentang bagaimana `qrgen.Decode(image.Image) (string, error)` bekerja end-to-end. Algoritma individual didetailkan di [11-rs-decoding.id.md](11-rs-decoding.id.md) dan [12-image-processing.id.md](12-image-processing.id.md); di sini kita menjelaskan bagaimana mereka berkomposisi, apa yang bisa gagal di tiap tahap, dan jenis error apa yang caller lihat di tiap kasus.
 
 > Versi English: [13-decoder-pipeline.md](13-decoder-pipeline.md).
 
