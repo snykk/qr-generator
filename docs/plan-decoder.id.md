@@ -148,10 +148,10 @@ Tujuan: tempatkan tiga finder pattern di bitmap.
 
 Tujuan: peta koordinat pixel sumber → koordinat modul grid.
 
-- [ ] Perkirakan sudut keempat (kanan-bawah) dari tiga centre finder + geometri yang bergantung versi.
-- [ ] Hitung **matriks homography 3×3** yang memetakan (koordinat modul matrix) → (koordinat pixel sumber).
-- [ ] Sediakan inverse map untuk sampling.
-- [ ] Tests: round-trip segitiga finder yang diketahui melewati transform.
+- [x] Perkirakan sudut keempat (kanan-bawah) dari tiga centre finder + geometri yang bergantung versi. — `qrgen/decode_image.go` `estimateBottomRight` (parallelogram completion) plus `estimateVersion` dari `(distance − 14) / 4 + 1`.
+- [x] Hitung **matriks homography 3×3** yang memetakan (koordinat modul matrix) → (koordinat pixel sumber). — `computeHomography` menyelesaikan sistem linear 8×8 standar dengan `solveLinear8` (Gaussian elimination + partial pivoting + singularity guard).
+- [x] Sediakan inverse map untuk sampling. — `homography.apply(col, row)` adalah forward map yang dipakai langsung oleh sampler; untuk decoder QR kita hanya butuh module → pixel sehingga tidak perlu helper inverse terpisah.
+- [x] Tests: identity round-trip, translate-and-scale, degenerate (collinear) input mengembalikan error, estimasi versi V1/V5/V10, dan sampling per-modul HELLO WORLD V1 di mana tiap bit yang di-sample match matrix asli.
 
 ### D11 — Refinement Alignment Pattern (V2+) `(S)`
 

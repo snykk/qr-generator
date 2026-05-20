@@ -13,6 +13,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"math"
 	"testing"
 )
 
@@ -219,6 +220,154 @@ func TestFindFindersRejectsNoise(t *testing.T) {
 	bm := binarise(img)
 	if _, err := findFinders(bm); err == nil {
 		t.Error("expected ErrFinderNotFound on all-white image, got nil")
+	}
+}
+
+// TestComputeHomographyIdentity feeds four source points to themselves and
+// asserts the resulting homography is (numerically) the identity.
+func TestComputeHomographyIdentity(t *testing.T) {
+	pts := [4][2]float64{{0, 0}, {10, 0}, {0, 10}, {10, 10}}
+	h, err := computeHomography(pts, pts)
+	if err != nil {
+		t.Fatalf("computeHomography: %v", err)
+	}
+	for _, p := range []struct{ x, y float64 }{{0, 0}, {5, 5}, {7, 3}, {10, 10}} {
+		gotX, gotY := h.apply(p.x, p.y)
+		if math.Abs(gotX-p.x) > 1e-9 || math.Abs(gotY-p.y) > 1e-9 {
+			t.Errorf("identity h.apply(%v) = (%v, %v), want (%v, %v)", p, gotX, gotY, p.x, p.y)
+		}
+	}
+}
+
+// TestComputeHomographyTranslateAndScale checks a non-trivial mapping where
+// module coords (0..10) map to a translated and scaled pixel rectangle.
+func TestComputeHomographyTranslateAndScale(t *testing.T) {
+	src := [4][2]float64{{0, 0}, {10, 0}, {0, 10}, {10, 10}}
+	dst := [4][2]float64{{100, 50}, {180, 50}, {100, 130}, {180, 130}}
+	h, err := computeHomography(src, dst)
+	if err != nil {
+		t.Fatalf("computeHomography: %v", err)
+	}
+	// Every source corner must map exactly to its destination.
+	for i := range 4 {
+		gotX, gotY := h.apply(src[i][0], src[i][1])
+		if math.Abs(gotX-dst[i][0]) > 1e-6 || math.Abs(gotY-dst[i][1]) > 1e-6 {
+			t.Errorf("corner %d: got (%v, %v), want (%v, %v)", i, gotX, gotY, dst[i][0], dst[i][1])
+		}
+	}
+	// A linear interior point: (5, 5) should map to the centre (140, 90).
+	gx, gy := h.apply(5, 5)
+	if math.Abs(gx-140) > 1e-6 || math.Abs(gy-90) > 1e-6 {
+		t.Errorf("interior (5,5) → (%v, %v), want (140, 90)", gx, gy)
+	}
+}
+
+func TestComputeHomographyDegenerateReturnsError(t *testing.T) {
+	// Three of four source points collinear — the system is rank-deficient.
+	src := [4][2]float64{{0, 0}, {1, 0}, {2, 0}, {3, 1}}
+	dst := [4][2]float64{{0, 0}, {10, 0}, {20, 0}, {30, 10}}
+	if _, err := computeHomography(src, dst); err == nil {
+		t.Error("expected error for collinear sources, got nil")
+	}
+}
+
+func TestEstimateBottomRightCompletesParallelogram(t *testing.T) {
+	tri := finderTriple{
+		topLeft:    finderCandidate{x: 10, y: 20},
+		topRight:   finderCandidate{x: 110, y: 20},
+		bottomLeft: finderCandidate{x: 10, y: 120},
+	}
+	brX, brY := estimateBottomRight(tri)
+	if brX != 110 || brY != 120 {
+		t.Errorf("BR = (%v, %v), want (110, 120)", brX, brY)
+	}
+}
+
+func TestEstimateVersionFromFinderSpacing(t *testing.T) {
+	cases := []struct {
+		name    string
+		dx      float64
+		modSize float64
+		want    Version
+	}{
+		// V1: (21 - 7) = 14 modules between TL and TR centres.
+		{"V1 at module 8", 14 * 8, 8, 1},
+		// V5: n-7 = 30 modules.
+		{"V5 at module 8", 30 * 8, 8, 5},
+		// V10: n-7 = 50 modules.
+		{"V10 at module 6", 50 * 6, 6, 10},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			tri := finderTriple{
+				topLeft:    finderCandidate{x: 0, y: 0, moduleSize: c.modSize},
+				topRight:   finderCandidate{x: c.dx, y: 0, moduleSize: c.modSize},
+				bottomLeft: finderCandidate{x: 0, y: c.dx, moduleSize: c.modSize},
+			}
+			got, err := estimateVersion(tri)
+			if err != nil {
+				t.Fatalf("estimateVersion: %v", err)
+			}
+			if got != c.want {
+				t.Errorf("version = %d, want %d", got, c.want)
+			}
+		})
+	}
+}
+
+// TestHomographyFromFindersV1SamplesMatrix is the D8+D9+D10 integration test:
+// binarise → findFinders → homographyFromFinders → sample every module via
+// the homography, then compare each sampled bit to the original matrix.
+// V1 has no alignment pattern so the parallelogram BR estimate is exact; for
+// V2+ the same chain works as long as the image has no real distortion, which
+// our PNG output never does.
+func TestHomographyFromFindersV1SamplesMatrix(t *testing.T) {
+	const text = "HELLO WORLD"
+	grid, err := Matrix(text)
+	if err != nil {
+		t.Fatalf("Matrix: %v", err)
+	}
+	data, err := Encode(text)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	img, err := png.Decode(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("png.Decode: %v", err)
+	}
+	bm := binarise(img)
+	tri, err := findFinders(bm)
+	if err != nil {
+		t.Fatalf("findFinders: %v", err)
+	}
+	v, err := estimateVersion(tri)
+	if err != nil {
+		t.Fatalf("estimateVersion: %v", err)
+	}
+	if v != 1 {
+		t.Fatalf("estimated version = %d, want 1", v)
+	}
+	h, err := homographyFromFinders(tri, v)
+	if err != nil {
+		t.Fatalf("homographyFromFinders: %v", err)
+	}
+	n := len(grid)
+	for r := range n {
+		for c := range n {
+			px, py := h.apply(float64(c), float64(r))
+			ix := int(math.Round(px))
+			iy := int(math.Round(py))
+			if ix < 0 || ix >= bm.width || iy < 0 || iy >= bm.height {
+				t.Errorf("module (%d,%d) → pixel (%d,%d) out of bounds", r, c, ix, iy)
+				continue
+			}
+			got := bm.get(ix, iy)
+			want := grid[r][c]
+			if got != want {
+				t.Errorf("module (r=%d, c=%d): sampled %v at pixel (%d,%d), want %v",
+					r, c, got, ix, iy, want)
+			}
+		}
 	}
 }
 

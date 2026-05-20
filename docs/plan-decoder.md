@@ -148,10 +148,10 @@ Goal: locate the three finder patterns in the bitmap.
 
 Goal: map source pixel coordinates → grid module coordinates.
 
-- [ ] Estimate the fourth (bottom-right) corner from the three finder centres + version-dependent geometry.
-- [ ] Compute a **3×3 homography matrix** mapping (matrix module coords) → (source pixel coords).
-- [ ] Provide an inverse map for sampling.
-- [ ] Tests: round-trip a known finder triangle through the transform.
+- [x] Estimate the fourth (bottom-right) corner from the three finder centres + version-dependent geometry. — `qrgen/decode_image.go` `estimateBottomRight` (parallelogram completion) plus `estimateVersion` from `(distance − 14) / 4 + 1`.
+- [x] Compute a **3×3 homography matrix** mapping (matrix module coords) → (source pixel coords). — `computeHomography` solves the standard 8×8 linear system with `solveLinear8` (Gaussian elimination + partial pivoting + singularity guard).
+- [x] Provide an inverse map for sampling. — `homography.apply(col, row)` is the forward map used directly by the sampler; for the QR decoder we only need module → pixel so there is no separate inverse helper.
+- [x] Tests: identity round-trip, translate-and-scale, degenerate (collinear) input returns an error, version estimation across V1/V5/V10, and a per-module sample of HELLO WORLD V1 where every sampled bit matches the original matrix.
 
 ### D11 — Alignment Pattern Refinement (V2+) `(S)`
 

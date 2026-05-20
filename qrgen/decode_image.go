@@ -10,6 +10,7 @@ package qrgen
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -19,6 +20,10 @@ import (
 // ErrFinderNotFound is returned when the decoder cannot identify three valid
 // finder patterns in the image. Callers can use errors.Is to branch on this.
 var ErrFinderNotFound = errors.New("qrgen: finder patterns not found")
+
+// ErrInvalidVersion is returned when the version estimated from the finder
+// geometry falls outside the spec's 1..40 range.
+var ErrInvalidVersion = errors.New("qrgen: estimated version out of range")
 
 // bitmap is a binary 2D grid of pixels produced by binarising an image.
 // Coordinates use (x, y) with (0, 0) at the top-left; the row-major pixels
@@ -358,6 +363,158 @@ func orderFinderTriple(a, b, c finderCandidate) (finderTriple, error) {
 		return finderTriple{}, ErrFinderNotFound
 	}
 	return finderTriple{topLeft: tl, topRight: tr, bottomLeft: bl}, nil
+}
+
+// homography is a 3×3 matrix in row-major order that maps homogeneous module
+// coordinates (col, row, 1) to homogeneous source-pixel coordinates
+// (u, v, w); dividing u and v by w yields the actual (x, y) pixel position.
+// See docs/theory/12-image-processing.md §5.
+type homography [9]float64
+
+// apply projects (col, row) module coordinates to source-pixel coordinates.
+func (h homography) apply(col, row float64) (px, py float64) {
+	u := h[0]*col + h[1]*row + h[2]
+	v := h[3]*col + h[4]*row + h[5]
+	w := h[6]*col + h[7]*row + h[8]
+	return u / w, v / w
+}
+
+// computeHomography solves the 8×8 linear system for the homography that
+// sends four source module coordinates (srcMod) to four destination pixel
+// coordinates (dstPx). With four point correspondences and the (h22 = 1)
+// normalisation, the system has a unique solution unless the source quad is
+// degenerate (three points collinear), in which case it returns an error.
+//
+// Each correspondence (X, Y) ↔ (x, y) contributes two equations:
+//
+//	[ X Y 1 0 0 0 −xX −xY ] · [h00..h21]^T = x
+//	[ 0 0 0 X Y 1 −yX −yY ] · [h00..h21]^T = y
+func computeHomography(srcMod, dstPx [4][2]float64) (homography, error) {
+	var A [8][8]float64
+	var b [8]float64
+	for i := range 4 {
+		X, Y := srcMod[i][0], srcMod[i][1]
+		x, y := dstPx[i][0], dstPx[i][1]
+
+		A[2*i] = [8]float64{X, Y, 1, 0, 0, 0, -x * X, -x * Y}
+		b[2*i] = x
+
+		A[2*i+1] = [8]float64{0, 0, 0, X, Y, 1, -y * X, -y * Y}
+		b[2*i+1] = y
+	}
+
+	h, err := solveLinear8(A, b)
+	if err != nil {
+		return homography{}, err
+	}
+	return homography{h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], 1}, nil
+}
+
+// solveLinear8 solves A · x = b for an 8×8 system using Gaussian elimination
+// with partial pivoting. Returns an error if the system is too close to
+// singular (smallest pivot magnitude below 1e-10).
+func solveLinear8(A [8][8]float64, b [8]float64) ([8]float64, error) {
+	const n = 8
+	// Forward elimination.
+	for col := range n {
+		// Partial pivot: find the row with the largest |A[row][col]|.
+		pivotRow := col
+		pivotAbs := math.Abs(A[col][col])
+		for row := col + 1; row < n; row++ {
+			if v := math.Abs(A[row][col]); v > pivotAbs {
+				pivotAbs = v
+				pivotRow = row
+			}
+		}
+		if pivotAbs < 1e-10 {
+			return [8]float64{}, fmt.Errorf("qrgen: solveLinear8: singular matrix (pivot |%g| at col %d)", pivotAbs, col)
+		}
+		if pivotRow != col {
+			A[col], A[pivotRow] = A[pivotRow], A[col]
+			b[col], b[pivotRow] = b[pivotRow], b[col]
+		}
+		// Eliminate below the pivot.
+		for row := col + 1; row < n; row++ {
+			factor := A[row][col] / A[col][col]
+			for c := col; c < n; c++ {
+				A[row][c] -= factor * A[col][c]
+			}
+			b[row] -= factor * b[col]
+		}
+	}
+	// Back-substitute.
+	var x [8]float64
+	for row := n - 1; row >= 0; row-- {
+		sum := b[row]
+		for c := row + 1; c < n; c++ {
+			sum -= A[row][c] * x[c]
+		}
+		x[row] = sum / A[row][row]
+	}
+	return x, nil
+}
+
+// estimateBottomRight returns the source-pixel coordinates of the bottom-right
+// matrix corner by completing the parallelogram defined by the three finder
+// centres. This is a coarse estimate that assumes the symbol is a rectangle
+// (no severe perspective distortion); D11 will refine it via the alignment
+// pattern for higher versions.
+func estimateBottomRight(tri finderTriple) (float64, float64) {
+	brX := tri.topRight.x + tri.bottomLeft.x - tri.topLeft.x
+	brY := tri.topRight.y + tri.bottomLeft.y - tri.topLeft.y
+	return brX, brY
+}
+
+// estimateVersion infers the QR version from the spacing between the top-left
+// and top-right finder centres and the per-finder module-size estimate.
+// Returns ErrInvalidVersion if the result is not in [1, 40].
+//
+// The finder centres are 4 modules from the edge each, so the distance
+// between TL and TR equals (n - 7) modules where n = 21 + 4·(v - 1).
+func estimateVersion(tri finderTriple) (Version, error) {
+	dx := tri.topRight.x - tri.topLeft.x
+	dy := tri.topRight.y - tri.topLeft.y
+	distance := math.Hypot(dx, dy)
+	avgModule := (tri.topLeft.moduleSize + tri.topRight.moduleSize + tri.bottomLeft.moduleSize) / 3.0
+	if avgModule <= 0 {
+		return 0, ErrInvalidVersion
+	}
+	modulesBetween := distance / avgModule
+	// modulesBetween ≈ n - 7 = 14 + 4·(v - 1) for v in [1, 40], so
+	// v = (modulesBetween − 14) / 4 + 1.
+	v := int(math.Round((modulesBetween-14)/4 + 1))
+	if v < int(MinVersion) || v > int(MaxVersion) {
+		return 0, ErrInvalidVersion
+	}
+	return Version(v), nil
+}
+
+// homographyFromFinders builds the homography for a QR symbol of the given
+// version using the three finder centres and the parallelogram-completed
+// bottom-right anchor. Module coordinates use (col, row) so (X, Y) in the
+// homography maps to (col, row); the four anchors are at module positions
+// (3, 3), (n-4, 3), (3, n-4) and (n-4, n-4).
+func homographyFromFinders(tri finderTriple, v Version) (homography, error) {
+	if !v.IsValid() {
+		return homography{}, ErrInvalidVersion
+	}
+	n := v.Size()
+	farMod := float64(n - 4)
+	brX, brY := estimateBottomRight(tri)
+
+	srcMod := [4][2]float64{
+		{3, 3},           // TL
+		{farMod, 3},      // TR
+		{3, farMod},      // BL
+		{farMod, farMod}, // BR (estimated)
+	}
+	dstPx := [4][2]float64{
+		{tri.topLeft.x, tri.topLeft.y},
+		{tri.topRight.x, tri.topRight.y},
+		{tri.bottomLeft.x, tri.bottomLeft.y},
+		{brX, brY},
+	}
+	return computeHomography(srcMod, dstPx)
 }
 
 // findFinders locates the three finder patterns in a binarised image and
