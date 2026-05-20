@@ -174,6 +174,81 @@ func TestRunInvalidECLevel(t *testing.T) {
 	}
 }
 
+func TestRunDecodeFromFile(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "qr.png")
+	// Encode a known payload to disk first via the library.
+	const want = "HELLO WORLD"
+	if err := qrgen.EncodeToFile(want, in); err != nil {
+		t.Fatalf("EncodeToFile: %v", err)
+	}
+	cfg := cliConfig{
+		decode: true,
+		in:     in,
+	}
+	var stdout bytes.Buffer
+	if err := run(cfg, strings.NewReader(""), &stdout); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	got := strings.TrimRight(stdout.String(), "\n")
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestRunDecodeFromStdin(t *testing.T) {
+	const want = "PIPE ME"
+	pngBytes, err := qrgen.Encode(want)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	cfg := cliConfig{decode: true}
+	var stdout bytes.Buffer
+	if err := run(cfg, bytes.NewReader(pngBytes), &stdout); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	got := strings.TrimRight(stdout.String(), "\n")
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestRunDecodeWritesOutputFile(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "qr.png")
+	out := filepath.Join(dir, "text.txt")
+	const want = "writes to file"
+	if err := qrgen.EncodeToFile(want, in); err != nil {
+		t.Fatalf("EncodeToFile: %v", err)
+	}
+	cfg := cliConfig{decode: true, in: in, out: out}
+	if err := run(cfg, strings.NewReader(""), &bytes.Buffer{}); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	got, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != want {
+		t.Errorf("file contents = %q, want %q", string(got), want)
+	}
+}
+
+func TestRunDecodeInvalidInput(t *testing.T) {
+	cfg := cliConfig{decode: true}
+	stdin := strings.NewReader("not a png")
+	if err := run(cfg, stdin, &bytes.Buffer{}); err == nil {
+		t.Error("expected error for non-image input, got nil")
+	}
+}
+
+func TestRunDecodeMissingFile(t *testing.T) {
+	cfg := cliConfig{decode: true, in: "/tmp/qrgen-test-does-not-exist.png"}
+	if err := run(cfg, strings.NewReader(""), &bytes.Buffer{}); err == nil {
+		t.Error("expected error for missing -in file, got nil")
+	}
+}
+
 func TestRunCustomColors(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "qr.png")

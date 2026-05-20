@@ -11,7 +11,7 @@
 //
 // Run with:
 //
-//	go run ./examples/styled
+//	go run ./examples/encode/styled
 package main
 
 import (

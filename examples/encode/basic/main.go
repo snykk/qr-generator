@@ -11,7 +11,7 @@
 //
 // Run with:
 //
-//	go run ./examples/basic
+//	go run ./examples/encode/basic
 //
 // then open qr.png and scan it with any phone camera.
 package main
