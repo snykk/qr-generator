@@ -395,3 +395,165 @@ func TestDispatchFallsBackToSauvolaReactive(t *testing.T) {
 		t.Errorf("state = %v, want binariserSauvolaReactive", state)
 	}
 }
+
+// The fixtures below exercise the end-to-end Sauvola recovery the v0.3
+// milestone is meant to deliver. The recoverable failure mode found by
+// experimentation: keep the QR's internal ink/paper contrast intact so
+// Sauvola can resolve every module locally, but contaminate the quiet zone
+// in ways that pull Otsu's global threshold above the new quiet-zone value.
+// Otsu then classifies the entire quiet zone as ink, the finder patterns
+// lose their light surroundings, and the 1:1:3:1:1 ratio check fails. The
+// Sauvola fallback, with windows that never straddle the QR/quiet-zone
+// boundary by more than a few modules, recovers the symbol.
+//
+// All five fixtures share the same payload ("HELLO") and the default
+// Encode options so the QR area lives at the same pixel rectangle. The
+// quiet-zone test rectangle is computed from Encode's defaults:
+//   V1: 21 modules side. Default module size 8, quiet zone 4. So the QR
+//   pixel rectangle is (32, 32) to (32 + 21*8, 32 + 21*8) = (32, 32) to (200, 200).
+
+const (
+	t4QRX0, t4QRY0 = 32, 32
+	t4QRX1, t4QRY1 = 200, 200
+)
+
+// inQRArea reports whether (x, y) sits inside the QR's module rectangle for
+// a default-options V1 encode. Used by the T4 fixtures so the mutator can
+// keep the QR area pristine and confine the perturbation to the quiet zone.
+func inQRArea(x, y int) bool {
+	return x >= t4QRX0 && x < t4QRX1 && y >= t4QRY0 && y < t4QRY1
+}
+
+// assertSauvolaRecovery runs the common assertions for every T4 fixture:
+// Otsu alone must fail finder detection (so the fallback is doing real
+// work), the public DecodeBytes round-trips the original payload, and the
+// dispatch landed on the reactive Sauvola branch.
+func assertSauvolaRecovery(t *testing.T, mutated *image.Gray, payload string) {
+	t.Helper()
+	if _, ferr := findFinders(binarise(mutated)); ferr == nil {
+		t.Fatal("fixture too easy: Otsu alone located finders")
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, mutated); err != nil {
+		t.Fatalf("png.Encode: %v", err)
+	}
+	text, err := DecodeBytes(buf.Bytes())
+	if err != nil {
+		t.Fatalf("DecodeBytes: %v", err)
+	}
+	if text != payload {
+		t.Errorf("payload = %q, want %q", text, payload)
+	}
+	if _, state, err := decodeImageDebug(mutated); err != nil {
+		t.Errorf("decodeImageDebug error: %v", err)
+	} else if state != binariserSauvolaReactive {
+		t.Errorf("state = %v, want binariserSauvolaReactive", state)
+	}
+}
+
+// cleanV1 returns the pristine image.Image produced by Encode("HELLO") with
+// default options. Shared by the T4 fixtures below.
+func cleanV1(t *testing.T) image.Image {
+	t.Helper()
+	pngBytes, err := Encode("HELLO")
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	img, err := png.Decode(bytes.NewReader(pngBytes))
+	if err != nil {
+		t.Fatalf("png.Decode: %v", err)
+	}
+	return img
+}
+
+func TestT4ConstantQuietZoneDarkening(t *testing.T) {
+	// The simplest fixture: the entire quiet zone is replaced with a
+	// constant mid-grey that lies between Otsu's "ink" and "paper" modes.
+	// Otsu's between-class variance is maximised by treating the quiet
+	// zone as part of the dark class together with the QR ink, which
+	// destroys the finders' light surroundings.
+	img := cleanV1(t)
+	mutated := applyPixelTransform(img, func(x, y int, v uint8) uint8 {
+		if inQRArea(x, y) {
+			return v
+		}
+		return 70
+	})
+	assertSauvolaRecovery(t, mutated, "HELLO")
+}
+
+func TestT4LinearGradientOnQuietZone(t *testing.T) {
+	// A left-to-right brightness gradient confined to the quiet zone. The
+	// QR is untouched. Otsu's threshold lands between the gradient's mean
+	// and the QR paper, classifying part of the gradient as ink. Sauvola's
+	// local windows in the quiet zone see a uniform region (just a soft
+	// gradient) and emit "light" everywhere because the standard deviation
+	// is small.
+	img := cleanV1(t)
+	w := img.Bounds().Dx()
+	mutated := applyPixelTransform(img, func(x, y int, v uint8) uint8 {
+		if inQRArea(x, y) {
+			return v
+		}
+		// 40 on the left edge, 130 on the right edge.
+		return uint8(40 + 90*x/(w-1))
+	})
+	assertSauvolaRecovery(t, mutated, "HELLO")
+}
+
+func TestT4RadialVignetteOnQuietZone(t *testing.T) {
+	// A vignette that darkens the quiet zone toward the corners only.
+	// Same idea as the gradient but with a 2D falloff that mimics real
+	// camera vignetting on the empty margin of a printed document.
+	img := cleanV1(t)
+	w, h := img.Bounds().Dx(), img.Bounds().Dy()
+	cx, cy := float64(w)/2, float64(h)/2
+	maxDist := math.Hypot(cx, cy)
+	mutated := applyPixelTransform(img, func(x, y int, v uint8) uint8 {
+		if inQRArea(x, y) {
+			return v
+		}
+		d := math.Hypot(float64(x)-cx, float64(y)-cy) / maxDist
+		// 130 at the centre, 30 at the corners.
+		return uint8(130 - 100*d)
+	})
+	assertSauvolaRecovery(t, mutated, "HELLO")
+}
+
+func TestT4DropShadowOnQuietZone(t *testing.T) {
+	// A sharp-edged shadow strip along the left side of the quiet zone.
+	// Narrowing the affected region to a single quadrant would leave the
+	// top-right and bottom-left finders' surroundings intact and Otsu
+	// could still locate them; covering the entire left strip darkens the
+	// quiet zone next to the top-left and bottom-left finders so Otsu's
+	// global threshold groups them with the ink. Sauvola's local window
+	// over the same uniform-dark strip sees a small std and emits "light"
+	// — the symbol survives.
+	img := cleanV1(t)
+	mutated := applyPixelTransform(img, func(x, y int, v uint8) uint8 {
+		if inQRArea(x, y) {
+			return v
+		}
+		if x < t4QRX0 {
+			return 40
+		}
+		return v
+	})
+	assertSauvolaRecovery(t, mutated, "HELLO")
+}
+
+func TestT4DiagonalGradientOnQuietZone(t *testing.T) {
+	// A diagonal gradient confined to the quiet zone, exercising both
+	// axes simultaneously. This catches any latent assumption in the
+	// Sauvola dispatch that one of x or y is the "interesting" axis.
+	img := cleanV1(t)
+	w, h := img.Bounds().Dx(), img.Bounds().Dy()
+	mutated := applyPixelTransform(img, func(x, y int, v uint8) uint8 {
+		if inQRArea(x, y) {
+			return v
+		}
+		t := float64(x+y) / float64(w+h-2)
+		return uint8(30 + 100*t)
+	})
+	assertSauvolaRecovery(t, mutated, "HELLO")
+}

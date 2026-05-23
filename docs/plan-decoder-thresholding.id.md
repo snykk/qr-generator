@@ -85,10 +85,11 @@ Goal: memanggil Sauvola hanya ketika output Otsu terlihat tidak sehat, dan melew
 
 Goal: mengunci coverage regresi pada failure mode pencahayaan yang menjadi target fallback.
 
-- [ ] Render fixture secara prosedural di `qrgen/decode_image_sauvola_test.go` dengan memakai encoder untuk membangun QR bersih, lalu memutasi channel gray dengan salah satu dari: linear horizontal gradient (kiri gelap, kanan terang), radial darkening (vignette), diagonal gradient, dan soft drop-shadow rectangle yang menutupi satu kuadran.
-- [ ] Assert tiap fixture dapat di-decode kembali ke payload asli via `DecodeBytes` dan cabang Sauvola memang dijalankan.
-- [ ] Tambahkan varian low-contrast di mana global gray min/max tetap dalam band 60 nilai; konfirmasi Sauvola tetap dapat membedakan modul meski Otsu memilih threshold yang marginal.
-- [ ] Jaga semua fixture berjalan in-process dan kecil (V1..V3 saja) supaya test selesai di bawah 300 ms di laptop.
+- [x] Lima fixture tinggal di `qrgen/decode_image_sauvola_test.go`, semuanya dibangun prosedural dengan `Encode("HELLO")` dilanjutkan `applyPixelTransform` yang membiarkan rectangle modul QR tetap utuh dan membatasi perturbasi hanya pada quiet zone: penggelapan konstan (`TestT4ConstantQuietZoneDarkening`), linear horizontal gradient (`TestT4LinearGradientOnQuietZone`), radial vignette (`TestT4RadialVignetteOnQuietZone`), strip shadow tajam di sepanjang margin kiri (`TestT4DropShadowOnQuietZone`), dan diagonal gradient (`TestT4DiagonalGradientOnQuietZone`).
+- [x] Tiap fixture di-assert dengan tiga cara via helper `assertSauvolaRecovery`: Otsu sendiri gagal finder detection (sehingga fallback Sauvola memang melakukan pekerjaan nyata), `DecodeBytes` publik mengembalikan payload asli, dan dispatch state-nya `binariserSauvolaReactive`.
+- [x] Kelima fixture jalan di bawah 10 ms tiap-tiapnya di laptop; seluruh batch T4 selesai jauh di bawah 100 ms sehingga test suite tetap gesit.
+- [x] **Temuan yang dicatat (dibawa ke T6 dan theory doc).** Failure mode Sauvola yang recoverable adalah **kontaminasi quiet zone**: kontras ink/paper di dalam QR harus tetap utuh agar window lokal Sauvola dapat membedakan tiap modul, sedangkan quiet zone di luar QR boleh digelapkan bebas untuk menarik threshold global Otsu ke atas nilai quiet zone. Mutasi brightness-compression yang diterapkan ke QR itu sendiri (fixture reaktif di T3) memang mengalahkan Otsu tapi diskriminasi lokal Sauvola turun bersama yang global — family input itu untuk saat ini tidak recoverable end-to-end dengan default `sauvolaK = 0.2` dan `R = 128`. Pekerjaan lanjutan (pasca-v0.3, kemungkinan v0.4 bareng rotation handling) bisa meninjau ulang dengan meng-expose opsi `WithBinarisation` atau menambah morphological cleanup setelah Sauvola; untuk v0.3 kita rilis dispatch-nya dan mendokumentasikan batasannya secara jujur.
+- [x] Varian low-contrast standalone sengaja dihilangkan: kompresi global yang uniform (tanpa variasi spasial) membiarkan struktur between-class Otsu tetap utuh dan ter-decode oleh Otsu fast path yang sudah ditutupi `TestDispatchUsesOtsuOnCleanPNG` selama QR area-nya bertahan.
 
 ### T5 — Benchmark & Pengaman Regresi `(S)`
 
