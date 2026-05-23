@@ -59,13 +59,14 @@ Goal: cover the new algorithm and the fallback heuristic in `docs/theory/` befor
 
 ### T2 — Sauvola Binariser `(M)`
 
-Goal: a `sauvolaBinarise(src *image.Gray) *bitmap` that returns the same `bitmap` shape produced by the existing `binarise`.
+Goal: a `sauvolaBinarise(img image.Image) *bitmap` that returns the same `bitmap` shape produced by the existing `binarise`. Lives in `qrgen/decode_image_sauvola.go`.
 
-- [ ] Build two integral images: `sum[y][x]` for pixel values and `sum2[y][x]` for squared values, both `[]uint64` flattened row-major to keep allocation count low.
-- [ ] Query helper `windowMeanStd(x, y, w)` that returns `(mean, std)` for the centred window `w x w`, clipped at the image bounds.
-- [ ] Apply the Sauvola formula per pixel and emit `bool` into the same `bitmap` struct used by Otsu.
-- [ ] Mirror Otsu's `p <= t` convention so finder detection downstream stays unchanged.
-- [ ] Tests: gradient image where Otsu picks one half black and one half white but Sauvola correctly resolves both halves; constant-grey image where Sauvola should fall back to "all light" without spurious noise; bounds clipping at corners; small images smaller than the window.
+- [x] Build two integral images: `sum` for pixel values and `sum2` for squared values, both flattened `[]uint64` of size `(w+1) * (h+1)` so corner-arithmetic queries do not need bounds checks. The running-row-sum recurrence keeps the build to one linear pass.
+- [x] Query helper `windowMeanStd(sum, sum2, w, h, x, y, half)` that returns `(mean, std)` for the centred window of half-extent `half`, clipped at the image bounds; guards against tiny negative variances from float rounding.
+- [x] Apply the Sauvola formula per pixel and emit `bool` into the same `bitmap` struct used by Otsu. Constants `sauvolaWindow = 25`, `sauvolaK = 0.2`, `sauvolaR = 128.0` are unexported package-level values.
+- [x] Mirror Otsu's `p <= t` convention so finder detection downstream stays unchanged.
+- [x] Split `sauvolaBinariseFromGray` out from `sauvolaBinarise` so the T3 dispatch can reuse the grayscale buffer the Otsu pass already computed without re-walking the image.
+- [x] Tests in `qrgen/decode_image_sauvola_test.go`: hand-checked integral-image values on a 3x2 fixture; `windowMeanStd` cross-validated against a naive O(w^2) reference over a 12x10 pseudo-random buffer for several half-extents; uniform image stays all-light (the property the proactive gate at T3 will lean on); two-illumination-region fixture where Sauvola classifies every ink and paper sample point correctly AND the same fixture proves Otsu fails in at least one direction so the test cannot pass vacuously; image smaller than the window does not panic; zero-sized image returns an empty bitmap.
 
 ### T3 — Fallback Heuristic in `decodeImage` `(S)`
 
@@ -83,7 +84,7 @@ Goal: invoke Sauvola only when Otsu's output looks unhealthy, and skip Otsu's bi
 
 Goal: lock in regression coverage across the lighting failure modes the fallback was designed for.
 
-- [ ] Render fixtures procedurally inside `qrgen/decode_thresholding_test.go` using the encoder to build a clean QR, then mutate the gray channel with one of: linear horizontal gradient (left dark, right bright), radial darkening (vignette), diagonal gradient, and a soft drop-shadow rectangle covering one quadrant.
+- [ ] Render fixtures procedurally inside `qrgen/decode_image_sauvola_test.go` using the encoder to build a clean QR, then mutate the gray channel with one of: linear horizontal gradient (left dark, right bright), radial darkening (vignette), diagonal gradient, and a soft drop-shadow rectangle covering one quadrant.
 - [ ] Assert each fixture decodes back to the original payload via `DecodeBytes` and that the Sauvola branch was hit.
 - [ ] Add a low-contrast variant where global grey min/max stay within a 60-value band; confirm Sauvola still resolves modules even when Otsu picks a marginal threshold.
 - [ ] Keep all fixtures in-process and small (V1..V3 only) so the test stays under 300 ms on a laptop.
@@ -115,7 +116,7 @@ All new code lands inside `qrgen/` next to the existing decoder image stage. No 
 qrgen/
 ├── decode_image.go              # existing — gains the Otsu-or-Sauvola dispatch
 ├── decode_image_sauvola.go      # new — sauvolaBinarise + integral image helpers
-├── decode_thresholding_test.go  # new — Sauvola unit tests + fallback integration tests
+├── decode_image_sauvola_test.go # new — Sauvola unit tests + fallback integration tests
 └── decode_bench_test.go         # existing — gains BenchmarkDecodeImageSauvolaFallback
 docs/
 ├── plan-decoder-thresholding.md     # this file

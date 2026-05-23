@@ -59,13 +59,14 @@ Goal: menutup algoritma baru dan heuristik fallback di `docs/theory/` sebelum ko
 
 ### T2 — Binariser Sauvola `(M)`
 
-Goal: `sauvolaBinarise(src *image.Gray) *bitmap` yang mengembalikan bentuk `bitmap` yang sama dengan `binarise` yang sudah ada.
+Goal: `sauvolaBinarise(img image.Image) *bitmap` yang mengembalikan bentuk `bitmap` yang sama dengan `binarise` yang sudah ada. Tinggal di `qrgen/decode_image_sauvola.go`.
 
-- [ ] Bangun dua integral image: `sum[y][x]` untuk nilai pixel dan `sum2[y][x]` untuk nilai kuadratnya, keduanya `[]uint64` flattened row-major supaya jumlah alokasi tetap rendah.
-- [ ] Helper query `windowMeanStd(x, y, w)` yang mengembalikan `(mean, std)` untuk window `w x w` yang berpusat di titik tersebut, di-clip pada batas image.
-- [ ] Terapkan formula Sauvola per pixel dan emit `bool` ke dalam struct `bitmap` yang sama dengan yang digunakan Otsu.
-- [ ] Cocokkan konvensi `p <= t` milik Otsu supaya finder detection di hilir tidak berubah.
-- [ ] Tes: image gradient di mana Otsu memilih satu sisi hitam dan sisi lain putih namun Sauvola benar membedakan kedua sisinya; image abu-abu konstan di mana Sauvola mestinya fall back ke "all light" tanpa noise palsu; clipping di sudut; image kecil yang lebih kecil dari window.
+- [x] Bangun dua integral image: `sum` untuk nilai pixel dan `sum2` untuk nilai kuadratnya, keduanya `[]uint64` flattened berukuran `(w+1) * (h+1)` supaya query corner-arithmetic tidak butuh bounds check. Rekurensi running-row-sum menjaga build tetap satu pass linear.
+- [x] Helper query `windowMeanStd(sum, sum2, w, h, x, y, half)` yang mengembalikan `(mean, std)` untuk window berpusat dengan half-extent `half`, di-clip pada batas image; menjaga terhadap variance negatif kecil dari floating-point rounding.
+- [x] Terapkan formula Sauvola per pixel dan emit `bool` ke dalam struct `bitmap` yang sama dengan yang digunakan Otsu. Konstanta `sauvolaWindow = 25`, `sauvolaK = 0.2`, `sauvolaR = 128.0` berupa value package-level yang tidak di-export.
+- [x] Cocokkan konvensi `p <= t` milik Otsu supaya finder detection di hilir tidak berubah.
+- [x] Pecah `sauvolaBinariseFromGray` keluar dari `sauvolaBinarise` supaya dispatch T3 dapat memakai ulang buffer grayscale yang sudah dihitung pass Otsu tanpa walk image ulang.
+- [x] Tes di `qrgen/decode_image_sauvola_test.go`: nilai integral image yang dicek manual pada fixture 3x2; `windowMeanStd` di-cross-validate terhadap referensi naif O(w^2) di atas buffer 12x10 pseudo-random untuk beberapa half-extent; image uniform tetap all-light (property yang akan disandari gate proaktif di T3); fixture dua-region pencahayaan di mana Sauvola mengklasifikasi semua titik sample ink dan paper dengan benar DAN fixture yang sama membuktikan Otsu gagal di setidaknya satu arah sehingga test tidak dapat lulus sia-sia; image yang lebih kecil dari window tidak panic; image berukuran nol mengembalikan bitmap kosong.
 
 ### T3 — Heuristik Fallback di `decodeImage` `(S)`
 
@@ -83,7 +84,7 @@ Goal: memanggil Sauvola hanya ketika output Otsu terlihat tidak sehat, dan melew
 
 Goal: mengunci coverage regresi pada failure mode pencahayaan yang menjadi target fallback.
 
-- [ ] Render fixture secara prosedural di `qrgen/decode_thresholding_test.go` dengan memakai encoder untuk membangun QR bersih, lalu memutasi channel gray dengan salah satu dari: linear horizontal gradient (kiri gelap, kanan terang), radial darkening (vignette), diagonal gradient, dan soft drop-shadow rectangle yang menutupi satu kuadran.
+- [ ] Render fixture secara prosedural di `qrgen/decode_image_sauvola_test.go` dengan memakai encoder untuk membangun QR bersih, lalu memutasi channel gray dengan salah satu dari: linear horizontal gradient (kiri gelap, kanan terang), radial darkening (vignette), diagonal gradient, dan soft drop-shadow rectangle yang menutupi satu kuadran.
 - [ ] Assert tiap fixture dapat di-decode kembali ke payload asli via `DecodeBytes` dan cabang Sauvola memang dijalankan.
 - [ ] Tambahkan varian low-contrast di mana global gray min/max tetap dalam band 60 nilai; konfirmasi Sauvola tetap dapat membedakan modul meski Otsu memilih threshold yang marginal.
 - [ ] Jaga semua fixture berjalan in-process dan kecil (V1..V3 saja) supaya test selesai di bawah 300 ms di laptop.
@@ -115,7 +116,7 @@ Semua kode baru mendarat di dalam `qrgen/` di samping image stage decoder yang s
 qrgen/
 ├── decode_image.go              # eksisting — mendapat dispatch Otsu-atau-Sauvola
 ├── decode_image_sauvola.go      # baru — sauvolaBinarise + helper integral image
-├── decode_thresholding_test.go  # baru — unit test Sauvola + integration test fallback
+├── decode_image_sauvola_test.go # baru — unit test Sauvola + integration test fallback
 └── decode_bench_test.go         # eksisting — mendapat BenchmarkDecodeImageSauvolaFallback
 docs/
 ├── plan-decoder-thresholding.md     # file ini (versi Inggris)
