@@ -24,6 +24,42 @@ const (
 	sauvolaR      = 128.0 // dynamic-range normaliser for 8-bit images
 )
 
+// Dispatch tuning for the Otsu-or-Sauvola gate used by decodeImage. The
+// proactive bimodality gate (etaMin) and reactive foreground-ratio band
+// (foregroundLo, foregroundHi) are documented in
+// docs/theory/14-adaptive-thresholding.md §6.
+const (
+	etaMin       = 0.5
+	foregroundLo = 0.05
+	foregroundHi = 0.95
+)
+
+// binariserUsedState records which branch of the Otsu-or-Sauvola dispatch in
+// decodeImage actually produced the bitmap that finder detection ran on. The
+// production decodeImage entry point throws this away; decodeImageDebug
+// returns it so package-internal tests can assert the dispatch behaviour
+// without exposing any of this on the public API.
+type binariserUsedState int
+
+const (
+	binariserOtsu binariserUsedState = iota
+	binariserSauvolaProactive
+	binariserSauvolaReactive
+)
+
+func (s binariserUsedState) String() string {
+	switch s {
+	case binariserOtsu:
+		return "otsu"
+	case binariserSauvolaProactive:
+		return "sauvola-proactive"
+	case binariserSauvolaReactive:
+		return "sauvola-reactive"
+	default:
+		return "unknown"
+	}
+}
+
 // sauvolaBinarise applies the Sauvola local adaptive thresholding algorithm
 // to img and returns a bitmap with the same p <= t foreground convention used
 // by binarise. The implementation uses two integral images (sum and sum of

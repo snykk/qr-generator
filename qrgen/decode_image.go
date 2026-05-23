@@ -56,23 +56,35 @@ func imageToGrayscale(img image.Image) (pixels []uint8, width, height int) {
 }
 
 // otsuThreshold picks the binarisation threshold that maximises between-class
-// variance for the given luminance pixels. Standard Otsu's method per
-// docs/theory/12-image-processing.md §2; returns 128 as a safe default when
-// the histogram is degenerate (all pixels share one value).
-func otsuThreshold(pixels []uint8) uint8 {
+// variance for the given luminance pixels and returns it together with the
+// separability ratio η = σ²_B / σ²_T ∈ [0, 1] that Otsu's original paper uses
+// as a "goodness of threshold" measure. Standard Otsu's method per
+// docs/theory/12-image-processing.md §2; η is the Stage 1 gate documented in
+// docs/theory/14-adaptive-thresholding.md §6. Returns 128 and 0 when the
+// histogram is degenerate (all pixels share one value); η = 0 also kicks in
+// for empty inputs and for histograms with zero total variance, both of
+// which signal an unimodal distribution that the dispatch in decodeImage
+// will route to Sauvola.
+func otsuThreshold(pixels []uint8) (uint8, float64) {
 	var hist [256]int
 	for _, p := range pixels {
 		hist[p]++
 	}
 	total := len(pixels)
 	if total == 0 {
-		return 128
+		return 128, 0
 	}
 
-	var sumAll float64
+	var sumAll, sumAllSq float64
 	for i, c := range hist {
-		sumAll += float64(i) * float64(c)
+		fi := float64(i)
+		fc := float64(c)
+		sumAll += fi * fc
+		sumAllSq += fi * fi * fc
 	}
+	// N² · σ²_T = N · Σ(i² · hist[i]) − (Σ(i · hist[i]))²
+	n := float64(total)
+	denom := n*sumAllSq - sumAll*sumAll
 
 	var sumBg float64
 	wBg := 0
@@ -97,7 +109,25 @@ func otsuThreshold(pixels []uint8) uint8 {
 			bestT = uint8(t)
 		}
 	}
-	return bestT
+	// bestVariance is N² · σ²_B, so dividing by N² · σ²_T cancels the N²
+	// without ever having to materialise σ²_B or σ²_T separately.
+	var eta float64
+	if denom > 0 {
+		eta = bestVariance / denom
+	}
+	return bestT, eta
+}
+
+// otsuBinariseFromGray applies a precomputed Otsu threshold to a flat
+// grayscale buffer and returns a bitmap. Split out from binarise so the
+// dispatch in decodeImage can run Otsu and Sauvola off the same grayscale
+// pass without re-walking the image.
+func otsuBinariseFromGray(pixels []uint8, w, h int, t uint8) *bitmap {
+	bm := &bitmap{width: w, height: h, pixels: make([]bool, w*h)}
+	for i, p := range pixels {
+		bm.pixels[i] = p <= t
+	}
+	return bm
 }
 
 // binarise converts an image to a bitmap by computing the Otsu threshold and
@@ -110,12 +140,24 @@ func otsuThreshold(pixels []uint8) uint8 {
 // See docs/theory/12-image-processing.md §1–2.
 func binarise(img image.Image) *bitmap {
 	pixels, w, h := imageToGrayscale(img)
-	t := otsuThreshold(pixels)
-	bm := &bitmap{width: w, height: h, pixels: make([]bool, w*h)}
-	for i, p := range pixels {
-		bm.pixels[i] = p <= t
+	t, _ := otsuThreshold(pixels)
+	return otsuBinariseFromGray(pixels, w, h, t)
+}
+
+// foregroundRatio returns the fraction of dark pixels in the bitmap. Used by
+// the dispatch in decodeImage as the post-check that catches degenerate
+// single-class output from Otsu before declaring ErrFinderNotFound.
+func foregroundRatio(bm *bitmap) float64 {
+	if len(bm.pixels) == 0 {
+		return 0
 	}
-	return bm
+	var dark int
+	for _, p := range bm.pixels {
+		if p {
+			dark++
+		}
+	}
+	return float64(dark) / float64(len(bm.pixels))
 }
 
 // finderCandidate is the (x, y) centre and estimated module pitch of a
@@ -647,27 +689,67 @@ func sampleMatrix(bm *bitmap, h homography, n int) [][]bool {
 	return grid
 }
 
-// decodeImage runs the full image-side pipeline (D8..D12): binarise the
-// image, locate the three finder patterns, estimate the version from the
-// finder spacing, build and refine the perspective transform, and finally
-// sample the boolean module grid that DecodeMatrix can consume.
+// decodeImage runs the full image-side pipeline (D8..D12) and dispatches the
+// binarisation stage between Otsu (fast path) and Sauvola (adaptive
+// fallback) per docs/theory/14-adaptive-thresholding.md §6. The production
+// entry point discards which branch ran; decodeImageDebug exposes it for
+// package-internal tests.
 func decodeImage(img image.Image) (string, error) {
-	bm := binarise(img)
-	tri, err := findFinders(bm)
-	if err != nil {
-		return "", err
+	text, _, err := decodeImageDebug(img)
+	return text, err
+}
+
+// decodeImageDebug is the package-internal sibling of decodeImage that also
+// returns the binariser branch that finder detection eventually succeeded
+// on. Tests in the qrgen package use this to assert dispatch behaviour; the
+// state is never exposed to external callers.
+func decodeImageDebug(img image.Image) (string, binariserUsedState, error) {
+	pixels, w, h := imageToGrayscale(img)
+	t, eta := otsuThreshold(pixels)
+
+	// Stage 1: the proactive bimodality gate. A unimodal histogram (η below
+	// the cutoff) cannot give a meaningful global threshold, so we skip the
+	// Otsu binarisation entirely and let Sauvola handle the image. This
+	// saves one finder-detection pass over the obviously bad Otsu output.
+	var bm *bitmap
+	state := binariserOtsu
+	if eta < etaMin {
+		bm = sauvolaBinariseFromGray(pixels, w, h)
+		state = binariserSauvolaProactive
+	} else {
+		bm = otsuBinariseFromGray(pixels, w, h, t)
 	}
+
+	tri, err := findFinders(bm)
+	fgRatio := foregroundRatio(bm)
+	unhealthy := err != nil || fgRatio < foregroundLo || fgRatio > foregroundHi
+
+	// Stage 2: reactive fallback. If Otsu's binarisation gave a degenerate
+	// foreground ratio or finder detection failed despite a healthy ratio,
+	// rebinarise with Sauvola and retry. Proactive Sauvola has no further
+	// fallback by design: if Sauvola already failed on a unimodal histogram,
+	// Otsu cannot do better.
+	if unhealthy && state == binariserOtsu {
+		bm = sauvolaBinariseFromGray(pixels, w, h)
+		state = binariserSauvolaReactive
+		tri, err = findFinders(bm)
+	}
+	if err != nil {
+		return "", state, err
+	}
+
 	v, err := estimateVersion(tri)
 	if err != nil {
-		return "", err
+		return "", state, err
 	}
-	h, err := homographyFromFinders(tri, v)
+	hg, err := homographyFromFinders(tri, v)
 	if err != nil {
-		return "", err
+		return "", state, err
 	}
-	h = refineHomography(bm, h, tri, v)
-	grid := sampleMatrix(bm, h, v.Size())
-	return DecodeMatrix(grid)
+	hg = refineHomography(bm, hg, tri, v)
+	grid := sampleMatrix(bm, hg, v.Size())
+	text, err := DecodeMatrix(grid)
+	return text, state, err
 }
 
 // findFinders locates the three finder patterns in a binarised image and

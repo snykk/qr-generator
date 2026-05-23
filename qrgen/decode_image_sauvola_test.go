@@ -9,7 +9,10 @@
 package qrgen
 
 import (
+	"bytes"
 	"image"
+	"image/color"
+	"image/png"
 	"math"
 	"testing"
 )
@@ -236,5 +239,159 @@ func TestSauvolaZeroSizedImage(t *testing.T) {
 	}
 	if len(bm.pixels) != 0 {
 		t.Fatalf("pixels len = %d, want 0", len(bm.pixels))
+	}
+}
+
+func TestOtsuEtaIsZeroForUniform(t *testing.T) {
+	// A flat-grey image has no between-class variance to maximise and zero
+	// total variance to normalise by. The dispatch reads η = 0 here as the
+	// signal to skip Otsu and let Sauvola take over.
+	pixels := make([]uint8, 256)
+	for i := range pixels {
+		pixels[i] = 200
+	}
+	t_, eta := otsuThreshold(pixels)
+	if eta != 0 {
+		t.Errorf("eta for uniform = %g, want 0", eta)
+	}
+	if t_ != 128 {
+		t.Errorf("threshold fallback = %d, want 128", t_)
+	}
+}
+
+func TestForegroundRatio(t *testing.T) {
+	bm := &bitmap{width: 10, height: 10, pixels: make([]bool, 100)}
+	if got := foregroundRatio(bm); got != 0 {
+		t.Errorf("all-light ratio = %g, want 0", got)
+	}
+	for i := range 25 {
+		bm.pixels[i] = true
+	}
+	if got := foregroundRatio(bm); got != 0.25 {
+		t.Errorf("25/100 ratio = %g, want 0.25", got)
+	}
+	empty := &bitmap{}
+	if got := foregroundRatio(empty); got != 0 {
+		t.Errorf("empty bitmap ratio = %g, want 0", got)
+	}
+}
+
+// applyPixelTransform maps img to an image.Gray with each pixel rewritten by
+// fn(x, y, originalGray). Used by the dispatch tests below to mutate a clean
+// QR PNG into the failure modes Sauvola is supposed to rescue.
+func applyPixelTransform(img image.Image, fn func(x, y int, v uint8) uint8) *image.Gray {
+	bounds := img.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+	out := image.NewGray(image.Rect(0, 0, w, h))
+	for y := range h {
+		for x := range w {
+			c := color.GrayModel.Convert(img.At(bounds.Min.X+x, bounds.Min.Y+y)).(color.Gray)
+			out.Pix[y*out.Stride+x] = fn(x, y, c.Y)
+		}
+	}
+	return out
+}
+
+func TestDispatchUsesOtsuOnCleanPNG(t *testing.T) {
+	const payload = "HELLO"
+	pngBytes, err := Encode(payload)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	img, err := png.Decode(bytes.NewReader(pngBytes))
+	if err != nil {
+		t.Fatalf("png.Decode: %v", err)
+	}
+	text, state, err := decodeImageDebug(img)
+	if err != nil {
+		t.Fatalf("decodeImageDebug: %v", err)
+	}
+	if text != payload {
+		t.Errorf("payload = %q, want %q", text, payload)
+	}
+	if state != binariserOtsu {
+		t.Errorf("state = %v, want binariserOtsu", state)
+	}
+}
+
+func TestDispatchUsesSauvolaProactiveOnMonochrome(t *testing.T) {
+	// The textbook lower bound for Otsu's separability η on a non-degenerate
+	// distribution is around 0.64 (Gaussian) or 0.75 (uniform); η genuinely
+	// drops below the etaMin gate only when the input collapses to a single
+	// delta-like peak. A monochrome image is the canonical case — it
+	// triggers the "total variance is zero" branch where we return η = 0 by
+	// convention. This regression-tests that the dispatch then skips Otsu's
+	// binarisation pass and lands on Sauvola.
+	//
+	// A QR is intentionally absent. The decode is expected to fail; what
+	// matters is the binariser state on the failure path.
+	const w, h = 80, 80
+	img := image.NewGray(image.Rect(0, 0, w, h))
+	for i := range img.Pix {
+		img.Pix[i] = 128
+	}
+	pixels, _, _ := imageToGrayscale(img)
+	if _, eta := otsuThreshold(pixels); eta >= etaMin {
+		t.Fatalf("fixture eta = %g, expected < %g so the proactive gate fires", eta, etaMin)
+	}
+	_, state, err := decodeImageDebug(img)
+	if err == nil {
+		t.Fatal("expected decode failure on a fixture with no QR")
+	}
+	if state != binariserSauvolaProactive {
+		t.Errorf("state = %v, want binariserSauvolaProactive", state)
+	}
+}
+
+func TestDispatchFallsBackToSauvolaReactive(t *testing.T) {
+	// Mutate a clean QR with a brightness compression that shifts both ink
+	// and paper upward across x, so the right-side ink ends up brighter
+	// than the left-side paper. No single Otsu threshold can separate ink
+	// from paper any more, but the histogram is still bimodal enough that
+	// η stays above etaMin and the proactive gate does not fire. The
+	// dispatch must therefore run Otsu first, notice that finder detection
+	// fails on its output, and fall back to Sauvola.
+	//
+	// This test asserts the dispatch transitioned to binariserSauvolaReactive
+	// and nothing more; the question of whether Sauvola itself can fully
+	// recover this particular fixture is a T4 concern (T4 will add a
+	// curated synthetic suite that the decoder can round-trip).
+	pngBytes, err := Encode("HELLO")
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	clean, err := png.Decode(bytes.NewReader(pngBytes))
+	if err != nil {
+		t.Fatalf("png.Decode: %v", err)
+	}
+	w := clean.Bounds().Dx()
+	mutated := applyPixelTransform(clean, func(x, _ int, v uint8) uint8 {
+		const slope = 110.0 / 255.0
+		offset := 30.0 + 120.0*float64(x)/float64(w-1)
+		out := slope*float64(v) + offset
+		if out < 0 {
+			out = 0
+		}
+		if out > 255 {
+			out = 255
+		}
+		return uint8(out)
+	})
+
+	// Confirm Otsu alone really fails on this fixture; otherwise the Sauvola
+	// fallback assertion would be vacuous.
+	if _, ferr := findFinders(binarise(mutated)); ferr == nil {
+		t.Fatal("fixture too easy: Otsu alone located finders, so the reactive-state assertion below would not prove a fallback happened")
+	}
+	// Confirm the proactive gate stays open — i.e. η ≥ etaMin — so the
+	// reactive path is the one that fires, not the proactive one.
+	pixels, _, _ := imageToGrayscale(mutated)
+	if _, eta := otsuThreshold(pixels); eta < etaMin {
+		t.Fatalf("fixture eta = %g < %g; reactive branch would never run", eta, etaMin)
+	}
+
+	_, state, _ := decodeImageDebug(mutated)
+	if state != binariserSauvolaReactive {
+		t.Errorf("state = %v, want binariserSauvolaReactive", state)
 	}
 }
