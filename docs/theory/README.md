@@ -21,6 +21,10 @@ This folder contains the literature review and theoretical foundation for the `q
 12. [Image Processing](12-image-processing.md) — grayscale, Otsu binarisation, finder-pattern scanning, homography, module sampling.
 13. [Decoder Pipeline](13-decoder-pipeline.md) — end-to-end stage diagram, what each stage can fail on, and the error-handling philosophy.
 
+### Decoder robustness (v0.3.0)
+
+14. [Adaptive Thresholding](14-adaptive-thresholding.md) — Otsu's failure modes on uneven lighting, Sauvola's formula and parameters, integral images for O(1) window queries, and the proactive-bimodality plus reactive-post-check dispatch that decides which binariser runs.
+
 ## Primary references
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* The normative source.
@@ -53,5 +57,6 @@ Additional references appear at the end of each document.
 | 11-rs-decoding.md                   | `qrgen/rs_decode.go` (planned, D3)            |
 | 12-image-processing.md              | `qrgen/decode_image.go` (planned, D8–D12)     |
 | 13-decoder-pipeline.md              | `qrgen/decode.go` (planned, D7 + D12)         |
+| 14-adaptive-thresholding.md         | `qrgen/decode_image_sauvola.go` (planned, T2 + T3) |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.

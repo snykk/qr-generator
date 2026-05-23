@@ -53,9 +53,9 @@ Milestones land sequentially. **Checkpoint A** (after T3) gives a working Sauvol
 
 Goal: cover the new algorithm and the fallback heuristic in `docs/theory/` before any code lands.
 
-- [ ] `docs/theory/14-adaptive-thresholding.md` — Otsu recap and failure modes (gradient, shadow, low contrast), Niblack as Sauvola's ancestor, Sauvola's formula `T(x, y) = mean(x, y) * (1 + k * (std(x, y) / R - 1))` with the standard `R = 128`, `k = 0.2`, `w = 25` window defaults, integral-image construction for O(1) window queries, and a comparison table vs Niblack / Bernsen / Adaptive Gaussian explaining why Sauvola wins for documents and printed material like QR symbols.
-- [ ] Indonesian counterpart `docs/theory/14-adaptive-thresholding.id.md`.
-- [ ] Update `docs/theory/README.md` and `docs/theory/README.id.md` to add entry 14 with a one-line summary; place it under a new subsection "Decoder robustness (v0.3.0)".
+- [x] `docs/theory/14-adaptive-thresholding.md` — Otsu recap and failure modes (gradient, shadow, low contrast), Niblack as Sauvola's ancestor, Sauvola's formula `T(x, y) = mean(x, y) * (1 + k * (std(x, y) / R - 1))` with the standard `R = 128`, `k = 0.2`, `w = 25` window defaults, integral-image construction for O(1) window queries, and a comparison table vs Niblack / Bernsen / Adaptive Gaussian explaining why Sauvola wins for documents and printed material like QR symbols. Also documents the runtime two-stage dispatch (proactive bimodality `η < η_min` plus reactive post-check) so the implementation milestones T2 and T3 only need to point at named sections.
+- [x] Indonesian counterpart `docs/theory/14-adaptive-thresholding.id.md`.
+- [x] Update `docs/theory/README.md` and `docs/theory/README.id.md` to add entry 14 with a one-line summary under a new subsection "Decoder robustness (v0.3.0)", plus a row in the "How these notes relate to the code" table pointing at `qrgen/decode_image_sauvola.go` (planned, T2 + T3).
 
 ### T2 — Sauvola Binariser `(M)`
 

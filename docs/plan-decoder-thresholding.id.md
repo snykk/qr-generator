@@ -53,9 +53,9 @@ Milestone dikerjakan berurutan. **Checkpoint A** (setelah T3) memberi fallback S
 
 Goal: menutup algoritma baru dan heuristik fallback di `docs/theory/` sebelum kode apa pun mendarat.
 
-- [ ] `docs/theory/14-adaptive-thresholding.md` — recap Otsu beserta failure mode-nya (gradient, shadow, low contrast), Niblack sebagai pendahulu Sauvola, formula Sauvola `T(x, y) = mean(x, y) * (1 + k * (std(x, y) / R - 1))` dengan default standar `R = 128`, `k = 0.2`, `w = 25`, konstruksi integral image untuk window query O(1), dan tabel perbandingan vs Niblack / Bernsen / Adaptive Gaussian yang menjelaskan kenapa Sauvola unggul untuk dokumen dan material cetak seperti simbol QR.
-- [ ] Versi Indonesia `docs/theory/14-adaptive-thresholding.id.md`.
-- [ ] Update `docs/theory/README.md` dan `docs/theory/README.id.md` untuk menambah entry 14 dengan ringkasan satu baris; letakkan di subsection baru "Decoder robustness (v0.3.0)".
+- [x] `docs/theory/14-adaptive-thresholding.md` — recap Otsu beserta failure mode-nya (gradient, shadow, low contrast), Niblack sebagai pendahulu Sauvola, formula Sauvola `T(x, y) = mean(x, y) * (1 + k * (std(x, y) / R - 1))` dengan default standar `R = 128`, `k = 0.2`, `w = 25`, konstruksi integral image untuk window query O(1), dan tabel perbandingan vs Niblack / Bernsen / Adaptive Gaussian yang menjelaskan kenapa Sauvola unggul untuk dokumen dan material cetak seperti simbol QR. Juga mendokumentasikan dispatch runtime dua-stage (gate bimodality proaktif `η < η_min` plus post-check reaktif) sehingga milestone implementasi T2 dan T3 hanya perlu merujuk ke section bernama.
+- [x] Versi Indonesia `docs/theory/14-adaptive-thresholding.id.md`.
+- [x] Update `docs/theory/README.md` dan `docs/theory/README.id.md` untuk menambah entry 14 dengan ringkasan satu baris di subsection baru "Decoder robustness (v0.3.0)", plus satu baris di tabel "Hubungan dengan kode" yang merujuk ke `qrgen/decode_image_sauvola.go` (direncanakan, T2 + T3).
 
 ### T2 — Binariser Sauvola `(M)`
 
