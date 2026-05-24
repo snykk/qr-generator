@@ -51,9 +51,9 @@ Milestone dikerjakan berurutan. **Checkpoint A** (setelah R2) memberi finder ord
 
 Goal: menutupi geometri dan algoritma di `docs/theory/` sebelum kode apa pun mendarat.
 
-- [ ] `docs/theory/15-rotation-handling.md` — Kenapa `orderFinderTriple` yang ada gagal untuk simbol ter-rotasi (shortcut `tr.y > bl.y`), kenapa "vertex berlawanan dengan sisi terpanjang" sudah mengunci top-left di rotasi apa pun, identitas handedness cross-product `(TR - TL) x (BL - TL) > 0` dan analisis sign yang dikerjakan di 0 / 90 / 180 / 270 derajat di koordinat image (dengan `y` tumbuh ke bawah), kenapa identitas yang sama menolak simbol mirror dengan bersih, dan sketsa bukti pendek bahwa tahap homography menyerap rotasi setelah label-nya benar.
-- [ ] Versi Indonesia `docs/theory/15-rotation-handling.id.md`.
-- [ ] Update `docs/theory/README.md` dan `docs/theory/README.id.md` untuk menambah entry 15 dengan ringkasan satu baris di subsection baru "Decoder robustness (v0.4.0)", plus satu baris di tabel "Hubungan dengan kode" yang merujuk ke `qrgen/decode_image.go` (lingkungan `orderFinderTriple`).
+- [x] `docs/theory/15-rotation-handling.md` — menelusuri di mana asumsi tegak tinggal di tiap tahap image-pipeline v0.3 (hanya `orderFinderTriple` yang patah karena rotasi), kenapa "vertex berlawanan dengan sisi terpanjang" sudah mengunci top-left di rotasi apa pun, identitas handedness cross-product `(TR - TL) x (BL - TL) > 0` dengan tabel empat-baris yang dikerjakan di 0 / 90 / 180 / 270 derajat di koordinat image (dengan `y` tumbuh ke bawah), catatan jujur tentang simbol mirror (algoritma mengasumsikan input tidak-mirror dan BCH / Reed-Solomon di hilir menangkap mirror yang tidak sengaja sebagai kegagalan kentara alih-alih meng-kabel sentinel khusus), sketsa bukti dekomposisi homography, dan boundary cakupan 30 derajat yang diturunkan dari drift `cos(theta)` terhadap toleransi ±50% milik `fitsFinderRatio`.
+- [x] Versi Indonesia `docs/theory/15-rotation-handling.id.md`.
+- [x] Update `docs/theory/README.md` dan `docs/theory/README.id.md` menambah entry 15 di subsection baru "Decoder robustness (v0.4.0)" plus satu baris di tabel "Hubungan dengan kode" yang merujuk ke `qrgen/decode_image.go` (R2: `orderFinderTriple`).
 
 ### R2 — `orderFinderTriple` Rotation-Invariant `(S)`
 

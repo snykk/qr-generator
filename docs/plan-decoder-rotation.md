@@ -51,9 +51,9 @@ Milestones land sequentially. **Checkpoint A** (after R2) gives a working rotati
 
 Goal: cover the geometry and the algorithm in `docs/theory/` before any code lands.
 
-- [ ] `docs/theory/15-rotation-handling.md` — Why the existing `orderFinderTriple` fails for rotated symbols (the `tr.y > bl.y` shortcut), why "vertex opposite to the longest side" already nails the top-left at any rotation, the cross-product handedness identity `(TR - TL) x (BL - TL) > 0` and a worked sign analysis at 0 / 90 / 180 / 270 degrees in image coordinates (with `y` growing downward), why the same identity rejects mirrored symbols cleanly, and a short proof sketch that the homography stage absorbs rotation once the labels are right.
-- [ ] Indonesian counterpart `docs/theory/15-rotation-handling.id.md`.
-- [ ] Update `docs/theory/README.md` and `docs/theory/README.id.md` to add entry 15 with a one-line summary under a new subsection "Decoder robustness (v0.4.0)", plus a row in the "How these notes relate to the code" table pointing at `qrgen/decode_image.go` (the `orderFinderTriple` neighbourhood).
+- [x] `docs/theory/15-rotation-handling.md` — walks through where the upright assumption lives in each of the v0.3 image-pipeline stages (only `orderFinderTriple` is rotation-broken), why "vertex opposite to the longest side" already nails the top-left at any rotation, the cross-product handedness identity `(TR - TL) x (BL - TL) > 0` with a worked four-row table at 0 / 90 / 180 / 270 degrees in image coordinates (with `y` growing downward), an honest note on mirrored symbols (the algorithm assumes un-mirrored input and downstream BCH / Reed-Solomon catches accidental mirrors as a loud failure rather than wiring a dedicated sentinel), a homography-decomposition proof sketch, and the 30-degree scope boundary derived from `cos(theta)` drift against `fitsFinderRatio`'s ±50% tolerance.
+- [x] Indonesian counterpart `docs/theory/15-rotation-handling.id.md`.
+- [x] Update `docs/theory/README.md` and `docs/theory/README.id.md` adds entry 15 under a new "Decoder robustness (v0.4.0)" subsection plus a row in the "How these notes relate to the code" table pointing at `qrgen/decode_image.go` (R2: `orderFinderTriple`).
 
 ### R2 — Rotation-Invariant `orderFinderTriple` `(S)`
 
