@@ -92,9 +92,9 @@ Goal: align README and CHANGELOG with what shipped.
 
 Goal: confirm the ordering change is allocation-neutral and within run-to-run noise of v0.3.
 
-- [ ] Re-run `BenchmarkDecodeImageSmall`, `BenchmarkDecodeImageMultiBlock`, `BenchmarkDecodeImageURL`, `BenchmarkDecodeImageFromPNGDecode`, `BenchmarkDecodeImageSauvolaFallback` against the v0.3.0 tag and the branch HEAD. The cross-product is a single multiply-subtract-compare, so the regression budget is the same as v0.3 (within ~1% of baseline).
-- [ ] Optionally add `BenchmarkDecodeImageRotated90` that runs the rotation fixture through the full pipeline to publish the cost of axis-aligned rotation.
-- [ ] `go test -race ./...` remains clean.
+- [x] Re-ran the existing decoder benchmarks against the `v0.3.0` tag and the branch HEAD (Apple M5, `count=5`, `benchtime=1s`). Final medians (branch vs v0.3.0, +% = branch slower): `Small` 655 / 658 = -0.5%, `MultiBlock` 1321 / 1329 = -0.6%, `URL` 1078 / 1071 = +0.7%, `FromPNGDecode` 565 / 561 = +0.7%, `SauvolaFallback` 1083 / 1072 = +1.0%. All within run-to-run variance, allocations identical byte-for-byte and alloc-for-alloc — confirming the cross-product change adds no detectable cost on the hot path.
+- [x] Added `BenchmarkDecodeImageRotated90` that drives the V1 `"HELLO WORLD"` payload through the full pipeline after a 90-degree rotation via `rotateImage`. Lands at ~568 ns/op with 128.9 KB/op and 206 allocs/op — about 0.5% over `BenchmarkDecodeImageFromPNGDecode`, which is essentially run-to-run noise. The extra allocations vs `FromPNGDecode` come from the rotation helper being applied at construction time inside the benchmark body, not from the decode itself; future rotation work can reference this baseline to spot regressions.
+- [x] `go test -race ./...` remains clean across the qrgen package and the CLI tests.
 
 ### R6 — Polish & Release `(S)`
 

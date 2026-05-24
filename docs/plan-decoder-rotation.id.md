@@ -92,9 +92,9 @@ Goal: meluruskan README dan CHANGELOG dengan apa yang dirilis.
 
 Goal: mengkonfirmasi perubahan ordering allocation-neutral dan dalam noise run-to-run milik v0.3.
 
-- [ ] Menjalankan ulang `BenchmarkDecodeImageSmall`, `BenchmarkDecodeImageMultiBlock`, `BenchmarkDecodeImageURL`, `BenchmarkDecodeImageFromPNGDecode`, `BenchmarkDecodeImageSauvolaFallback` terhadap tag v0.3.0 dan HEAD branch. Cross-product hanyalah satu multiply-subtract-compare, jadi budget regresi-nya sama dengan v0.3 (dalam ~1% dari baseline).
-- [ ] Opsional menambah `BenchmarkDecodeImageRotated90` yang menjalankan fixture rotation lewat pipeline penuh untuk mempublikasikan biaya rotasi axis-aligned.
-- [ ] `go test -race ./...` tetap bersih.
+- [x] Menjalankan ulang benchmark decoder yang ada terhadap tag `v0.3.0` dan branch HEAD (Apple M5, `count=5`, `benchtime=1s`). Median akhir (branch vs v0.3.0, +% = branch lebih lambat): `Small` 655 / 658 = -0.5%, `MultiBlock` 1321 / 1329 = -0.6%, `URL` 1078 / 1071 = +0.7%, `FromPNGDecode` 565 / 561 = +0.7%, `SauvolaFallback` 1083 / 1072 = +1.0%. Semuanya dalam variansi run-to-run, alokasi identik byte-untuk-byte dan alloc-untuk-alloc — mengkonfirmasi perubahan cross-product tidak menambah biaya yang terdeteksi di hot path.
+- [x] Menambah `BenchmarkDecodeImageRotated90` yang menjalankan payload V1 `"HELLO WORLD"` lewat pipeline penuh setelah rotasi 90 derajat via `rotateImage`. Mendarat di ~568 ns/op dengan 128.9 KB/op dan 206 allocs/op — sekitar 0.5% di atas `BenchmarkDecodeImageFromPNGDecode`, yang pada dasarnya noise run-to-run. Alokasi ekstra vs `FromPNGDecode` datang dari helper rotation yang diterapkan saat konstruksi di dalam body benchmark, bukan dari decode itu sendiri; pekerjaan rotation di masa depan dapat merujuk baseline ini untuk mendeteksi regresi.
+- [x] `go test -race ./...` tetap bersih di seluruh package qrgen dan tes CLI.
 
 ### R6 — Polish & Rilis `(S)`
 
