@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-24
+
+This release adds **axis-aligned rotation handling** to the decoder. The fix is one line of geometry: `orderFinderTriple` now disambiguates top-right from bottom-left via a cross-product handedness test instead of the upright `if tr.y > bl.y { swap }` shortcut. The rest of the image pipeline was already rotation-invariant, so no other code changes. Coverage includes 90 / 180 / 270 plus soft tilts up to about 30 degrees off-axis; the 30..90 degree band remains future work because it would need a wider finder scanner.
+
+### Added
+
+- Cross-product handedness check inside `qrgen/decode_image.go` `orderFinderTriple`:
+  - Replaces `if tr.y > bl.y || (math.Abs(tr.y - bl.y) < 1 && tr.x < bl.x) { swap }` with `cross := (tr.x - tl.x) * (bl.y - tl.y) - (tr.y - tl.y) * (bl.x - tl.x); if cross < 0 { swap }`.
+  - One multiply-subtract-compare per decode, allocation-neutral, undetectable on the Otsu fast-path benchmark.
+  - Sign convention is image-coordinate cross product with `y` growing downward, so any un-mirrored real QR symbol sits on the positive side at every rotation — proved by a four-row table in `docs/theory/15-rotation-handling.md` §4.
+- The `finderTriple` type comment and the `findFinders` doc comment no longer claim the upright assumption; both now point at `docs/theory/15-rotation-handling.md` for the rotation-invariance proof.
+- New theory doc `docs/theory/15-rotation-handling.md` (English plus Indonesian counterpart) walking through each v0.3 image-pipeline stage to localise the upright assumption, the cross-product identity with a worked sign analysis at 0 / 90 / 180 / 270, an honest note on mirrored symbols, a homography-decomposition proof sketch, and the derivation of the 30-degree scope boundary from `cos(theta)` drift against `fitsFinderRatio`'s ±50% tolerance.
+- Plan doc `docs/plan-decoder-rotation.md` (English plus Indonesian counterpart) with milestones R1..R6.
+
+### Validated
+
+- `TestOrderFinderTripleRotationInvariance` builds synthetic `finderCandidate` triples at 0 / 90 / 180 / 270 plus a hand-derived 30-degree tilt, then exercises every one of the six permutations of the input argument order against each rotation case (30 sub-cases total), asserting identities `(tl, tr, bl)` come back consistent every time.
+- `TestOrderFinderTripleRejectsBadGeometry` keeps the collinear-triple and leg-ratio rejection paths covered so the cross-product change does not silently widen what the function accepts.
+- Six synthetic rotation fixtures in `qrgen/decode_rotation_test.go` round-trip `"HELLO"` end-to-end via the public `DecodeBytes`: `TestRotation90`, `TestRotation180`, `TestRotation270`, `TestRotationSoftTilt15`, `TestRotationSoftTilt30`, plus an explicit negative `TestRotationSoftTiltOutOfBand` at 45 degrees that documents the scope boundary. The rotated images are built in memory by an inverse-mapped bilinear-sampling `rotateImage` helper, so no binary fixtures land under `testdata/`.
+- `decodeImageDebug` reports `binariserOtsu` for every passing rotation fixture, confirming the Sauvola fallback is not perturbed by orientation alone — the dispatch only fires when the quiet zone is contaminated, as before.
+- Empirical finding recorded in the negative-fixture comment and the theory doc: at exactly 45 degrees the failure mode is `ErrInvalidVersion` rather than `ErrFinderNotFound`. The scanner just squeaks past its tolerance and the version estimate from finder spacing falls outside 1..40 instead. The assertion accepts either sentinel so the test survives small empirical shifts.
+- `go test -race ./...` remains clean.
+
+### Documented limitation
+
+Tilts in the `[30°, 90°)` band still defeat both the cross-product fix and the 1:1:3:1:1 row scanner. Closing the remaining gap requires either a wider tolerance on `fitsFinderRatio` (which would raise the false-positive rate on noisy backgrounds) or a different finder detector — contour tracing or a fan-of-orientations search. Both belong in a later release.
+
 ## [0.3.0] - 2026-05-24
 
 This release adds an **adaptive thresholding fallback** to the decoder so QR codes whose quiet zone has been darkened by uneven lighting or soft shadows survive the binarisation stage. No public API change; the Otsu fast path stays within run-to-run variance of the v0.2 baseline.
@@ -100,7 +127,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/snykk/qr-generator/releases/tag/v0.4.0
 [0.3.0]: https://github.com/snykk/qr-generator/releases/tag/v0.3.0
 [0.2.0]: https://github.com/snykk/qr-generator/releases/tag/v0.2.0
 [0.1.0]: https://github.com/snykk/qr-generator/releases/tag/v0.1.0

@@ -27,6 +27,10 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 14. [Adaptive Thresholding](14-adaptive-thresholding.id.md) — failure mode Otsu pada pencahayaan tidak rata, formula dan parameter Sauvola, integral image untuk window query O(1), dan dispatch bimodality-proaktif plus post-check-reaktif yang memutuskan binariser mana yang dijalankan.
 
+### Robustness decoder (v0.4.0)
+
+15. [Rotation Handling](15-rotation-handling.id.md) — di mana asumsi tegak tinggal di pipeline v0.3, kenapa deteksi vertex sudut-siku-siku sudah rotation-invariant, identitas handedness cross-product yang mendisambiguasi top-right dari bottom-left di rotasi apa pun, dan boundary cakupan di ~30 derajat yang ditetapkan oleh toleransi scanner 1:1:3:1:1.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -60,5 +64,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 12-image-processing.id.md              | `qrgen/decode_image.go` (direncanakan, D8–D12)|
 | 13-decoder-pipeline.id.md              | `qrgen/decode.go` (direncanakan, D7 + D12)    |
 | 14-adaptive-thresholding.id.md         | `qrgen/decode_image_sauvola.go` (direncanakan, T2 + T3) |
+| 15-rotation-handling.id.md             | `qrgen/decode_image.go` (direncanakan, R2: `orderFinderTriple`) |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.

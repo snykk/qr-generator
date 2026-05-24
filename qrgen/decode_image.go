@@ -153,7 +153,10 @@ type finderCandidate struct {
 }
 
 // finderTriple groups the three finder centres of a QR symbol in the natural
-// reading order assuming the symbol is approximately right-side-up.
+// reading order. The triple is rotation-invariant: orderFinderTriple labels
+// top-left via the longest-opposite-side rule and disambiguates top-right
+// from bottom-left via cross-product handedness, so the same triple shape
+// is returned at any rotation of the source symbol.
 type finderTriple struct {
 	topLeft, topRight, bottomLeft finderCandidate
 }
@@ -337,8 +340,13 @@ func clusterFinderCandidates(cands []finderCandidate) ([]finderCandidate, []int)
 }
 
 // orderFinderTriple identifies which of three centres is the right-angle
-// vertex (top-left) and orders the other two as top-right and bottom-left
-// assuming the symbol is approximately right-side-up.
+// vertex (top-left) and orders the other two as top-right and bottom-left.
+// Works at any rotation: the right-angle vertex is selected by "vertex
+// opposite the longest side" (rotation-invariant since rigid motions
+// preserve distances), and the top-right vs bottom-left assignment is
+// decided by a cross-product handedness test that picks the labeling whose
+// sign matches an un-mirrored QR in image coordinates (y growing downward).
+// See docs/theory/15-rotation-handling.md.
 func orderFinderTriple(a, b, c finderCandidate) (finderTriple, error) {
 	dist := func(p, q finderCandidate) float64 {
 		dx := p.x - q.x
@@ -364,9 +372,14 @@ func orderFinderTriple(a, b, c finderCandidate) (finderTriple, error) {
 		tr, bl = c, a
 	}
 
-	// Among tr and bl, "top-right" has smaller y in a right-side-up image; if
-	// the y values are very close, the larger x is the top-right instead.
-	if tr.y > bl.y || (math.Abs(tr.y-bl.y) < 1 && tr.x < bl.x) {
+	// Cross-product handedness check: for a real (un-mirrored) QR symbol,
+	// the sign of (TR - TL) x (BL - TL) is the same at every rotation. In
+	// image coordinates (y growing downward) the correct labeling gives a
+	// positive sign; a negative sign means we picked TR and BL in the
+	// wrong order and need to swap. See docs/theory/15-rotation-handling.md
+	// §3-4 for the worked sign analysis at 0 / 90 / 180 / 270 degrees.
+	cross := (tr.x-tl.x)*(bl.y-tl.y) - (tr.y-tl.y)*(bl.x-tl.x)
+	if cross < 0 {
 		tr, bl = bl, tr
 	}
 
@@ -739,11 +752,17 @@ func decodeImageDebug(img image.Image) (string, binariserUsedState, error) {
 }
 
 // findFinders locates the three finder patterns in a binarised image and
-// orders them as (top-left, top-right, bottom-left) assuming the symbol is
-// approximately right-side-up. Returns ErrFinderNotFound if fewer than three
-// valid finder triples can be identified or if their geometry is implausible.
+// orders them as (top-left, top-right, bottom-left). Works at any rotation
+// of the source symbol since orderFinderTriple is rotation-invariant; the
+// row-and-column scan that produces the candidate list is also rotation-
+// invariant because the QR finder pattern is a concentric square and a
+// straight line through its centre crosses the same 1:1:3:1:1 ratio at any
+// orientation within fitsFinderRatio's tolerance band. Returns
+// ErrFinderNotFound if fewer than three valid finder triples can be
+// identified or if their geometry is implausible.
 //
-// See docs/theory/12-image-processing.md §3–4.
+// See docs/theory/12-image-processing.md §3–4 and
+// docs/theory/15-rotation-handling.md for the rotation-invariance proofs.
 func findFinders(bm *bitmap) (finderTriple, error) {
 	var raw []finderCandidate
 	for y := range bm.height {

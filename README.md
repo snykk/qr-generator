@@ -104,6 +104,8 @@ Decoder failures are returned as typed sentinel errors so callers can branch wit
 
 The image stage in v0.3 uses a global Otsu threshold by default and silently falls back to Sauvola adaptive thresholding when Otsu produces a binarisation that finder detection cannot resolve — useful for inputs whose quiet zone has been contaminated by uneven lighting or soft shadows. The fallback is internal: no public option, no behaviour change for clean inputs, no allocation cost on the Otsu fast path. See [docs/theory/14-adaptive-thresholding.md](docs/theory/14-adaptive-thresholding.md) for the algorithm and dispatch heuristic.
 
+As of v0.4, the decoder also handles axis-aligned rotations (90 / 180 / 270 degrees) and soft tilts up to about 30 degrees off-axis without any caller intervention. Finder ordering uses a rotation-invariant cross-product handedness test; the homography stage then absorbs the rotation into its 3x3 projective transform exactly the same way it already absorbs translation and scale. See [docs/theory/15-rotation-handling.md](docs/theory/15-rotation-handling.md) for the geometry and the scope boundary.
+
 Runnable demos live in [examples/decode/basic](examples/decode/basic/main.go) and [examples/decode/styled](examples/decode/styled/main.go).
 
 ## CLI usage
@@ -189,7 +191,7 @@ In scope as of v0.2.0:
 - Image decoding (PNG / JPEG / GIF / `image.Image`) with binarisation, finder detection, perspective transform, and alignment refinement.
 - Matrix decoding from `[][]bool` for callers that already have a clean grid.
 
-Still out of scope (kept open as roadmap items): Kanji mode, ECI segments, Micro QR, structured-append, logo embedding, SVG/terminal renderers, rotated-image decoding.
+Still out of scope (kept open as roadmap items): Kanji mode, ECI segments, Micro QR, structured-append, logo embedding, SVG/terminal renderers, arbitrary-angle decoding in the 30..90 degree band.
 
 ## Limitations
 
@@ -200,7 +202,7 @@ The library covers the encoder and the decoder end-to-end as of v0.2.0; the foll
 - **No Micro QR or rMQR.** Only the standard 40-version family is supported.
 - **No structured-append.** Long payloads must fit in a single symbol (V40 caps at ~2,953 bytes in byte mode at EC-L).
 - **No logo embedding.** Centred logos with automatic EC compensation are a roadmap item.
-- **No rotated-image decoding.** The decoder assumes the source image is approximately right-side-up; arbitrary rotations are roadmap.
+- **Limited arbitrary-angle decoding.** v0.4 added rotation handling for the axis-aligned cases (90 / 180 / 270 degrees) plus soft tilts up to about 30 degrees off-axis, but tilts in the 30..90 degree band defeat the 1:1:3:1:1 finder scanner's ±50% module-width tolerance and a wider scanner (contour-based or fan-of-orientations) is needed to close the remaining gap.
 - **Adaptive thresholding only on the quiet zone.** v0.3 added a Sauvola fallback that recovers QR codes whose quiet zone has been darkened by uneven lighting or soft shadows, but mutations that compress the QR's own ink-paper contrast (very dim photos, heavy gradient across the symbol itself) still defeat both Otsu and Sauvola at default parameters.
 - **Greedy mode analyzer.** A single mode is chosen for the whole input; mixed-mode segmentation (DP-optimal) is deferred. A string like `"PHONE: 12345"` is encoded entirely in alphanumeric instead of splitting into alphanumeric + numeric.
 - **Rule-4 mask penalty.** The dark-ratio bucket boundary uses the Thonky-style floor formula; other implementations use a ceiling-style formula and may pick a different mask for the same input. Output remains spec-compliant either way.
@@ -215,7 +217,7 @@ Candidates for future minor releases (post-v0.2.0):
 - **Logo embedding:** centred logo with automatic EC-level bump for the occluded area.
 - **Micro QR & rMQR:** smaller form factors for short payloads.
 - **Structured-append:** split long text across multiple linked QR symbols.
-- **Decoder robustness:** arbitrary rotations, tunable Sauvola parameters (k, window) plus morphological cleanup so heavier within-symbol contrast loss can also be recovered, multi-symbol detection.
+- **Decoder robustness:** arbitrary-angle decoding for the 30..90 degree band via a contour-based or fan-of-orientations finder detector, tunable Sauvola parameters (k, window) plus morphological cleanup so heavier within-symbol contrast loss can also be recovered, multi-symbol detection.
 - **Performance:** reduce allocations on the hot encode and decode paths.
 
 Contributions for any of these are welcome — please open an issue first so we can sketch the API together.

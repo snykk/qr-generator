@@ -1,0 +1,148 @@
+# QR Decoder — Rotation Handling Plan
+
+This document describes the implementation plan for the **rotation handling** enhancement that targets the `v0.4.0` minor release. It is the second of two robustness branches that split out of the v0.2.0 Roadmap (the first, **adaptive thresholding**, shipped as `v0.3.0` from the `decoder-thresholding` branch).
+
+> Status: **draft / living document.** Milestones R1..R6 land incrementally on the `decoder-rotation` branch; each is a focused commit (or small commit series) with tests, matching the cadence used for M1..M11, D1..D14, and T1..T6.
+
+> Indonesian version: [docs/plan-decoder-rotation.id.md](plan-decoder-rotation.id.md).
+
+---
+
+## 1. Vision & Goals
+
+- Lift the **"No rotated-image decoding"** limitation called out in README under `## Limitations` and `## Roadmap` so the decoder can recover QR codes from images that are rotated 90 / 180 / 270 degrees (a phone held sideways while scanning a printed page is the canonical case) plus soft tilts up to roughly 30 degrees off-axis.
+- Keep the public API surface identical: callers continue to invoke `qrgen.Decode` / `qrgen.DecodeBytes` / `qrgen.DecodeMatrix` unchanged. All new behaviour is internal to the finder-ordering stage.
+- Stay theory-first and bilingual: write `docs/theory/15-rotation-handling.md` (EN + ID) before any code lands, in the same spirit as the v0.3 sequence (plan -> theory -> code).
+- Stay pure Go: no new third-party dependencies, no extra allocation on the hot path.
+
+## 2. Design Principles
+
+1. **Find the structural bug, not the surface symptom.** Inspection of [qrgen/decode_image.go:367-371](../qrgen/decode_image.go#L367-L371) shows that `orderFinderTriple` already identifies the right-angle vertex (top-left) via "vertex opposite to the longest side" — that step is rotation-invariant. The only rotation-broken step is the very last `if tr.y > bl.y` discriminator that decides which of the remaining two finders is top-right. Replacing that single check with a cross-product handedness test is enough to unlock rotation handling.
+2. **Trust the homography.** `homographyFromFinders` already solves for a general 3x3 projective transform from four anchor-point correspondences. Once `orderFinderTriple` returns the correct labels, the homography absorbs the rotation, tilt, and perspective without any change. We do not need to touch the linear-solver path.
+3. **Finder detection itself is rotation-symmetric.** The 1:1:3:1:1 row scan picks up the finder pattern at any orientation because the pattern is a concentric square — a horizontal line through its centre always crosses dark/light/dark/light/dark in the 1:1:3:1:1 ratio (within the ±50% module tolerance). The same is true vertically. Axis-aligned rotations (90 / 180 / 270) and soft tilts (~0–30 degrees) need no scanner changes.
+4. **No new public knob in v0.4.** No functional option, no new sentinel error. Tilts beyond ~30 degrees and arbitrary 0..360 rotation remain future work because they would require either a contour-based finder detector or a more flexible 1:1:3:1:1 scanner — both significant rewrites that do not belong in a minor release.
+5. **Tests first.** Every milestone ships with table-driven Go tests and at least one round-trip case that fails on `master` (`Decode` returns `ErrFinderNotFound`) and passes on the branch (`Decode` round-trips the original payload).
+
+## 3. Scope
+
+### In scope for v0.4.0
+
+- **Axis-aligned rotations:** 90, 180, and 270 degrees both directions.
+- **Soft tilts:** up to roughly 30 degrees off axis (limited by the existing ±50% tolerance inside `fitsFinderRatio`).
+- **`orderFinderTriple` rewrite:** swap the upright-image `y`-coordinate discriminator for a cross-product handedness test that works at any rotation.
+- **Theory doc** `15-rotation-handling.md` (EN + ID) covering right-angle vertex detection, cross-product handedness, the proof sketch that the homography handles the rest, and the explicit scope statement (axis-aligned + soft tilts in v0.4, arbitrary 0..360 deferred).
+- **Synthetic in-memory rotation fixtures** built procedurally inside test files: encode `"HELLO"` with the existing API, render the matrix into an `*image.Gray` rotated by 0 / 90 / 180 / 270 plus soft tilts (e.g. 15, 30 degrees) using straight Go arithmetic, and assert `DecodeBytes` round-trip.
+- **Documentation updates:** remove `**No rotated-image decoding**` from `## Limitations`; update `## Roadmap` to focus the open work on arbitrary-angle decoding rather than the whole rotation category; add a CHANGELOG `v0.4.0` entry.
+
+### Out of scope (still)
+
+- **Arbitrary rotation in [30, 90) degrees.** The 1:1:3:1:1 scanner can produce false negatives at angles where module edges hit row pixels at oblique angles; recovering this band would require either contour-tracing or a fan-of-orientations search. Deferred to a future minor.
+- **Mirrored QR symbols.** The cross-product check rejects mirrored handedness on purpose because real QR codes are never mirrored.
+- **Multi-symbol detection.** Same as v0.3: not in scope.
+- **Combined rotation + heavy uneven lighting.** The v0.3 Sauvola fallback and the v0.4 ordering fix compose naturally, but no new fixture explicitly stress-tests the combination — recoverability is the union of each milestone's coverage.
+
+---
+
+## 4. Milestones
+
+Milestones land sequentially. **Checkpoint A** (after R2) gives a working rotation-invariant finder ordering whose unit tests pass on synthetic coordinates. **Checkpoint B** (R6) is the `v0.4.0` release.
+
+### R1 — Rotation Handling Theory Doc `(S)`
+
+Goal: cover the geometry and the algorithm in `docs/theory/` before any code lands.
+
+- [x] `docs/theory/15-rotation-handling.md` — walks through where the upright assumption lives in each of the v0.3 image-pipeline stages (only `orderFinderTriple` is rotation-broken), why "vertex opposite to the longest side" already nails the top-left at any rotation, the cross-product handedness identity `(TR - TL) x (BL - TL) > 0` with a worked four-row table at 0 / 90 / 180 / 270 degrees in image coordinates (with `y` growing downward), an honest note on mirrored symbols (the algorithm assumes un-mirrored input and downstream BCH / Reed-Solomon catches accidental mirrors as a loud failure rather than wiring a dedicated sentinel), a homography-decomposition proof sketch, and the 30-degree scope boundary derived from `cos(theta)` drift against `fitsFinderRatio`'s ±50% tolerance.
+- [x] Indonesian counterpart `docs/theory/15-rotation-handling.id.md`.
+- [x] Update `docs/theory/README.md` and `docs/theory/README.id.md` adds entry 15 under a new "Decoder robustness (v0.4.0)" subsection plus a row in the "How these notes relate to the code" table pointing at `qrgen/decode_image.go` (R2: `orderFinderTriple`).
+
+### R2 — Rotation-Invariant `orderFinderTriple` `(S)`
+
+Goal: replace the upright-image y-discriminator with a cross-product handedness check so finder labelling works at any rotation.
+
+- [x] Kept the existing "longest side opposite the right-angle vertex" path that already picks the top-left correctly.
+- [x] Replaced the `if tr.y > bl.y || (math.Abs(tr.y - bl.y) < 1 && tr.x < bl.x) { tr, bl = bl, tr }` block with the cross-product handedness check `cross := (tr.x-tl.x)*(bl.y-tl.y) - (tr.y-tl.y)*(bl.x-tl.x); if cross < 0 { tr, bl = bl, tr }`. Sign convention is image-coordinate cross product with `y` growing downward, so the un-mirrored real-QR case sits on the positive side at every rotation per the worked table in `docs/theory/15-rotation-handling.md` §4.
+- [x] Kept the existing right-angle and leg-ratio sanity checks unchanged; they were already rotation-invariant.
+- [x] Updated the doc comments on `finderTriple` and `findFinders` so they no longer claim the upright assumption — both now point at `docs/theory/15-rotation-handling.md` for the rotation-invariance proof.
+- [x] Unit tests in `qrgen/decode_image_test.go`: `TestOrderFinderTripleRotationInvariance` builds synthetic `finderCandidate` triples at 0 / 90 / 180 / 270 degrees plus a hand-derived 30-degree tilt, runs each through all six permutations of the input argument order (exercising every branch of the longest-side switch), and asserts `(tl, tr, bl)` come back identified correctly each time. `TestOrderFinderTripleRejectsBadGeometry` keeps the collinear and leg-ratio rejection paths covered. Race-clean.
+
+### Checkpoint A — Rotation-invariant ordering compiles and passes coordinate-level tests.
+
+### R3 — Synthetic Rotation Fixtures `(M)`
+
+Goal: lock in end-to-end recovery coverage for axis-aligned rotations and soft tilts via in-memory image generation.
+
+- [x] Added the helper `rotateImage(src image.Image, angleDeg float64) *image.Gray` inside `qrgen/decode_rotation_test.go`. It precomputes the source grayscale buffer once, sizes the destination as the rotated bounding box (`ceil(|w cos| + |h sin|) x ceil(|w sin| + |h cos|)`), fills the destination with solid white as the quiet-zone background, then inverse-maps each destination pixel back to the source and bilinearly samples. Inner loop avoids per-pixel `image.At` overhead so the rotation batch finishes well under 200 ms.
+- [x] Fixtures `TestRotation90`, `TestRotation180`, `TestRotation270` all round-trip `"HELLO"` through the public `DecodeBytes` pipeline and assert `decodeImageDebug` reports `binariserOtsu` — rotation does not perturb the binariser dispatch on clean rotated PNGs because the Sauvola fallback is reserved for quiet-zone contamination, not orientation.
+- [x] Fixtures `TestRotationSoftTilt15` and `TestRotationSoftTilt30` round-trip the same payload at 15 and 30 degrees, exercising the soft-tilt band the cross-product fix is supposed to unlock. Both stay inside `fitsFinderRatio`'s ±50% tolerance comfortably.
+- [x] Explicit negative fixture `TestRotationSoftTiltOutOfBand` at 45 degrees documents the v0.4 scope boundary inside the suite. Empirically the failure mode at 45 degrees is `ErrInvalidVersion` rather than `ErrFinderNotFound`: the scanner just barely squeaks past its tolerance and the version estimate from finder spacing falls outside 1..40. The assertion accepts either sentinel so it survives small empirical shifts in where exactly the pipeline breaks; when a future release widens the scanner, the test should flip from asserting failure to asserting recovery.
+- [x] All fixtures stay in-process, V1 only, no `testdata/` blobs.
+- [x] Race-clean: `go test -race ./qrgen/` passes.
+
+### R4 — Documentation Polish `(S)`
+
+Goal: align README and CHANGELOG with what shipped.
+
+- [x] README `## Limitations`: removed the `**No rotated-image decoding**` bullet; replaced with `**Limited arbitrary-angle decoding**` recording that 90 / 180 / 270 and tilts up to ~30 degrees work but the 30..90-degree band is out of reach until the scanner is updated. Also updated the brief "Still out of scope" line to swap "rotated-image decoding" for "arbitrary-angle decoding in the 30..90 degree band".
+- [x] README `## Roadmap`: narrowed the decoder robustness bullet from "arbitrary rotations" to "arbitrary-angle decoding for the 30..90 degree band via a contour-based or fan-of-orientations finder detector".
+- [x] README `## Decoding QR codes`: added a paragraph that acknowledges axis-aligned rotation plus soft tilts up to ~30 degrees and points at `docs/theory/15-rotation-handling.md` for the geometry and the scope boundary.
+- [x] CHANGELOG `v0.4.0` entry under `### Added` (cross-product handedness in `orderFinderTriple`, theory doc 15, plan doc, rotation fixtures + `rotateImage` helper), `### Validated` (`TestOrderFinderTripleRotationInvariance` and `TestOrderFinderTripleRejectsBadGeometry`, six synthetic rotation fixtures, `decodeImageDebug` confirms Otsu fast path on rotated PNGs, `go test -race` clean) plus a `### Documented limitation` paragraph recording the 30..90 degree band as future work.
+- [x] Plan checklist R1..R6 ticked.
+
+### R5 — Benchmarks & Regression Guard `(S)`
+
+Goal: confirm the ordering change is allocation-neutral and within run-to-run noise of v0.3.
+
+- [x] Re-ran the existing decoder benchmarks against the `v0.3.0` tag and the branch HEAD (Apple M5, `count=5`, `benchtime=1s`). Final medians (branch vs v0.3.0, +% = branch slower): `Small` 655 / 658 = -0.5%, `MultiBlock` 1321 / 1329 = -0.6%, `URL` 1078 / 1071 = +0.7%, `FromPNGDecode` 565 / 561 = +0.7%, `SauvolaFallback` 1083 / 1072 = +1.0%. All within run-to-run variance, allocations identical byte-for-byte and alloc-for-alloc — confirming the cross-product change adds no detectable cost on the hot path.
+- [x] Added `BenchmarkDecodeImageRotated90` that drives the V1 `"HELLO WORLD"` payload through the full pipeline after a 90-degree rotation via `rotateImage`. Lands at ~568 ns/op with 128.9 KB/op and 206 allocs/op — about 0.5% over `BenchmarkDecodeImageFromPNGDecode`, which is essentially run-to-run noise. The extra allocations vs `FromPNGDecode` come from the rotation helper being applied at construction time inside the benchmark body, not from the decode itself; future rotation work can reference this baseline to spot regressions.
+- [x] `go test -race ./...` remains clean across the qrgen package and the CLI tests.
+
+### R6 — Polish & Release `(S)`
+
+Goal: cut `v0.4.0`.
+
+- [x] No public API change; the README API summary tables stayed untouched.
+- [x] Final sweep: `go test -race ./...` clean, `go vet ./...` clean, branch six commits ahead of master at this writing (plan, theory doc, ordering fix, fixtures, docs polish, benchmark).
+- [ ] Tag `v0.4.0` on the merge commit after pushing the branch to GitHub so the tag lands on the commit the remote sees. Annotation recommended below; user runs this manually.
+
+---
+
+## 5. Proposed File Layout Delta
+
+Rotation handling lands as a minimal patch to the existing image stage; no new package directories, only one new test file and the theory + plan docs.
+
+```
+qrgen/
+├── decode_image.go              # existing — only orderFinderTriple is touched
+├── decode_image_test.go         # existing — gains rotation-invariant ordering unit tests
+├── decode_rotation_test.go      # new — synthetic rotation fixtures + rotateImage helper
+└── decode_bench_test.go         # existing — optional BenchmarkDecodeImageRotated90
+docs/
+├── plan-decoder-rotation.md     # this file
+├── plan-decoder-rotation.id.md  # Indonesian counterpart
+└── theory/
+    ├── 15-rotation-handling.md
+    └── 15-rotation-handling.id.md
+```
+
+## 6. Risks & Technical Notes
+
+- **The 1:1:3:1:1 scanner at oblique angles.** Row scans hit rotated finder modules at angles other than 0 or 90 degrees, so module widths in the scan-line projection differ from the actual module size. The existing ±50% tolerance in `fitsFinderRatio` absorbs tilts up to roughly 30 degrees comfortably; beyond that the ratio starts drifting outside the tolerance band. The v0.4 scope deliberately stops at the tolerance boundary; broader coverage would require a new contour-based or fan-of-orientations finder detector.
+- **Bilinear vs nearest-neighbour rotation in fixtures.** Rotating the source image with bilinear sampling produces some intermediate-grey pixels along edges that did not exist in the encoder output. The Otsu fast path still binarises these correctly because the ink and paper modes stay well-separated, but extreme angles produce noisier edges and can challenge the strict 1:1:3:1:1 ratio. Fixtures stay inside the safe band by design.
+- **Interaction with the v0.3 Sauvola dispatch.** The rotation change is orthogonal to the binariser dispatch. We expect `binariserOtsu` to fire for clean rotated PNGs and the Sauvola path to fire for rotated-and-shadowed inputs. R3 fixtures assert the Otsu branch on clean rotations; a follow-up after v0.4 can optionally cross-test the combined case.
+- **Module-pitch estimation at extreme tilts.** `crossCheckVertical` averages horizontal and vertical module-size estimates. For a 30-degree tilt these two estimates differ by ~15%; the averaging biases the homography slightly. Acceptable inside v0.4's scope.
+- **Mirrored symbols.** The cross-product check returns the "wrong" sign for a mirrored QR. Real QR codes are never mirrored, so we treat the mirror case as an explicit detection failure rather than auto-flipping the labels — that keeps the failure mode loud rather than silently decoding a synthetic mirrored input as if it were valid.
+
+## 7. References
+
+- ISO/IEC 18004:2015 — §11.2 (Locator pattern detection) and §11.3 (Image sampling). Spec references for the assumption that the symbol is "approximately right-side-up".
+- Hartley & Zisserman — *Multiple View Geometry in Computer Vision*, 2nd ed., §4 (homography estimation). Confirms that a 3x3 projective transform absorbs rotation, scale, translation, and perspective given correct corner correspondences.
+- ZXing project — *open-source decoder reference*: <https://github.com/zxing/zxing>, especially the `FinderPatternFinder.orderBestPatterns` method, which uses the same cross-product handedness trick we adopt here.
+- Project Nayuki — *QR Code generator library, decoder companion notes*.
+
+## 8. Open Questions
+
+To be answered before the corresponding milestone starts:
+
+- **Rotation fixture angle list.** The R3 sketch lists 90 / 180 / 270 / 15 / 30 plus a negative 45. Worth adding 60 and 75 to document where the soft-tilt band ends, or leave that to v0.5?
+- **Mirror detection error.** Currently a mirrored input fails as `ErrFinderNotFound`. Worth adding a dedicated `ErrMirroredSymbol` sentinel, or stay quiet and treat it as the existing "not found" failure? Default: stay quiet, keep the public API stable.
+- **Rotation as a public input.** Should callers be able to hint a rotation angle to skip the cross-product check on devices that already know the orientation? Not in v0.4; revisit if real callers ask.

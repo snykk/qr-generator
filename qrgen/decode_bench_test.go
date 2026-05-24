@@ -160,3 +160,30 @@ func BenchmarkDecodeImageSauvolaFallback(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkDecodeImageRotated90 measures the cost of decoding a clean V1
+// PNG that has been rotated 90 degrees clockwise. Rotation alone does not
+// move the binariser off the Otsu fast path, so the only extra work
+// compared to BenchmarkDecodeImageFromPNGDecode is the cross-product
+// handedness check inside orderFinderTriple. The number recorded here
+// publishes the absolute cost of axis-aligned rotation and lets a future
+// release watch it move when the scanner is widened to cover the 30..90
+// degree band.
+func BenchmarkDecodeImageRotated90(b *testing.B) {
+	pngBytes, err := Encode("HELLO WORLD")
+	if err != nil {
+		b.Fatal(err)
+	}
+	clean, err := png.Decode(bytes.NewReader(pngBytes))
+	if err != nil {
+		b.Fatal(err)
+	}
+	rotated := rotateImage(clean, 90)
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := Decode(rotated); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
