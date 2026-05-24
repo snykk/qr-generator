@@ -100,8 +100,9 @@ Goal: mengkonfirmasi perubahan ordering allocation-neutral dan dalam noise run-t
 
 Goal: memotong `v0.4.0`.
 
-- [ ] Tidak ada perubahan API publik; tidak ada yang perlu ditambahkan ke tabel ringkasan API.
-- [ ] Tag `v0.4.0` setelah push pertama ke GitHub supaya tag mendarat pada commit yang dilihat remote: `git tag -a v0.4.0 -F -` dengan baris subjek `QR rotation handling release` diikuti paragraf yang diturunkan dari CHANGELOG. Dikerjakan manual oleh user.
+- [x] Tidak ada perubahan API publik; tabel ringkasan API di README tidak disentuh.
+- [x] Sapu akhir: `go test -race ./...` bersih, `go vet ./...` bersih, branch enam commit di atas master pada saat ini (plan, theory doc, fix ordering, fixture, polish dokumentasi, benchmark).
+- [ ] Tag `v0.4.0` pada merge commit setelah branch di-push ke GitHub supaya tag mendarat pada commit yang dilihat remote. Annotation rekomendasi di bawah; user yang menjalankan secara manual.
 
 ---
 

@@ -100,8 +100,9 @@ Goal: confirm the ordering change is allocation-neutral and within run-to-run no
 
 Goal: cut `v0.4.0`.
 
-- [ ] No public API change; nothing to add to the API summary tables.
-- [ ] Tag `v0.4.0` after the first push to GitHub so the tag lands on the commit the remote sees: `git tag -a v0.4.0 -F -` with a subject line `QR rotation handling release` followed by a paragraph derived from the CHANGELOG. Left for the user to run manually.
+- [x] No public API change; the README API summary tables stayed untouched.
+- [x] Final sweep: `go test -race ./...` clean, `go vet ./...` clean, branch six commits ahead of master at this writing (plan, theory doc, ordering fix, fixtures, docs polish, benchmark).
+- [ ] Tag `v0.4.0` on the merge commit after pushing the branch to GitHub so the tag lands on the commit the remote sees. Annotation recommended below; user runs this manually.
 
 ---
 
