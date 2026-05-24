@@ -10,6 +10,8 @@ package qrgen
 
 import (
 	"bytes"
+	"image"
+	"image/color"
 	"image/png"
 	"strings"
 	"testing"
@@ -107,6 +109,48 @@ func BenchmarkDecodeImageFromPNGDecode(b *testing.B) {
 	img, err := png.Decode(bytes.NewReader(pngBytes))
 	if err != nil {
 		b.Fatal(err)
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := Decode(img); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkDecodeImageSauvolaFallback measures the cost of the reactive
+// Sauvola fallback path. The fixture mirrors TestT4ConstantQuietZoneDarkening:
+// the QR's internal modules stay intact but the quiet zone is uniformly
+// darkened to 70, which defeats Otsu's global threshold and forces the
+// dispatch into Sauvola. The number captured here lets us watch the
+// fallback-path cost evolve over future releases (rotation work, possible
+// integral-image reuse, etc.) without ever hiding it inside an aggregate
+// over mixed cases.
+func BenchmarkDecodeImageSauvolaFallback(b *testing.B) {
+	pngBytes, err := Encode("HELLO")
+	if err != nil {
+		b.Fatal(err)
+	}
+	clean, err := png.Decode(bytes.NewReader(pngBytes))
+	if err != nil {
+		b.Fatal(err)
+	}
+	// Mirror TestT4ConstantQuietZoneDarkening: QR area pristine, quiet
+	// zone uniformly grey. Coordinates from cleanV1 (V1 + module 8 +
+	// quiet zone 4 → QR rect (32, 32)..(200, 200)).
+	bounds := clean.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+	img := image.NewGray(image.Rect(0, 0, w, h))
+	for y := range h {
+		for x := range w {
+			c := color.GrayModel.Convert(clean.At(bounds.Min.X+x, bounds.Min.Y+y)).(color.Gray)
+			if x >= 32 && x < 200 && y >= 32 && y < 200 {
+				img.Pix[y*img.Stride+x] = c.Y
+			} else {
+				img.Pix[y*img.Stride+x] = 70
+			}
+		}
 	}
 	b.ResetTimer()
 	b.ReportAllocs()

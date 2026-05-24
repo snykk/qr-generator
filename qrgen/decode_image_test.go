@@ -78,22 +78,27 @@ func TestOtsuThresholdBimodal(t *testing.T) {
 	for i := 50; i < 100; i++ {
 		pixels[i] = 255
 	}
-	got := otsuThreshold(pixels)
+	got, eta := otsuThreshold(pixels)
 	if got >= 255 {
 		t.Errorf("threshold = %d does not separate value-255 pixels from value-0 pixels", got)
+	}
+	// Perfectly bimodal 50/50 input gives the maximum separability η = 1.
+	if eta < 0.99 {
+		t.Errorf("eta = %g for perfectly bimodal input, want ≈ 1", eta)
 	}
 }
 
 func TestOtsuThresholdMonochromeDefaults(t *testing.T) {
-	// All-zero histogram (empty image) returns the safe default 128.
-	if got := otsuThreshold(nil); got != 128 {
-		t.Errorf("empty otsu = %d, want 128", got)
+	// All-zero histogram (empty image) returns the safe default 128 with η = 0
+	// so the dispatch in decodeImage routes it to Sauvola.
+	if got, eta := otsuThreshold(nil); got != 128 || eta != 0 {
+		t.Errorf("empty otsu = (%d, %g), want (128, 0)", got, eta)
 	}
-	// All same value gives a degenerate histogram; the function still returns a
-	// sensible value rather than panicking.
+	// All same value gives a degenerate histogram; the function still returns
+	// a sensible value rather than panicking, and η is 0 (unimodal).
 	allZero := make([]uint8, 16)
-	if got := otsuThreshold(allZero); got != 128 {
-		t.Errorf("all-zero otsu = %d, want 128 (fallback)", got)
+	if got, eta := otsuThreshold(allZero); got != 128 || eta != 0 {
+		t.Errorf("all-zero otsu = (%d, %g), want (128, 0)", got, eta)
 	}
 }
 

@@ -23,6 +23,10 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 12. [Image Processing](12-image-processing.id.md) — grayscale, binarisasi Otsu, scan finder-pattern, homography, sampling modul.
 13. [Pipeline Decoder](13-decoder-pipeline.id.md) — diagram tahap end-to-end, apa yang bisa gagal di tiap tahap, dan filosofi penanganan error.
 
+### Robustness decoder (v0.3.0)
+
+14. [Adaptive Thresholding](14-adaptive-thresholding.id.md) — failure mode Otsu pada pencahayaan tidak rata, formula dan parameter Sauvola, integral image untuk window query O(1), dan dispatch bimodality-proaktif plus post-check-reaktif yang memutuskan binariser mana yang dijalankan.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -55,5 +59,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 11-rs-decoding.id.md                   | `qrgen/rs_decode.go` (direncanakan, D3)       |
 | 12-image-processing.id.md              | `qrgen/decode_image.go` (direncanakan, D8–D12)|
 | 13-decoder-pipeline.id.md              | `qrgen/decode.go` (direncanakan, D7 + D12)    |
+| 14-adaptive-thresholding.id.md         | `qrgen/decode_image_sauvola.go` (direncanakan, T2 + T3) |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.

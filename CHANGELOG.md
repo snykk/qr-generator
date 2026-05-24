@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-24
+
+This release adds an **adaptive thresholding fallback** to the decoder so QR codes whose quiet zone has been darkened by uneven lighting or soft shadows survive the binarisation stage. No public API change; the Otsu fast path stays within run-to-run variance of the v0.2 baseline.
+
+### Added
+
+- Sauvola adaptive thresholding in `qrgen/decode_image_sauvola.go`:
+  - Two `uint64`-backed integral images (sum and sum-of-squares) sized `(w+1) * (h+1)` so per-pixel window mean and std are `O(1)` regardless of window size.
+  - `windowMeanStd` helper with boundary clipping, guarded against tiny negative variances from floating-point rounding.
+  - Hard-coded textbook defaults `sauvolaWindow = 25`, `sauvolaK = 0.2`, `sauvolaR = 128.0` (Sauvola & Pietikainen 2000, Shafait et al. 2008). No public option in v0.3.
+- Internal Otsu-or-Sauvola dispatch inside `decodeImage`:
+  - `otsuThreshold` now returns the threshold together with the separability ratio `η = σ²_B / σ²_T` ∈ `[0, 1]`, computed for free from the same histogram pass.
+  - Stage 1 (proactive): if `η < etaMin = 0.5` the dispatch skips Otsu's binarisation entirely and routes straight to Sauvola, saving one wasted finder-detection pass on what would have been an unhealthy Otsu output.
+  - Stage 2 (reactive): if Otsu's binarisation runs but `findFinders` fails, the grayscale buffer is rebinarised with Sauvola and finder detection re-runs.
+  - Package-internal `decodeImageDebug` sibling exposes the chosen branch (`binariserOtsu`, `binariserSauvolaProactive`, `binariserSauvolaReactive`) to tests without surfacing anything on the public API.
+- New theory doc `docs/theory/14-adaptive-thresholding.md` (English plus Indonesian counterpart) covering Otsu's failure modes, Sauvola's formula and parameters, integral images for `O(1)` window queries, comparison vs Niblack / Wolf / Bernsen / Adaptive Gaussian, and the runtime dispatch heuristic.
+- Plan doc `docs/plan-decoder-thresholding.md` (English plus Indonesian counterpart) with milestones T1..T6.
+- New benchmark `BenchmarkDecodeImageSauvolaFallback` that forces the reactive Sauvola branch through a constant-quiet-zone-darkening fixture so the fallback cost is visible alongside the Otsu fast-path benchmarks.
+
+### Validated
+
+- Five synthetic uneven-lighting fixtures in `qrgen/decode_image_sauvola_test.go` (`TestT4ConstantQuietZoneDarkening`, `TestT4LinearGradientOnQuietZone`, `TestT4RadialVignetteOnQuietZone`, `TestT4DropShadowOnQuietZone`, `TestT4DiagonalGradientOnQuietZone`) each prove Otsu alone fails `findFinders`, the public `DecodeBytes` round-trips the original payload, and `decodeImageDebug` reports the reactive Sauvola state.
+- Dispatch unit tests in the same file cover all three runtime states: clean encoded PNG asserts `binariserOtsu` and round-trips its payload, monochrome 80x80 input asserts `binariserSauvolaProactive` via the variance-collapse `η = 0` branch, and a brightness-compression mutation of a clean QR asserts `binariserSauvolaReactive` after verifying Otsu alone fails and `η ≥ etaMin`.
+- Sauvola unit tests over hand-checked integral image values, a naive `O(w²)` reference cross-check of `windowMeanStd`, the uniform-image no-noise property, a two-illumination-region fixture that classifies ink and paper correctly while also proving Otsu fails on the same input, and zero-size / smaller-than-window guards.
+- Otsu fast path stays within run-to-run variance of v0.2 (Apple M5, `count=5`, `benchtime=1s`): `BenchmarkDecodeImageSmall` +0.5%, `BenchmarkDecodeImageMultiBlock` -0.8%, `BenchmarkDecodeImageURL` +1.6%, `BenchmarkDecodeImageFromPNGDecode` +1.6%. The new `BenchmarkDecodeImageSauvolaFallback` records the reactive cost at ~1074 ns/op (about 1.9x the Otsu fast path) with 1.07 MB/op driven by the two integral images.
+- `go test -race ./...` remains clean across `qrgen` and `cmd/qrgen`.
+
+### Documented limitation
+
+Brightness-compression mutations that flatten the QR's own ink-paper contrast (very dim photographs, heavy gradient across the symbol itself) still defeat both Otsu and the Sauvola fallback at the default `sauvolaK = 0.2`, `sauvolaR = 128`. Recovering this family is left to future work, likely a `WithBinarisation` option and morphological cleanup once the v0.4 rotation handling lands.
+
 ## [0.2.0] - 2026-05-20
 
 This release adds a full QR **decoder** so the package can now round-trip text → image → text end-to-end without any third-party dependency.
@@ -69,6 +100,7 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/snykk/qr-generator/releases/tag/v0.3.0
 [0.2.0]: https://github.com/snykk/qr-generator/releases/tag/v0.2.0
 [0.1.0]: https://github.com/snykk/qr-generator/releases/tag/v0.1.0
