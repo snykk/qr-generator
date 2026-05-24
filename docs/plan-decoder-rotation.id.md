@@ -82,11 +82,11 @@ Goal: mengunci coverage recovery end-to-end untuk rotasi axis-aligned dan soft t
 
 Goal: meluruskan README dan CHANGELOG dengan apa yang dirilis.
 
-- [ ] README `## Limitations`: hapus bullet `**No rotated-image decoding**`; ganti dengan `**Limited arbitrary-angle decoding**` yang mencatat 90 / 180 / 270 dan tilt hingga ~30 derajat bekerja tapi band 30..90 derajat di luar jangkauan sampai scanner diupdate. Tetap jujur soal cakupan.
-- [ ] README `## Roadmap`: persempit bullet robustness decoder dari "arbitrary rotations" (sekarang sebagian selesai) ke "decoding sembarang sudut untuk band 30..90 derajat, contour-based finder detection".
-- [ ] README `## Decoding QR codes`: tambah satu kalimat yang mengakui dukungan rotasi axis-aligned, menunjuk ke `docs/theory/15-rotation-handling.md`.
-- [ ] Entry CHANGELOG `v0.4.0` di bawah `### Added` (cross-product handedness di `orderFinderTriple`, theory doc 15, plan doc, fixture rotation sintetis), `### Validated` (fixture R3, `go test -race` bersih, tidak ada regresi encoder).
-- [ ] Checklist plan untuk R1..R6 di-tick.
+- [x] README `## Limitations`: menghapus bullet `**No rotated-image decoding**`; mengganti dengan `**Limited arbitrary-angle decoding**` yang mencatat 90 / 180 / 270 dan tilt hingga ~30 derajat bekerja tapi band 30..90 derajat di luar jangkauan sampai scanner diupdate. Juga mengupdate baris singkat "Still out of scope" untuk menukar "rotated-image decoding" dengan "arbitrary-angle decoding in the 30..90 degree band".
+- [x] README `## Roadmap`: mempersempit bullet robustness decoder dari "arbitrary rotations" ke "arbitrary-angle decoding for the 30..90 degree band via a contour-based or fan-of-orientations finder detector".
+- [x] README `## Decoding QR codes`: menambah paragraf yang mengakui rotasi axis-aligned plus soft tilt hingga ~30 derajat dan menunjuk ke `docs/theory/15-rotation-handling.md` untuk geometri dan boundary cakupan.
+- [x] Entry CHANGELOG `v0.4.0` di bawah `### Added` (handedness cross-product di `orderFinderTriple`, theory doc 15, plan doc, fixture rotation + helper `rotateImage`), `### Validated` (`TestOrderFinderTripleRotationInvariance` dan `TestOrderFinderTripleRejectsBadGeometry`, enam fixture rotation sintetis, `decodeImageDebug` mengkonfirmasi Otsu fast path pada PNG rotated, `go test -race` bersih) plus paragraf `### Documented limitation` yang mencatat band 30..90 derajat sebagai pekerjaan masa depan.
+- [x] Checklist plan R1..R6 ditick.
 
 ### R5 — Benchmark & Pengaman Regresi `(S)`
 

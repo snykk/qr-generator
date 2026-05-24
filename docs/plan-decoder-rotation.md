@@ -82,11 +82,11 @@ Goal: lock in end-to-end recovery coverage for axis-aligned rotations and soft t
 
 Goal: align README and CHANGELOG with what shipped.
 
-- [ ] README `## Limitations`: remove the `**No rotated-image decoding**` bullet; replace with `**Limited arbitrary-angle decoding**` recording that 90 / 180 / 270 and tilts up to ~30 degrees work but the 30..90-degree band is out of reach until the scanner is updated. Stays honest about scope.
-- [ ] README `## Roadmap`: narrow the decoder robustness bullet from "arbitrary rotations" (now partially done) to "arbitrary-angle decoding for the 30..90-degree band, contour-based finder detection".
-- [ ] README `## Decoding QR codes`: add one sentence acknowledging axis-aligned rotation support, pointing at `docs/theory/15-rotation-handling.md`.
-- [ ] CHANGELOG `v0.4.0` entry under `### Added` (cross-product handedness in `orderFinderTriple`, theory doc 15, plan doc, synthetic rotation fixtures), `### Validated` (R3 fixtures, `go test -race` clean, no encoder regression).
-- [ ] Plan checklist for R1..R6 ticked.
+- [x] README `## Limitations`: removed the `**No rotated-image decoding**` bullet; replaced with `**Limited arbitrary-angle decoding**` recording that 90 / 180 / 270 and tilts up to ~30 degrees work but the 30..90-degree band is out of reach until the scanner is updated. Also updated the brief "Still out of scope" line to swap "rotated-image decoding" for "arbitrary-angle decoding in the 30..90 degree band".
+- [x] README `## Roadmap`: narrowed the decoder robustness bullet from "arbitrary rotations" to "arbitrary-angle decoding for the 30..90 degree band via a contour-based or fan-of-orientations finder detector".
+- [x] README `## Decoding QR codes`: added a paragraph that acknowledges axis-aligned rotation plus soft tilts up to ~30 degrees and points at `docs/theory/15-rotation-handling.md` for the geometry and the scope boundary.
+- [x] CHANGELOG `v0.4.0` entry under `### Added` (cross-product handedness in `orderFinderTriple`, theory doc 15, plan doc, rotation fixtures + `rotateImage` helper), `### Validated` (`TestOrderFinderTripleRotationInvariance` and `TestOrderFinderTripleRejectsBadGeometry`, six synthetic rotation fixtures, `decodeImageDebug` confirms Otsu fast path on rotated PNGs, `go test -race` clean) plus a `### Documented limitation` paragraph recording the 30..90 degree band as future work.
+- [x] Plan checklist R1..R6 ticked.
 
 ### R5 — Benchmarks & Regression Guard `(S)`
 
