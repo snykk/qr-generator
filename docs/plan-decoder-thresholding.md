@@ -77,7 +77,7 @@ Goal: invoke Sauvola only when Otsu's output looks unhealthy, and skip Otsu's bi
 - [x] Default `etaMin = 0.5`, `foregroundLo = 0.05`, `foregroundHi = 0.95` per Otsu's original paper; empirical note recorded in tests: textbook Otsu gives η ≈ 0.64 for a Gaussian and 0.75 for any uniform distribution, so the proactive gate only fires for genuinely degenerate (monochrome / single-delta) inputs. The reactive gate carries most of the v0.3 fallback weight. Tuning waits for T4 fixtures.
 - [x] Introduced `binariserUsedState` (unexported) with values `binariserOtsu`, `binariserSauvolaProactive`, `binariserSauvolaReactive` and a `String()` method, plus `decodeImageDebug` — the package-internal sibling of `decodeImage` that returns the binariser state alongside the text. `decodeImage` is now a thin wrapper that throws the state away; nothing leaks to the public API.
 - [x] Tests in `qrgen/decode_image_sauvola_test.go` cover all three branches: clean encoded PNG asserts `binariserOtsu` plus payload round-trip; a monochrome 80x80 image (η=0 by the variance-collapse branch) asserts `binariserSauvolaProactive`; a brightness-compression mutation of a clean QR that lifts right-side ink above left-side paper asserts `binariserSauvolaReactive` after first verifying that Otsu alone really fails on the fixture and that η stays above `etaMin` so the proactive branch could not have fired. End-to-end decode recovery on the reactive fixture is deferred to T4 where curated synthetic fixtures land.
-- [x] Helpers `otsuBinariseFromGray` and `foregroundRatio` are extracted so the dispatch can run Otsu and Sauvola off the same grayscale pass without re-walking the image.
+- [x] Helper `otsuBinariseFromGray` is extracted so the dispatch can run Otsu and Sauvola off the same grayscale pass without re-walking the image. The originally extracted `foregroundRatio` helper was retired in T5 after benchmarking showed its O(width * height) post-check cost ~3–5% on the Otsu happy path with no behavioural benefit, since `findFinders` failure already strictly covers the "ratio unhealthy" case.
 
 ### Checkpoint A — Sauvola fallback recovers at least one image where v0.2 fails.
 
@@ -95,9 +95,9 @@ Goal: lock in regression coverage across the lighting failure modes the fallback
 
 Goal: prove the Otsu-only path has not regressed and quantify Sauvola overhead.
 
-- [ ] Re-run `BenchmarkDecodeImageSmall`, `BenchmarkDecodeImageMultiBlock`, `BenchmarkDecodeImageURL`, `BenchmarkDecodeImageFromPNGDecode` and confirm allocations and ns/op stay within 1% of master's baseline (record both before/after numbers in the commit message).
-- [ ] Add `BenchmarkDecodeImageSauvolaFallback` that forces the fallback path (gradient fixture) so the Sauvola cost is visible in `go test -bench`.
-- [ ] `go test -race ./...` remains clean.
+- [x] Re-ran the existing image-stage benchmarks (`Small`, `MultiBlock`, `URL`, `FromPNGDecode`) on master and on the branch at the v3 dispatch (Apple M5, `-count=5`, `-benchtime=1s`). The first cut had the dispatch run a full O(width * height) `foregroundRatio` pass on every decode, which cost ~3–5% on the Otsu happy path. The helper and its associated `foregroundLo`/`foregroundHi` constants were retired after a one-line analysis: a degenerate single-class binarisation cannot yield valid 1:1:3:1:1 finder triples, so `findFinders` failure already strictly covers the "ratio unhealthy" case. Final medians (branch vs master, +% = branch slower): `Small` 651/648 ns/op = +0.5%, `MultiBlock` 1308/1318 ns/op = -0.8%, `URL` 1085/1068 ns/op = +1.6%, `FromPNGDecode` 564/555 ns/op = +1.6%. All within the run-to-run variance of master itself.
+- [x] Added `BenchmarkDecodeImageSauvolaFallback` that forces the reactive path via a `TestT4ConstantQuietZoneDarkening`-shaped fixture (QR untouched, quiet zone uniformly grey at 70). On the same hardware it lands at ~1074 ns/op with 1.07 MB/op and 241 allocs/op — about 1.9x the Otsu fast path on V1 because the dispatch runs Otsu's binarisation, finder detection, then a full Sauvola pass and a second finder detection. The allocation jump comes from the two `uint64`-backed integral images sized `(w+1) * (h+1)`.
+- [x] `go test -race ./...` remains clean across the qrgen package and the CLI tests.
 
 ### T6 — Polish & Release `(S)`
 

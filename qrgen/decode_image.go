@@ -144,21 +144,6 @@ func binarise(img image.Image) *bitmap {
 	return otsuBinariseFromGray(pixels, w, h, t)
 }
 
-// foregroundRatio returns the fraction of dark pixels in the bitmap. Used by
-// the dispatch in decodeImage as the post-check that catches degenerate
-// single-class output from Otsu before declaring ErrFinderNotFound.
-func foregroundRatio(bm *bitmap) float64 {
-	if len(bm.pixels) == 0 {
-		return 0
-	}
-	var dark int
-	for _, p := range bm.pixels {
-		if p {
-			dark++
-		}
-	}
-	return float64(dark) / float64(len(bm.pixels))
-}
 
 // finderCandidate is the (x, y) centre and estimated module pitch of a
 // detected 1:1:3:1:1 finder-pattern signature.
@@ -721,15 +706,16 @@ func decodeImageDebug(img image.Image) (string, binariserUsedState, error) {
 	}
 
 	tri, err := findFinders(bm)
-	fgRatio := foregroundRatio(bm)
-	unhealthy := err != nil || fgRatio < foregroundLo || fgRatio > foregroundHi
 
-	// Stage 2: reactive fallback. If Otsu's binarisation gave a degenerate
-	// foreground ratio or finder detection failed despite a healthy ratio,
-	// rebinarise with Sauvola and retry. Proactive Sauvola has no further
-	// fallback by design: if Sauvola already failed on a unimodal histogram,
-	// Otsu cannot do better.
-	if unhealthy && state == binariserOtsu {
+	// Stage 2: reactive fallback. If finder detection failed on the Otsu
+	// binarisation, rebinarise with Sauvola and retry. The plan and theory
+	// doc also contemplated a foregroundRatio post-check, but empirically a
+	// degenerate single-class binarisation cannot yield valid 1:1:3:1:1
+	// triples — findFinders failure is a strict superset of "ratio
+	// unhealthy", so we skip the extra O(width * height) ratio pass on the
+	// happy path. Proactive Sauvola has no further fallback by design: if
+	// Sauvola already failed on a unimodal histogram, Otsu cannot do better.
+	if err != nil && state == binariserOtsu {
 		bm = sauvolaBinariseFromGray(pixels, w, h)
 		state = binariserSauvolaReactive
 		tri, err = findFinders(bm)

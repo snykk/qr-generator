@@ -25,14 +25,9 @@ const (
 )
 
 // Dispatch tuning for the Otsu-or-Sauvola gate used by decodeImage. The
-// proactive bimodality gate (etaMin) and reactive foreground-ratio band
-// (foregroundLo, foregroundHi) are documented in
+// proactive bimodality gate (etaMin) is documented in
 // docs/theory/14-adaptive-thresholding.md §6.
-const (
-	etaMin       = 0.5
-	foregroundLo = 0.05
-	foregroundHi = 0.95
-)
+const etaMin = 0.5
 
 // binariserUsedState records which branch of the Otsu-or-Sauvola dispatch in
 // decodeImage actually produced the bitmap that finder detection ran on. The

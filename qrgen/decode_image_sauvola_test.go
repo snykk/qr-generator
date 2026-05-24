@@ -259,23 +259,6 @@ func TestOtsuEtaIsZeroForUniform(t *testing.T) {
 	}
 }
 
-func TestForegroundRatio(t *testing.T) {
-	bm := &bitmap{width: 10, height: 10, pixels: make([]bool, 100)}
-	if got := foregroundRatio(bm); got != 0 {
-		t.Errorf("all-light ratio = %g, want 0", got)
-	}
-	for i := range 25 {
-		bm.pixels[i] = true
-	}
-	if got := foregroundRatio(bm); got != 0.25 {
-		t.Errorf("25/100 ratio = %g, want 0.25", got)
-	}
-	empty := &bitmap{}
-	if got := foregroundRatio(empty); got != 0 {
-		t.Errorf("empty bitmap ratio = %g, want 0", got)
-	}
-}
-
 // applyPixelTransform maps img to an image.Gray with each pixel rewritten by
 // fn(x, y, originalGray). Used by the dispatch tests below to mutate a clean
 // QR PNG into the failure modes Sauvola is supposed to rescue.
