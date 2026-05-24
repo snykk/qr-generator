@@ -103,10 +103,10 @@ Goal: membuktikan jalur Otsu-only tidak mengalami regresi dan mengukur overhead 
 
 Goal: memotong `v0.3.0`.
 
-- [ ] Update README: hapus bullet `**No local thresholding.**` dari `## Limitations` dan klausa `local thresholding` yang setara dari `## Roadmap`. Ganti dengan kalimat satu baris "Adaptive thresholding (Sauvola fallback)" di bawah `## Decoding QR codes` atau di sub-paragraf baru di section tersebut yang menjelaskan fallback berjalan otomatis.
-- [ ] Entry `CHANGELOG.md` `v0.3.0` di bawah `### Added` (binariser Sauvola, heuristik fallback, theory doc 14, benchmark) dan `### Validated` (fixture sintetis uneven-lighting untuk varian linear, radial, diagonal, drop-shadow, low-contrast; jalur Otsu hot path tetap dalam 1% dari baseline v0.2).
-- [ ] Bump konstanta versi module-level hanya kalau kita memang menambahnya; selain itu cukup CHANGELOG dan tag yang membawa penanda v0.3.0.
-- [ ] Tag `v0.3.0` setelah push pertama ke GitHub supaya tag mendarat pada commit yang dilihat remote: `git tag -a v0.3.0 -m "Adaptive thresholding release" && git push origin v0.3.0`.
+- [x] README: menghapus bullet `**No local thresholding.**` dari `## Limitations` (batasannya kini ditutup sebagian; bullet baru mencatat boundary "Adaptive thresholding only on the quiet zone" yang tersisa supaya caller paham input mana yang masih mengalahkan fallback), melembutkan bullet `## Roadmap` yang sepadan dari "local thresholding (Sauvola or block-based)" menjadi "tunable Sauvola parameters plus morphological cleanup", dan menambah paragraf di bawah `## Decoding QR codes` yang menjelaskan fallback Sauvola berjalan otomatis dan menunjuk ke `docs/theory/14-adaptive-thresholding.md`.
+- [x] Entry `CHANGELOG.md` `v0.3.0` di bawah `### Added` (binariser Sauvola, dispatch dengan gate proaktif berbasis η dan fallback reaktif berbasis findFinders, theory doc 14, plan doc, benchmark baru) dan `### Validated` (lima fixture T4 untuk perturbasi quiet-zone constant / linear / radial / diagonal / drop-shadow, unit test dispatch untuk ketiga state, unit test Sauvola, Otsu fast path dalam variansi run-to-run milik v0.2, race-clean). Paragraf `### Documented limitation` mencatat kasus brightness-compression dalam-simbol yang saat ini di luar jangkauan.
+- [x] Tidak ada konstanta versi module-level yang perlu dibump; heading CHANGELOG `v0.3.0` dan tag yang akan datang yang membawa penanda.
+- [ ] Tag `v0.3.0` setelah push pertama ke GitHub supaya tag mendarat pada commit yang dilihat remote: `git tag -a v0.3.0 -F - <<'EOF'` dengan baris subjek `QR adaptive thresholding release` diikuti paragraf yang diturunkan dari CHANGELOG (mengikuti gaya gentleman yang kita rekomendasikan untuk v0.2.0). Dikerjakan manual oleh user.
 
 ---
 

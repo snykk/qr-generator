@@ -103,10 +103,10 @@ Goal: prove the Otsu-only path has not regressed and quantify Sauvola overhead.
 
 Goal: cut `v0.3.0`.
 
-- [ ] README updates: remove `**No local thresholding.**` bullet from `## Limitations` and the matching `local thresholding` clause from `## Roadmap`. Replace with a one-line "Adaptive thresholding (Sauvola fallback)" mention under `## Decoding QR codes` or in a new sub-paragraph under that section explaining the fallback is automatic.
-- [ ] `CHANGELOG.md` `v0.3.0` entry under `### Added` (Sauvola binariser, fallback heuristic, theory doc 14, benchmark) and `### Validated` (synthetic uneven-lighting fixtures across linear, radial, diagonal, drop-shadow, low-contrast variants; Otsu hot path within 1% of v0.2 baseline).
-- [ ] Bump module-level version constant only if we add one; otherwise just the CHANGELOG and tag carry the v0.3.0 marker.
-- [ ] Tag `v0.3.0` after the first push to GitHub so the tag lands on the commit the remote sees: `git tag -a v0.3.0 -m "Adaptive thresholding release" && git push origin v0.3.0`.
+- [x] README: removed the `**No local thresholding.**` bullet from `## Limitations` (the limitation is now partially closed; a new bullet records the remaining "Adaptive thresholding only on the quiet zone" boundary so callers understand which inputs still defeat the fallback), softened the matching `## Roadmap` bullet from "local thresholding (Sauvola or block-based)" to "tunable Sauvola parameters plus morphological cleanup", and added a paragraph under `## Decoding QR codes` explaining that the Sauvola fallback is automatic and points at `docs/theory/14-adaptive-thresholding.md`.
+- [x] `CHANGELOG.md` `v0.3.0` entry under `### Added` (Sauvola binariser, dispatch with η-based proactive gate and findFinders-based reactive fallback, theory doc 14, plan doc, new benchmark) and `### Validated` (five T4 fixtures across constant / linear / radial / diagonal / drop-shadow quiet-zone perturbations, dispatch unit tests for all three states, Sauvola unit tests, Otsu fast path within run-to-run variance of v0.2, race-clean). A `### Documented limitation` paragraph records the within-symbol brightness-compression case that is currently out of reach.
+- [x] No module-level version constant to bump; the CHANGELOG `v0.3.0` heading and the future tag carry the marker.
+- [ ] Tag `v0.3.0` after the first push to GitHub so the tag lands on the commit the remote sees: `git tag -a v0.3.0 -F - <<'EOF'` with a subject line `QR adaptive thresholding release` followed by a paragraph derived from the CHANGELOG (mirrors the gentleman-style tag we recommended for v0.2.0). Left for the user to run manually.
 
 ---
 

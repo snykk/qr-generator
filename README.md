@@ -102,6 +102,8 @@ If you already have an `image.Image` (e.g. decoded by another part of your progr
 
 Decoder failures are returned as typed sentinel errors so callers can branch with `errors.Is`: `ErrFinderNotFound` when the three finder patterns can't be located, `ErrInvalidVersion` when the finder spacing implies a version outside 1..40, `ErrFormatUnreadable` when the format-info strips are too corrupted, `ErrTooManyErrors` when any Reed–Solomon block exceeds its correction budget, and `ErrCorruptedPayload` when the recovered bit stream contains an unparseable segment header.
 
+The image stage in v0.3 uses a global Otsu threshold by default and silently falls back to Sauvola adaptive thresholding when Otsu produces a binarisation that finder detection cannot resolve — useful for inputs whose quiet zone has been contaminated by uneven lighting or soft shadows. The fallback is internal: no public option, no behaviour change for clean inputs, no allocation cost on the Otsu fast path. See [docs/theory/14-adaptive-thresholding.md](docs/theory/14-adaptive-thresholding.md) for the algorithm and dispatch heuristic.
+
 Runnable demos live in [examples/decode/basic](examples/decode/basic/main.go) and [examples/decode/styled](examples/decode/styled/main.go).
 
 ## CLI usage
@@ -199,7 +201,7 @@ The library covers the encoder and the decoder end-to-end as of v0.2.0; the foll
 - **No structured-append.** Long payloads must fit in a single symbol (V40 caps at ~2,953 bytes in byte mode at EC-L).
 - **No logo embedding.** Centred logos with automatic EC compensation are a roadmap item.
 - **No rotated-image decoding.** The decoder assumes the source image is approximately right-side-up; arbitrary rotations are roadmap.
-- **No local thresholding.** The decoder uses a single global Otsu threshold, which is fine for synthetic PNGs and evenly-lit photos but can fail on images with strong gradients or shadows.
+- **Adaptive thresholding only on the quiet zone.** v0.3 added a Sauvola fallback that recovers QR codes whose quiet zone has been darkened by uneven lighting or soft shadows, but mutations that compress the QR's own ink-paper contrast (very dim photos, heavy gradient across the symbol itself) still defeat both Otsu and Sauvola at default parameters.
 - **Greedy mode analyzer.** A single mode is chosen for the whole input; mixed-mode segmentation (DP-optimal) is deferred. A string like `"PHONE: 12345"` is encoded entirely in alphanumeric instead of splitting into alphanumeric + numeric.
 - **Rule-4 mask penalty.** The dark-ratio bucket boundary uses the Thonky-style floor formula; other implementations use a ceiling-style formula and may pick a different mask for the same input. Output remains spec-compliant either way.
 
@@ -213,7 +215,7 @@ Candidates for future minor releases (post-v0.2.0):
 - **Logo embedding:** centred logo with automatic EC-level bump for the occluded area.
 - **Micro QR & rMQR:** smaller form factors for short payloads.
 - **Structured-append:** split long text across multiple linked QR symbols.
-- **Decoder robustness:** arbitrary rotations, local thresholding (Sauvola or block-based) for uneven lighting, multi-symbol detection.
+- **Decoder robustness:** arbitrary rotations, tunable Sauvola parameters (k, window) plus morphological cleanup so heavier within-symbol contrast loss can also be recovered, multi-symbol detection.
 - **Performance:** reduce allocations on the hot encode and decode paths.
 
 Contributions for any of these are welcome — please open an issue first so we can sketch the API together.
