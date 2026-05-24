@@ -59,10 +59,11 @@ Goal: menutupi geometri dan algoritma di `docs/theory/` sebelum kode apa pun men
 
 Goal: mengganti diskriminator y-untuk-gambar-tegak dengan check handedness cross-product supaya pelabelan finder bekerja di rotasi apa pun.
 
-- [ ] Pertahankan jalur "sisi terpanjang berlawanan dengan vertex sudut-siku-siku" yang ada, yang sudah memilih top-left dengan benar.
-- [ ] Ganti blok `if tr.y > bl.y || (math.Abs(tr.y - bl.y) < 1 && tr.x < bl.x) { tr, bl = bl, tr }` dengan `if cross((tr - tl), (bl - tl)) < 0 { tr, bl = bl, tr }` supaya pelabelan bertahan di rotasi apa pun. (Konvensi sign-nya adalah cross product di koordinat image dengan `y` tumbuh ke bawah, sehingga kasus QR nyata yang tidak mirror duduk di sisi positif.)
-- [ ] Pertahankan sanity check right-angle dan rasio kaki yang sudah ada tanpa perubahan; mereka sudah rotation-invariant.
-- [ ] Unit test di `qrgen/decode_image_test.go` yang membangun tiga triple `finderCandidate` sintetis pada 0 / 90 / 180 / 270 derajat dan pada tilt 30 derajat, lalu assert `orderFinderTriple` menghasilkan identitas `(tl, tr, bl)` yang sama setiap kali.
+- [x] Mempertahankan jalur "sisi terpanjang berlawanan dengan vertex sudut-siku-siku" yang ada, yang sudah memilih top-left dengan benar.
+- [x] Mengganti blok `if tr.y > bl.y || (math.Abs(tr.y - bl.y) < 1 && tr.x < bl.x) { tr, bl = bl, tr }` dengan check handedness cross-product `cross := (tr.x-tl.x)*(bl.y-tl.y) - (tr.y-tl.y)*(bl.x-tl.x); if cross < 0 { tr, bl = bl, tr }`. Konvensi sign-nya adalah cross product di koordinat image dengan `y` tumbuh ke bawah, sehingga kasus QR nyata yang tidak mirror duduk di sisi positif di setiap rotasi sesuai tabel yang dikerjakan di `docs/theory/15-rotation-handling.md` §4.
+- [x] Mempertahankan sanity check right-angle dan rasio kaki yang sudah ada tanpa perubahan; mereka sudah rotation-invariant.
+- [x] Mengupdate komentar doc pada `finderTriple` dan `findFinders` sehingga tidak lagi mengklaim asumsi tegak — keduanya kini menunjuk ke `docs/theory/15-rotation-handling.md` untuk bukti rotation-invariance.
+- [x] Unit test di `qrgen/decode_image_test.go`: `TestOrderFinderTripleRotationInvariance` membangun triple `finderCandidate` sintetis pada 0 / 90 / 180 / 270 derajat plus tilt 30 derajat yang diturunkan secara manual, menjalankan tiap kasus lewat keenam permutasi urutan argumen input (menjalankan tiap cabang switch sisi terpanjang), dan meng-assert `(tl, tr, bl)` kembali teridentifikasi dengan benar setiap kali. `TestOrderFinderTripleRejectsBadGeometry` menjaga jalur penolakan kolinear dan rasio kaki tetap tertutupi. Race-clean.
 
 ### Checkpoint A — Ordering rotation-invariant kompil dan lulus tes level koordinat.
 

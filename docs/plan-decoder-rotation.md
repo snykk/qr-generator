@@ -59,10 +59,11 @@ Goal: cover the geometry and the algorithm in `docs/theory/` before any code lan
 
 Goal: replace the upright-image y-discriminator with a cross-product handedness check so finder labelling works at any rotation.
 
-- [ ] Keep the existing "longest side opposite the right-angle vertex" path that already picks the top-left correctly.
-- [ ] Replace the `if tr.y > bl.y || (math.Abs(tr.y - bl.y) < 1 && tr.x < bl.x) { tr, bl = bl, tr }` block with `if cross((tr - tl), (bl - tl)) < 0 { tr, bl = bl, tr }` so the labelling holds at any rotation. (Sign convention is image-coordinate cross product with `y` growing downward, so the un-mirrored, real-QR case sits on the positive side.)
-- [ ] Keep the existing right-angle and leg-ratio sanity checks unchanged; they were already rotation-invariant.
-- [ ] Unit tests in `qrgen/decode_image_test.go` that build three synthetic `finderCandidate` triples at 0 / 90 / 180 / 270 degrees and at a 30-degree tilt, then assert `orderFinderTriple` produces the same `(tl, tr, bl)` identities each time.
+- [x] Kept the existing "longest side opposite the right-angle vertex" path that already picks the top-left correctly.
+- [x] Replaced the `if tr.y > bl.y || (math.Abs(tr.y - bl.y) < 1 && tr.x < bl.x) { tr, bl = bl, tr }` block with the cross-product handedness check `cross := (tr.x-tl.x)*(bl.y-tl.y) - (tr.y-tl.y)*(bl.x-tl.x); if cross < 0 { tr, bl = bl, tr }`. Sign convention is image-coordinate cross product with `y` growing downward, so the un-mirrored real-QR case sits on the positive side at every rotation per the worked table in `docs/theory/15-rotation-handling.md` §4.
+- [x] Kept the existing right-angle and leg-ratio sanity checks unchanged; they were already rotation-invariant.
+- [x] Updated the doc comments on `finderTriple` and `findFinders` so they no longer claim the upright assumption — both now point at `docs/theory/15-rotation-handling.md` for the rotation-invariance proof.
+- [x] Unit tests in `qrgen/decode_image_test.go`: `TestOrderFinderTripleRotationInvariance` builds synthetic `finderCandidate` triples at 0 / 90 / 180 / 270 degrees plus a hand-derived 30-degree tilt, runs each through all six permutations of the input argument order (exercising every branch of the longest-side switch), and asserts `(tl, tr, bl)` come back identified correctly each time. `TestOrderFinderTripleRejectsBadGeometry` keeps the collinear and leg-ratio rejection paths covered. Race-clean.
 
 ### Checkpoint A — Rotation-invariant ordering compiles and passes coordinate-level tests.
 

@@ -591,3 +591,114 @@ func TestBinariseRoundTripsEncoderPNG(t *testing.T) {
 		}
 	}
 }
+
+// TestOrderFinderTripleRotationInvariance feeds synthetic finder positions
+// representing the same physical QR symbol rotated to 0, 90, 180, 270, and
+// 30 degrees. The expected output identities (tl, tr, bl) are taken from the
+// rotation: regardless of which corner of the image they land in, the
+// labeling must be consistent — top-left always at the right-angle vertex,
+// top-right always at the head of v_tr (which becomes a 90-degree rotation
+// of v_tr at each axis-aligned step), bottom-left always at the head of
+// v_bl. The pre-v0.4 implementation passed only the upright case; everything
+// else came back with tr and bl swapped because the discriminator relied on
+// raw y-coordinates. See docs/theory/15-rotation-handling.md.
+func TestOrderFinderTripleRotationInvariance(t *testing.T) {
+	// Side length of the synthetic symbol in pixels.
+	const a = 100.0
+	// Helper: build a finderCandidate at (x, y) with a fixed module size.
+	mk := func(x, y float64) finderCandidate {
+		return finderCandidate{x: x, y: y, moduleSize: 1.0}
+	}
+
+	cases := []struct {
+		name           string
+		tl, tr, bl     finderCandidate
+		permuteInputAs []int // permutation of [tl, tr, bl] indices fed to orderFinderTriple, to confirm input order does not matter
+	}{
+		{
+			name: "upright",
+			tl:   mk(10, 10),
+			tr:   mk(10+a, 10),
+			bl:   mk(10, 10+a),
+		},
+		{
+			name: "rot90cw",
+			// Original TL is now at the image's top-right corner.
+			tl: mk(10+a, 10),
+			tr: mk(10+a, 10+a),
+			bl: mk(10, 10),
+		},
+		{
+			name: "rot180",
+			tl:   mk(10+a, 10+a),
+			tr:   mk(10, 10+a),
+			bl:   mk(10+a, 10),
+		},
+		{
+			name: "rot270cw",
+			tl:   mk(10, 10+a),
+			tr:   mk(10, 10),
+			bl:   mk(10+a, 10+a),
+		},
+		{
+			name: "softTilt30deg",
+			// Apply a 30-degree clockwise rotation to the upright fixture
+			// around its TL anchor. Numbers come from the rotation matrix
+			// [[cos, -sin], [sin, cos]] applied to v_tr=(a,0) and v_bl=(0,a):
+			//   v_tr -> (a*cos(30), a*sin(30)) = (86.602, 50)
+			//   v_bl -> (-a*sin(30), a*cos(30)) = (-50, 86.602)
+			// Then translate by TL=(80, 30) so all points are positive.
+			tl: mk(80, 30),
+			tr: mk(80+86.602, 30+50),
+			bl: mk(80-50, 30+86.602),
+		},
+	}
+
+	// For every case, also try every permutation of the input arguments so
+	// orderFinderTriple's first step (longest-side-opposite) is exercised in
+	// every branch of its switch statement.
+	perms := [][3]int{
+		{0, 1, 2}, {0, 2, 1}, {1, 0, 2},
+		{1, 2, 0}, {2, 0, 1}, {2, 1, 0},
+	}
+
+	approxEqual := func(want, got finderCandidate, tag string) {
+		t.Helper()
+		if math.Abs(want.x-got.x) > 1e-6 || math.Abs(want.y-got.y) > 1e-6 {
+			t.Errorf("%s: got %+v, want %+v", tag, got, want)
+		}
+	}
+
+	for _, c := range cases {
+		for _, p := range perms {
+			in := [3]finderCandidate{c.tl, c.tr, c.bl}
+			got, err := orderFinderTriple(in[p[0]], in[p[1]], in[p[2]])
+			if err != nil {
+				t.Fatalf("%s perm=%v: unexpected error %v", c.name, p, err)
+			}
+			approxEqual(c.tl, got.topLeft, c.name+" tl")
+			approxEqual(c.tr, got.topRight, c.name+" tr")
+			approxEqual(c.bl, got.bottomLeft, c.name+" bl")
+		}
+	}
+}
+
+// TestOrderFinderTripleRejectsBadGeometry confirms the leg-ratio and
+// hypotenuse sanity checks still reject implausible triples after the
+// cross-product change. These two cases used to fire under the upright
+// implementation and must continue to fire under the rotation-invariant
+// one — the cross-product replacement only touches the tr-vs-bl
+// discriminator, not the geometric validation that follows.
+func TestOrderFinderTripleRejectsBadGeometry(t *testing.T) {
+	mk := func(x, y float64) finderCandidate {
+		return finderCandidate{x: x, y: y, moduleSize: 1.0}
+	}
+	// Three collinear points — degenerate "triangle".
+	if _, err := orderFinderTriple(mk(0, 0), mk(50, 0), mk(100, 0)); err == nil {
+		t.Error("collinear triple unexpectedly accepted")
+	}
+	// Two legs with grossly different lengths (ratio > 1.5).
+	if _, err := orderFinderTriple(mk(0, 0), mk(10, 0), mk(0, 100)); err == nil {
+		t.Error("triple with leg ratio 10:1 unexpectedly accepted")
+	}
+}
