@@ -60,9 +60,9 @@ Milestones land sequentially. **Checkpoint A** (after P3) gives the builders wit
 
 Goal: document each payload scheme and its escaping rules before any code lands.
 
-- [ ] `docs/theory/18-payload-formats.md` — for each of Wi-Fi, vCard, mailto, tel, SMS, geo: the exact string template, which characters must be escaped and how, the relevant spec/convention with a citation, and a worked example. Note that these are scanner conventions layered on top of the QR symbol, not part of ISO/IEC 18004 itself.
-- [ ] Indonesian counterpart `docs/theory/18-payload-formats.id.md`.
-- [ ] Update `docs/theory/README.md` and `.id.md`: entry 18 under a new "Payload conventions (v0.7.0)" subsection plus a code-mapping row pointing at `qrgen/payload.go`.
+- [x] `docs/theory/18-payload-formats.md` — for each of Wi-Fi, vCard, mailto, tel, SMS, geo: the exact string template, which characters must be escaped and how, the relevant spec/convention with a citation, and a worked example. Opens by stating these are scanner conventions layered on top of the QR symbol, not part of ISO/IEC 18004, and closes with the compose-not-encode rationale plus implementation pointers. Pins the open questions from P1: vCard 3.0 with the FN/N/ORG/TITLE/TEL/EMAIL/URL/ADR/NOTE field set and unfolded lines, `SMSTO:` scheme, `geo:` shortest-exact float formatting.
+- [x] Indonesian counterpart `docs/theory/18-payload-formats.id.md`.
+- [x] Updated `docs/theory/README.md` and `.id.md`: entry 18 under a new "Payload conventions (v0.7.0)" subsection plus a code-mapping row pointing at `qrgen/payload.go`.
 
 ### P3 — Payload Builders + Escaping `(M)`
 

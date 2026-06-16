@@ -60,9 +60,9 @@ Milestone dikerjakan berurutan. **Checkpoint A** (setelah P3) memberi builder de
 
 Goal: mendokumentasikan tiap skema payload dan aturan escaping-nya sebelum kode apa pun mendarat.
 
-- [ ] `docs/theory/18-payload-formats.md` — untuk tiap Wi-Fi, vCard, mailto, tel, SMS, geo: template string persis, karakter mana yang harus di-escape dan bagaimana, spec/konvensi yang relevan dengan sitasi, dan contoh terkerjakan. Catat bahwa ini konvensi scanner yang dilapiskan di atas simbol QR, bukan bagian dari ISO/IEC 18004 itu sendiri.
-- [ ] Padanan Indonesia `docs/theory/18-payload-formats.id.md`.
-- [ ] Update `docs/theory/README.md` dan `.id.md`: entry 18 di subsection baru "Payload conventions (v0.7.0)" plus baris code-mapping yang merujuk ke `qrgen/payload.go`.
+- [x] `docs/theory/18-payload-formats.md` — untuk tiap Wi-Fi, vCard, mailto, tel, SMS, geo: template string persis, karakter mana yang harus di-escape dan bagaimana, spec/konvensi yang relevan dengan sitasi, dan contoh terkerjakan. Dibuka dengan menyatakan ini konvensi scanner yang dilapiskan di atas simbol QR, bukan bagian ISO/IEC 18004, dan ditutup dengan rasional compose-bukan-encode plus pointer implementasi. Memaku pertanyaan terbuka dari P1: vCard 3.0 dengan set field FN/N/ORG/TITLE/TEL/EMAIL/URL/ADR/NOTE dan baris tak-terlipat, skema `SMSTO:`, formatting float shortest-exact `geo:`.
+- [x] Padanan Indonesia `docs/theory/18-payload-formats.id.md`.
+- [x] Mengupdate `docs/theory/README.md` dan `.id.md`: entry 18 di subsection baru "Payload conventions (v0.7.0)" plus baris code-mapping yang merujuk ke `qrgen/payload.go`.
 
 ### P3 — Payload Builders + Escaping `(M)`
 

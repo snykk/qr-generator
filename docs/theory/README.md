@@ -37,6 +37,10 @@ This folder contains the literature review and theoretical foundation for the `q
 
 17. [Optimal Mode Segmentation](17-optimal-segmentation.md) — why single-mode greedy leaves bits on the table, the per-segment cost model, the dynamic program over positions and modes, a worked example, the version-group interplay, the UTF-8 rune-boundary rule, and the homogeneous-input identity guarantee.
 
+### Payload conventions (v0.7.0)
+
+18. [Payload Formats](18-payload-formats.md) — the scanner conventions the convenience builders produce (Wi-Fi, vCard, mailto, tel, SMS, geo): exact templates, escaping rules, citations, and worked examples, plus why string builders compose with every output format.
+
 ## Primary references
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* The normative source.
@@ -72,6 +76,7 @@ Additional references appear at the end of each document.
 | 14-adaptive-thresholding.md         | `qrgen/decode_image_sauvola.go` (planned, T2 + T3) |
 | 15-rotation-handling.md             | `qrgen/decode_image.go` (planned, R2: `orderFinderTriple`) |
 | 16-svg-rendering.md                 | `qrgen/render_svg.go` |
-| 17-optimal-segmentation.md          | `qrgen/segment.go` (planned, MM3) |
+| 17-optimal-segmentation.md          | `qrgen/segment.go` |
+| 18-payload-formats.md               | `qrgen/payload.go` (planned, P3) |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.
