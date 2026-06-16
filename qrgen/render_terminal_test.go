@@ -83,6 +83,92 @@ func TestRenderTerminalEmpty(t *testing.T) {
 	}
 }
 
+// parseTerminalToSymbol inverts renderTerminal: it reads the rendered glyphs
+// back into the bare symbol grid (quiet zone stripped, polarity un-inverted) so
+// a DecodeMatrix round-trip can confirm the rendering is loss-free. It mirrors
+// the mapping in render_terminal.go for the given mode.
+func parseTerminalToSymbol(s string, quietZone int, invert, ascii bool) [][]bool {
+	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
+	var painted [][]bool
+	if ascii {
+		for _, line := range lines {
+			rs := []rune(line)
+			row := make([]bool, len(rs)/2)
+			for c := range row {
+				row[c] = rs[2*c] == '#'
+			}
+			painted = append(painted, row)
+		}
+	} else {
+		for _, line := range lines {
+			var top, bottom []bool
+			for _, ru := range line {
+				switch ru {
+				case blockFull:
+					top, bottom = append(top, true), append(bottom, true)
+				case blockUpper:
+					top, bottom = append(top, true), append(bottom, false)
+				case blockLower:
+					top, bottom = append(top, false), append(bottom, true)
+				default:
+					top, bottom = append(top, false), append(bottom, false)
+				}
+			}
+			painted = append(painted, top, bottom)
+		}
+	}
+	dim := len(painted[0])  // padded side in modules
+	painted = painted[:dim] // drop the out-of-grid tail half-row if present
+	size := dim - 2*quietZone
+	out := make([][]bool, size)
+	for r := 0; r < size; r++ {
+		out[r] = make([]bool, size)
+		for c := 0; c < size; c++ {
+			// paint = dark XOR invert, so dark = paint XOR invert.
+			out[r][c] = painted[r+quietZone][c+quietZone] != invert
+		}
+	}
+	return out
+}
+
+// TestTerminalRoundTrip renders a range of payloads in every mode, parses the
+// glyphs back into the symbol grid, and confirms DecodeMatrix recovers the
+// exact input — proving the rendering is loss-free in half-block, inverted, and
+// ASCII forms.
+func TestTerminalRoundTrip(t *testing.T) {
+	payloads := []string{
+		"HELLO WORLD",
+		"https://example.com",
+		"12345678901234567890",
+		"Order #1234567890",
+	}
+	modes := []struct {
+		name          string
+		invert, ascii bool
+	}{
+		{"halfblock", false, false},
+		{"invert", true, false},
+		{"ascii", false, true},
+	}
+	for _, text := range payloads {
+		for _, mode := range modes {
+			s, err := EncodeTerminal(text,
+				WithTerminalInvert(mode.invert), WithTerminalASCII(mode.ascii))
+			if err != nil {
+				t.Fatalf("EncodeTerminal(%q, %s): %v", text, mode.name, err)
+			}
+			grid := parseTerminalToSymbol(s, defaultQuietZone, mode.invert, mode.ascii)
+			got, err := DecodeMatrix(grid)
+			if err != nil {
+				t.Fatalf("DecodeMatrix(%q, %s): %v", text, mode.name, err)
+			}
+			if got != text {
+				t.Errorf("round-trip %q in %s mode: got %q", text, mode.name, got)
+			}
+		}
+	}
+}
+
 // EncodeTerminal threads the two terminal options through to the renderer: the
 // default emits half-block glyphs, ASCII emits ## and no block glyphs, and
 // inverting changes the output.

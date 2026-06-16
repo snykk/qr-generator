@@ -357,6 +357,64 @@ func TestRunEncodeSVGToStdout(t *testing.T) {
 	assertSVG(t, stdout.Bytes())
 }
 
+func TestRunEncodeTerminalToStdout(t *testing.T) {
+	cfg := cliConfig{
+		text:       "HELLO WORLD",
+		out:        "-",
+		format:     "terminal",
+		moduleSize: 8,
+		ec:         "M",
+		quietZone:  4,
+		mask:       -1,
+	}
+	var stdout bytes.Buffer
+	if err := run(cfg, strings.NewReader(""), &stdout); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	out := stdout.String()
+	if !strings.ContainsRune(out, '█') && !strings.ContainsRune(out, '▀') && !strings.ContainsRune(out, '▄') {
+		t.Errorf("terminal output has no block glyphs:\n%s", out)
+	}
+}
+
+func TestRunEncodeTerminalDefaultsToStdout(t *testing.T) {
+	// No -out and -format terminal must write to stdout, not a file.
+	cfg := cliConfig{
+		text:       "HELLO",
+		format:     "terminal",
+		moduleSize: 8,
+		ec:         "M",
+		quietZone:  4,
+		mask:       -1,
+	}
+	var stdout bytes.Buffer
+	if err := run(cfg, strings.NewReader(""), &stdout); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if stdout.Len() == 0 {
+		t.Error("terminal format with empty -out wrote nothing to stdout")
+	}
+}
+
+func TestRunEncodeASCIIToStdout(t *testing.T) {
+	cfg := cliConfig{
+		text:       "HELLO",
+		out:        "-",
+		format:     "ascii",
+		moduleSize: 8,
+		ec:         "M",
+		quietZone:  4,
+		mask:       -1,
+	}
+	var stdout bytes.Buffer
+	if err := run(cfg, strings.NewReader(""), &stdout); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "##") {
+		t.Error("ascii output missing ## glyph")
+	}
+}
+
 func TestRunEncodeInvalidFormat(t *testing.T) {
 	cfg := cliConfig{
 		text:       "HELLO",
