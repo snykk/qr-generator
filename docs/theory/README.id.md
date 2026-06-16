@@ -33,7 +33,11 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 ### Format output (v0.5.0)
 
-16. [SVG Rendering](16-svg-rendering.id.md) — kenapa SVG (scaling lossless, file kecil, tepi tajam), model dokumen SVG untuk simbol QR, menggambar satu-path versus satu rect per modul, viewBox unit-modul dengan sizing pixel, crispEdges dan decodability, warna-ke-hex dengan fill-opacity untuk alpha, dan kenapa renderer-nya sibling function alih-alih Render interface.
+16. [SVG Rendering](16-svg-rendering.id.md) — kenapa SVG (scaling lossless, tepi tajam, embedding HTML — bukan ukuran file), model dokumen SVG untuk simbol QR, menggambar satu-path versus satu rect per modul, viewBox unit-modul dengan sizing pixel, crispEdges dan decodability, warna-ke-hex dengan fill-opacity untuk alpha, dan kenapa renderer-nya sibling function alih-alih Render interface.
+
+### Kelengkapan encoder (v0.6.0)
+
+17. [Optimal Mode Segmentation](17-optimal-segmentation.id.md) — kenapa greedy single-mode meninggalkan bit terbuang, cost model per-segment, dynamic program atas posisi dan mode, contoh terkerjakan, interplay version-group, aturan batas rune UTF-8, dan jaminan identitas input-homogen.
 
 ## Referensi utama
 
@@ -69,6 +73,7 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 13-decoder-pipeline.id.md              | `qrgen/decode.go` (direncanakan, D7 + D12)    |
 | 14-adaptive-thresholding.id.md         | `qrgen/decode_image_sauvola.go` (direncanakan, T2 + T3) |
 | 15-rotation-handling.id.md             | `qrgen/decode_image.go` (direncanakan, R2: `orderFinderTriple`) |
-| 16-svg-rendering.id.md                 | `qrgen/render_svg.go` (direncanakan, S3) |
+| 16-svg-rendering.id.md                 | `qrgen/render_svg.go` |
+| 17-optimal-segmentation.id.md          | `qrgen/segment.go` (direncanakan, MM3) |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.

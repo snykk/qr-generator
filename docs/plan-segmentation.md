@@ -1,0 +1,149 @@
+# QR Encoder — Mixed-Mode Segmentation Plan
+
+This document describes the implementation plan for **DP-optimal mixed-mode segmentation** in the encoder, targeting the `v0.6.0` minor release. It continues the encoder-breadth phase opened by the SVG renderer (v0.5.0) and closes the long-standing "greedy mode analyzer" limitation documented in the README.
+
+> Status: **draft / living document.** Milestones MM1..MM6 land incrementally on the `encoder-segmentation` branch; each is a focused commit (or small commit series) with tests, matching the cadence used for M1..M11, D1..D14, T1..T6, R1..R6, and S1..S6.
+
+> Indonesian version: [docs/plan-segmentation.id.md](plan-segmentation.id.md).
+
+---
+
+## 1. Vision & Goals
+
+- Replace the encoder's **single-mode greedy analyzer** with a **dynamic-programming optimal segmentation** that splits the input into a sequence of numeric / alphanumeric / byte segments minimising the total encoded bit length. A payload like `"PHONE: 12345"` currently encodes entirely in byte mode (or alphanumeric if it qualifies); segmentation can encode the leading text as alphanumeric and the trailing digits as numeric, often shrinking the symbol — sometimes by a whole version.
+- Keep the change **encoder-only with no public API change.** `Encode`, `EncodeToFile`, `EncodeSVG`, and `Matrix` keep their exact signatures; callers see smaller or equal symbols for the same input, never larger.
+- **No decoder work needed.** The decoder's bit-stream parser already reads an arbitrary sequence of mode segments (it loops over segment headers until the terminator), so segmented output round-trips through our own decoder and through third-party decoders with zero changes. The existing round-trip test suite validates this the moment segmentation lands.
+- Preserve the **same philosophy**: pure Go, zero runtime dependencies, spec-first with a bilingual theory doc, and golden / round-trip / property tests.
+- **Guarantee no regression.** A pure-numeric, pure-alphanumeric, or pure-byte input must still produce a single segment whose bytes are identical to today's output, so existing golden fixtures and the gozxing round-trip stay green.
+
+## 2. Design Principles
+
+1. **DP over positions, keyed by mode.** The classic optimal-segmentation algorithm (Nayuki) walks the input left to right, tracking the minimum bit cost to encode the prefix ending in each of the three modes, with transitions for "extend the current segment" and "switch mode (paying a new header)". The cost of a segment is `4 (mode indicator) + mode.CharCountBits(v) + payloadBitLength(mode, segmentText)`.
+2. **Segmentation is version-group-dependent.** `CharCountBits(v)` changes across the three version groups (1–9, 10–26, 27–40), so the optimal split can differ by group. Version selection therefore computes the optimal segmentation *for each candidate version* (or per group) and picks the smallest version whose segmented length fits. Forty iterations of an O(n) DP is cheap.
+3. **Respect UTF-8 rune boundaries.** Numeric and alphanumeric characters are single-byte ASCII; any multi-byte rune can live only in a byte segment and contributes its full UTF-8 byte length to the byte-mode count. The DP must never split a multi-byte rune across a segment boundary. Operating the DP over runes (not raw bytes) while costing byte-mode segments in bytes keeps this correct.
+4. **Subsume, do not special-case.** The DP must yield exactly one segment for a homogeneous input, byte-identical to the current single-mode path, so the greedy analyzer becomes a provable special case rather than a parallel path that can drift.
+5. **No new public surface.** No new option, no new exported function or type. `segment` and `segmentText` are unexported. The greedy `analyzeMode` may stay as an internal helper (and for tests) but `encodeText` routes through the segmenter.
+6. **Tests first.** Each milestone ships with table-driven Go tests: DP-cost correctness, optimality-vs-greedy on mixed payloads, the homogeneous-input identity invariant, UTF-8 boundary cases, and end-to-end round-trips.
+
+## 3. Scope
+
+### In scope for v0.6.0
+
+- `segment` type (`{mode Mode, text string}`) and `segmentText(text string, v Version) []segment`, the DP-optimal segmenter, in a new `qrgen/segment.go`.
+- A bit-length helper for a segmentation at a given version, reused by both the DP and version selection.
+- `selectVersion` reworked to size the optimal segmentation per candidate version.
+- `encodeText` reworked to write a sequence of `[mode indicator][char count][payload]` blocks, then the single shared terminator + bit padding + pad bytes exactly as today.
+- Theory doc `docs/theory/17-optimal-segmentation.md` (EN + ID) covering the DP, the cost model, the version-group interplay, the UTF-8 boundary rule, and the homogeneous-input identity.
+- Validation: optimality and identity tests, decoder + gozxing round-trips, and encoder benchmarks (the DP adds work to the encode hot path, so this must be measured).
+
+### Out of scope (still)
+
+- **ECI segments and Kanji mode.** Segmentation works within the existing three modes; ECI/Kanji remain separate roadmap items. (Kanji, once added, would become a fourth mode the DP could target — noted for the future.)
+- **A public "force segmentation off" option.** Segmentation is strictly better-or-equal, so there is no reason to expose a toggle; revisit only if a real caller needs byte-for-byte parity with some other encoder.
+- **Structured append.** Unchanged; a separate roadmap item.
+- **Decoder changes.** None — it already parses multi-segment streams.
+
+---
+
+## 4. Milestones
+
+Milestones land sequentially. **Checkpoint A** (after MM4) gives a working segmented encoder validated by round-trips. **Checkpoint B** (MM6) is the `v0.6.0` release.
+
+### MM1 — Plan Doc `(S)`
+
+Goal: this document and its Indonesian counterpart, committed before any code or theory lands.
+
+- [ ] `docs/plan-segmentation.md` and `docs/plan-segmentation.id.md` covering vision, principles, scope, milestones MM1..MM6, file-layout delta, risks, references, open questions.
+
+### MM2 — Optimal-Segmentation Theory Doc `(S)`
+
+Goal: cover the algorithm and its subtleties in `docs/theory/` before any code lands.
+
+- [x] `docs/theory/17-optimal-segmentation.md` — eight sections: why greedy leaves bits on the table (with the bits/char density table), the per-segment cost model, the DP formulation (state, transitions, base case, traceback), a *correct* worked example `"Order #1234567890"` (greedy byte 148 bits vs byte+numeric 116 bits at V1) plus the `"PHONE: 12345"` counter-example showing a 5-digit run is too short to split and stating the ~7-digit (from alpha) / ~4-digit (from byte) break-evens, the version-group interplay and per-version recompute, the UTF-8 rune-boundary rule, and the homogeneous-input identity guarantee.
+- [x] Indonesian counterpart `docs/theory/17-optimal-segmentation.id.md`.
+- [x] Updated `docs/theory/README.md` and `.id.md`: entry 17 under a new "Encoder completeness (v0.6.0)" subsection plus a code-mapping row pointing at `qrgen/segment.go`; also corrected the entry-16 "small files" phrasing to match the v0.5 size correction. Cross-linked from doc 02 (both languages): its greedy-analyzer note now points forward to doc 17 and states segmentation shipped in v0.6.
+
+### MM3 — `segment` Type + DP Segmenter `(M)`
+
+Goal: the segmenter itself, with no encoder integration yet.
+
+- [x] `qrgen/segment.go` with the `segment` struct, `segmentText(text string, v Version) []segment` implementing the DP, `segmentsBitLength`, and the count-based `numericPayloadBits`/`alphanumericPayloadBits` helpers. The DP is `dp[i] = min bits to encode the first i runes`, closing one segment `runes[j:i]` per transition; numeric/alpha inner loops break at the first ineligible rune (bounding them to contiguous runs), byte is always eligible (the O(n²) part). Costs use the exact closed-form payload, so each transition is O(1).
+- [x] Empty string returns a single zero-length numeric segment, matching today's empty-input behaviour.
+- [x] UTF-8: the DP iterates runes; a rune is numeric/alphanumeric-eligible only if ASCII digit / in the alphanumeric set; multi-byte runes are byte-only and counted in bytes via a prefix byte-length array, so a rune is never split across segments.
+- [x] Tests in `qrgen/segment_test.go`: homogeneous inputs return one segment of the expected mode AND cost exactly the greedy length (identity invariant); `"Order #1234567890"` splits into byte + numeric at exactly 116 vs 148 bits; `"PHONE: 12345"` stays a single alphanumeric segment (the short-run counter-example, 79 bits); a 15-payload × 6-version sweep asserts the segmentation reconstructs the input and is never worse than greedy; version-group boundaries (9/10/27) recompute and stay valid; a `"café☕ 1234567890"` case proves multi-byte runes stay whole in byte segments; plus empty-input and `segmentsBitLength` unit checks. Race-clean.
+
+### Checkpoint A — segmenter is correct and provably never worse than greedy.
+
+### MM4 — Encoder Integration `(M)`
+
+Goal: route the encoder through the segmenter.
+
+- [x] Reworked `selectVersion(text, ec)` to pick the smallest version whose optimal segmentation fits via `segmentsBitLength`. Added `versionGroup` and a per-group cache so the DP runs at most three times (once per character-count group) instead of forty — this is the optimisation the plan flagged for MM5, pulled forward because the naive 40-run version regressed the test suite from ~5s to 84s; with the cache it is back to ~1.6s.
+- [x] Reworked `encodeText` to write each segment's `[mode indicator][char count][payload]` via the existing `writeNumeric/Alphanumeric/Byte`, then the single shared terminator + bit padding + pad bytes. `len(s.text)` is the correct character count for every mode (numeric/alpha segments are pure ASCII; byte counts bytes). The `forceVersion` capacity check now sizes the segmentation. **Dropped the `m Mode` return** from `encodeText` (it was internal and `buildMatrix` already discarded it; a single representative mode would be misleading for a multi-segment encode) and updated all call sites across `encode_test.go`, `decode_matrix_test.go`, `matrix_test.go`, `mask_test.go`, and `reedsolomon_test.go`.
+- [x] Kept `analyzeMode` as an internal helper (still used by tests and the greedy-baseline test helper); it no longer drives capacity decisions. Its doc comment is updated to point at the segmenter.
+- [x] Tests in `encode_test.go`: `TestEncodeMixedPayloadRoundTrip` round-trips five mixed payloads (including UTF-8 `café☕` and a long embedded digit run) through both `Matrix`→`DecodeMatrix` and `Encode`→`DecodeBytes`; `TestEncodeMixedPayloadHonoursVersionAndMask` confirms `WithVersion(5)`/`WithMask(3)` still apply and round-trip; `TestEncodeMixedPayloadFitsSmallerVersion` is an end-to-end optimality check. The existing `TestEncodeTextHelloWorld` golden bytes are unchanged (identity invariant), and `TestSelectVersionCapacityExceeded` still fires `ErrCapacityExceeded`. Full `go test -race ./...` green.
+
+### MM5 — Validation & Benchmarks `(M)`
+
+Goal: prove the win and guard the hot path.
+
+- [x] Optimality assertions: `TestEncodeMixedPayloadFitsSmallerVersion` and the segmenter's `TestSegmentTextMixedSplitsAndWins` pin the exact 116-vs-148-bit win for `"Order #1234567890"`, and the new `TestEncodeSegmentationDropsAVersion` proves a real version drop end-to-end — `"x" + 16×"9" + "x"` needs V2-L greedily (156 bits) but fits V1-L segmented (108 bits) and still round-trips.
+- [x] Cross-validation: `TestRoundTripWithThirdPartyDecoder` gained four segmented payloads (byte+numeric, an invoice string, a UTF-8+numeric case, and a 60-digit run embedded in byte text); the independent gozxing decoder reads all of them, confirming the multi-segment stream is spec-valid, not merely self-consistent.
+- [x] No-regression: the existing `TestEncodeTextHelloWorld` golden bytes and the homogeneous gozxing cases are unchanged, confirming the identity invariant.
+- [x] Benchmarks (Apple M5, `count=3`): `EncodeURL` ~850us (≈ v0.5's 845us, flat), `EncodeSmall` ~550us vs v0.5's 451us (~+20%, driven by the DP's slice allocations — 467 vs 451 allocs/op — not the n² loop, since these payloads are tiny), `EncodeMultiBlock` ~1.05ms, new `EncodeMixed` ~860us. `EncodeLarge` (~17ms) is dominated by Reed-Solomon and PNG rendering, not segmentation. The per-group cache added in MM4 keeps the DP to at most three runs per encode; the residual small-payload cost is a handful of allocations, judged an acceptable trade for the version-drop win. The Nayuki O(n) DP and a homogeneous-numeric fast path remain available if a future profile shows the DP hot.
+- [x] `go test -race ./...` clean (~11s).
+
+### MM6 — Polish & Release `(S)`
+
+Goal: cut `v0.6.0`.
+
+- [x] README: removed the **"Greedy mode analyzer"** bullet from `## Limitations`; the Scope section now lists DP-optimal mixed-mode segmentation as an encoding feature; `## Roadmap` "Encoding completeness" drops mixed-mode segmentation (noting it shipped in v0.6), leaving ECI + Kanji. The misleading `"PHONE: 12345"` example is gone with the bullet; doc 17 documents it as a counter-example instead.
+- [x] The `analyzeMode` doc comment (MM4) and `docs/theory/02-data-encoding.md` (MM2) already point at the segmenter and no longer describe segmentation as deferred.
+- [x] `CHANGELOG.md` `v0.6.0` entry under Added / Changed / Validated plus a Performance note, and the compare/tag anchors. Staged without the maintainer's separate v0.5.0 date edit.
+- [ ] Tag `v0.6.0` (left for the maintainer per the established git/release workflow; annotation recommended in the release conversation).
+
+---
+
+## 5. Proposed File Layout Delta
+
+```
+qrgen/
+├── encode.go            # existing — selectVersion + encodeText reworked for segments; analyzeMode kept as helper
+├── segment.go           # new — segment type, segmentText DP, segmentsBitLength
+├── segment_test.go      # new — DP correctness, optimality, identity, UTF-8 tests
+├── encode_test.go       # existing — gains mixed-payload round-trip + identity-invariant tests
+├── bench_test.go        # existing — re-measured; possible per-group segmentation cache
+└── roundtrip_test.go    # existing gozxing test — gains segmented payloads
+docs/
+├── plan-segmentation.md          # this file
+├── plan-segmentation.id.md       # Indonesian counterpart
+└── theory/
+    ├── 02-data-encoding.md        # greedy-analyzer note points forward to doc 17
+    ├── 17-optimal-segmentation.md     # new
+    └── 17-optimal-segmentation.id.md  # new
+```
+
+## 6. Risks & Technical Notes
+
+- **Version/segmentation circularity.** Optimal segmentation depends on the version (via `CharCountBits`), but version selection depends on the encoded length, which depends on the segmentation. Resolved by computing the segmentation per candidate version inside the selection loop; correctness is unconditional, and a per-group cache removes any real cost.
+- **UTF-8 correctness.** The single sharpest trap: a multi-byte rune must never be split, and byte-mode length is counted in bytes, not runes. The DP iterates runes and costs byte segments by `len(string(runes))`; tests include emoji / CJK payloads.
+- **Identity invariant.** The biggest regression risk is changing the bytes of a homogeneous input. A dedicated test asserts byte-for-byte equality with the pre-segmentation output for pure-numeric / pure-alpha / pure-byte strings; this also keeps the v0.1 golden fixtures and the gozxing round-trip valid.
+- **Hot-path cost.** Running an O(n) DP up to 40 times per encode is more work than the old O(n) single-mode scan. For typical payloads this is negligible, but the benchmarks must confirm it; a per-version-group cache (three computations instead of forty) is the fallback if needed.
+- **`m Mode` return value.** `encodeText` currently returns a single mode that `buildMatrix` discards. Segmentation has no single mode; the signature should drop the return or return a representative value. Internal-only, but worth doing cleanly to avoid a misleading API.
+- **Mask/penalty unaffected.** Segmentation changes the data bit stream, not matrix construction, masking, or rendering. Those stages and their tests are untouched.
+
+## 7. References
+
+- ISO/IEC 18004:2015 — clause 7.4 (data encoding, mode segments and mode indicators), clause 7.4.1 (mixing modes within a symbol).
+- Project Nayuki — *Optimal text segmentation for QR Codes*: <https://www.nayuki.io/page/optimal-text-segmentation-for-qr-codes>. The dynamic-programming formulation adopted here.
+- `docs/theory/02-data-encoding.md` — the existing mode/character-count notes, extended by doc 17.
+- `docs/theory/09-data-tables.md` — `CharCountBits` per version group and the alphanumeric value table.
+
+## 8. Open Questions
+
+To be answered before the corresponding milestone starts:
+
+- **Drop or keep the `m Mode` return from `encodeText`?** Leaning toward dropping it since it is internal and discarded; a representative mode would be misleading for a multi-segment encode. Settle in MM4.
+- **Per-version-group segmentation cache from the start, or only if benchmarks demand it?** Default: implement the simple per-version computation first, measure in MM5, and add the three-entry group cache only if the delta is material. Correctness first.
+- **Empty-string handling.** Today an empty payload reports Numeric and encodes a zero-length numeric segment. Keep that exact behaviour through the segmenter so output is unchanged for the edge case.
+- **Should `analyzeMode` be removed entirely?** It is subsumed by the DP for the single-segment case, but it is small, self-documenting, and used in tests; default to keeping it as an internal helper unless it becomes dead code.

@@ -231,7 +231,7 @@ func TestSelectAndApplyMaskHelloWorld(t *testing.T) {
 // worked example so the picked mask is auditable. The picked mask must
 // genuinely be the minimum (with index breaking ties).
 func TestMaskScoresHelloWorld(t *testing.T) {
-	data, v, _, err := encodeText("HELLO WORLD", ECLevelM, 0)
+	data, v, err := encodeText("HELLO WORLD", ECLevelM, 0)
 	if err != nil {
 		t.Fatalf("encodeText: %v", err)
 	}

@@ -50,6 +50,13 @@ func TestRoundTripWithThirdPartyDecoder(t *testing.T) {
 		{"V10 long byte L", strings.Repeat("The quick brown fox. ", 12), []Option{WithECLevel(ECLevelL)}},
 		// Force version + mask exercises the override paths in buildMatrix.
 		{"forced V2 mask 3", "HELLO WORLD", []Option{WithVersion(2), WithMask(3)}},
+		// Mixed-mode segmentation (v0.6): payloads that split across modes must
+		// still read on an independent decoder, proving the multi-segment bit
+		// stream is spec-conformant and not just self-consistent.
+		{"seg byte+numeric", "Order #1234567890", []Option{WithECLevel(ECLevelM)}},
+		{"seg invoice", "Invoice INV-2026 000123456789 total", []Option{WithECLevel(ECLevelQ)}},
+		{"seg utf8+numeric", "café☕ 1234567890", []Option{WithECLevel(ECLevelM)}},
+		{"seg long digit run", "ID:" + strings.Repeat("0", 60) + " END", []Option{WithECLevel(ECLevelL)}},
 	}
 
 	reader := qrcode.NewQRCodeReader()

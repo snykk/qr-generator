@@ -11,6 +11,7 @@ package qrgen
 import (
 	"bytes"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -118,25 +119,26 @@ func TestWriteAlphanumericHEPair(t *testing.T) {
 func TestSelectVersion(t *testing.T) {
 	cases := []struct {
 		name   string
-		mode   Mode
 		input  string
 		ec     ECLevel
 		want   Version
 		errExp error
 	}{
 		// HELLO WORLD payload = 4 + 9 + 61 = 74 bits. V1-M holds 128. So V1.
-		{"hello world m", ModeAlphanumeric, "HELLO WORLD", ECLevelM, 1, nil},
+		// All inputs here are homogeneous, so the optimal segmentation is a
+		// single segment and version selection matches the single-mode math.
+		{"hello world m", "HELLO WORLD", ECLevelM, 1, nil},
 		// Empty: header = 4 + 9 + 0 = 13 bits. V1 anywhere.
-		{"empty l", ModeAlphanumeric, "", ECLevelL, 1, nil},
+		{"empty l", "", ECLevelL, 1, nil},
 		// 17 alphanumeric chars at H. Payload bits = 17/2*11 + 6 = 88 + 6 = 94.
 		// Header at V1: 4 + 9 = 13. Total 107. V1-H = 9 codewords = 72 bits. Too tight.
 		// V2-H = 16 codewords = 128 bits. Header at V2 still 13 (V2 is in v1-9 range).
 		// Total 107 fits in 128, so V2.
-		{"17 chars h", ModeAlphanumeric, "AAAAAAAAAAAAAAAAA", ECLevelH, 2, nil},
+		{"17 chars h", "AAAAAAAAAAAAAAAAA", ECLevelH, 2, nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			v, err := selectVersion(c.mode, c.input, c.ec)
+			v, err := selectVersion(c.input, c.ec)
 			if c.errExp != nil {
 				if !errors.Is(err, c.errExp) {
 					t.Fatalf("err = %v, want %v", err, c.errExp)
@@ -159,7 +161,7 @@ func TestSelectVersionCapacityExceeded(t *testing.T) {
 	for i := range huge {
 		huge[i] = '0'
 	}
-	_, err := selectVersion(ModeNumeric, string(huge), ECLevelL)
+	_, err := selectVersion(string(huge), ECLevelL)
 	if !errors.Is(err, ErrCapacityExceeded) {
 		t.Errorf("err = %v, want ErrCapacityExceeded", err)
 	}
@@ -169,16 +171,15 @@ func TestSelectVersionCapacityExceeded(t *testing.T) {
 // docs/theory/10-worked-example.md: encoding "HELLO WORLD" at EC level M
 // must produce exactly the 16 data codewords listed there.
 func TestEncodeTextHelloWorld(t *testing.T) {
-	data, v, m, err := encodeText("HELLO WORLD", ECLevelM, 0)
+	data, v, err := encodeText("HELLO WORLD", ECLevelM, 0)
 	if err != nil {
 		t.Fatalf("encodeText: %v", err)
 	}
 	if v != 1 {
 		t.Errorf("version = %d, want 1", v)
 	}
-	if m != ModeAlphanumeric {
-		t.Errorf("mode = %s, want Alphanumeric", m)
-	}
+	// "HELLO WORLD" is homogeneous alphanumeric, so segmentation yields a
+	// single alphanumeric segment and the golden bytes are unchanged.
 	want := []byte{
 		0x20, 0x5B, 0x0B, 0x78, 0xD1, 0x72, 0xDC, 0x4D,
 		0x43, 0x40, 0xEC, 0x11, 0xEC, 0x11, 0xEC, 0x11,
@@ -209,7 +210,7 @@ func TestEncodeTextLengthAlwaysMatchesCapacity(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			data, v, _, err := encodeText(c.text, c.ec, 0)
+			data, v, err := encodeText(c.text, c.ec, 0)
 			if err != nil {
 				t.Fatalf("encodeText: %v", err)
 			}
@@ -218,5 +219,111 @@ func TestEncodeTextLengthAlwaysMatchesCapacity(t *testing.T) {
 				t.Errorf("len(data) = %d, want %d (V%d-%s)", len(data), want, v, c.ec)
 			}
 		})
+	}
+}
+
+// TestEncodeMixedPayloadRoundTrip exercises the v0.6 segmentation end to end:
+// payloads that mix character classes must round-trip exactly through both the
+// matrix path (Matrix -> DecodeMatrix) and the byte path (Encode -> DecodeBytes),
+// proving the multi-segment bit stream the encoder now emits is decodable.
+func TestEncodeMixedPayloadRoundTrip(t *testing.T) {
+	payloads := []string{
+		"Order #1234567890",
+		"Invoice INV-2026 000123456789 total",
+		"café☕ 1234567890",
+		"https://example.com/cart?id=000111222333444555",
+		"ABC" + strings.Repeat("0", 80) + "xyz",
+	}
+	for _, p := range payloads {
+		t.Run(p, func(t *testing.T) {
+			grid, err := Matrix(p)
+			if err != nil {
+				t.Fatalf("Matrix: %v", err)
+			}
+			if got, err := DecodeMatrix(grid); err != nil {
+				t.Fatalf("DecodeMatrix: %v", err)
+			} else if got != p {
+				t.Errorf("matrix round-trip = %q, want %q", got, p)
+			}
+
+			png, err := Encode(p)
+			if err != nil {
+				t.Fatalf("Encode: %v", err)
+			}
+			if got, err := DecodeBytes(png); err != nil {
+				t.Fatalf("DecodeBytes: %v", err)
+			} else if got != p {
+				t.Errorf("bytes round-trip = %q, want %q", got, p)
+			}
+		})
+	}
+}
+
+// TestEncodeMixedPayloadHonoursVersionAndMask confirms WithVersion and WithMask
+// still apply when the payload is segmented into multiple modes.
+func TestEncodeMixedPayloadHonoursVersionAndMask(t *testing.T) {
+	const p = "Order #1234567890"
+	grid, err := Matrix(p, WithVersion(5), WithMask(3))
+	if err != nil {
+		t.Fatalf("Matrix: %v", err)
+	}
+	if len(grid) != Version(5).Size() {
+		t.Errorf("grid side = %d, want %d (V5)", len(grid), Version(5).Size())
+	}
+	if got, err := DecodeMatrix(grid); err != nil {
+		t.Fatalf("DecodeMatrix: %v", err)
+	} else if got != p {
+		t.Errorf("round-trip = %q, want %q", got, p)
+	}
+}
+
+// TestEncodeMixedPayloadFitsSmallerVersion is an end-to-end optimality check:
+// a byte payload with a long embedded digit run encodes into a strictly
+// smaller bit count under segmentation than the greedy single-mode choice
+// would, and still round-trips.
+func TestEncodeMixedPayloadFitsSmallerVersion(t *testing.T) {
+	const p = "Order #1234567890"
+	segmented := segmentsBitLength(segmentText(p, 1), 1)
+	greedy := greedyBitLength(p, 1)
+	if segmented >= greedy {
+		t.Errorf("segmented %d bits not smaller than greedy %d", segmented, greedy)
+	}
+	png, err := Encode(p)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	if got, err := DecodeBytes(png); err != nil || got != p {
+		t.Fatalf("round-trip got %q, err %v; want %q", got, err, p)
+	}
+}
+
+// TestEncodeSegmentationDropsAVersion is the headline real-world win: a byte
+// payload with a 16-digit embedded run needs V2-L under the greedy single-mode
+// encoder (156 bits > V1-L's 152) but fits V1-L once segmented into
+// byte+numeric+byte (108 bits). The smaller symbol still round-trips.
+func TestEncodeSegmentationDropsAVersion(t *testing.T) {
+	p := "x" + strings.Repeat("9", 16) + "x"
+
+	// Greedy (byte) must overflow V1-L for the fixture to be meaningful.
+	m := analyzeMode(p)
+	greedyBits := 4 + m.CharCountBits(1) + payloadBitLength(m, p)
+	if greedyBits <= Version(1).DataCodewords(ECLevelL)*8 {
+		t.Fatalf("fixture invalid: greedy already fits V1-L (%d bits)", greedyBits)
+	}
+
+	segV, err := selectVersion(p, ECLevelL)
+	if err != nil {
+		t.Fatalf("selectVersion: %v", err)
+	}
+	if segV != 1 {
+		t.Errorf("segmented version = %d, want 1 (segmentation should drop a version)", segV)
+	}
+
+	png, err := Encode(p, WithECLevel(ECLevelL))
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	if got, err := DecodeBytes(png); err != nil || got != p {
+		t.Fatalf("round-trip got %q, err %v; want %q", got, err, p)
 	}
 }

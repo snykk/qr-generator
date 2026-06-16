@@ -78,7 +78,7 @@ func TestReadCodewordStreamRoundTripsEncoder(t *testing.T) {
 			}
 			// Compute the expected interleaved codeword stream the encoder
 			// would have produced for this (text, ec).
-			data, v, _, err := encodeText(c.text, c.ec, 0)
+			data, v, err := encodeText(c.text, c.ec, 0)
 			if err != nil {
 				t.Fatalf("encodeText: %v", err)
 			}
@@ -117,7 +117,7 @@ func TestReadCodewordStreamReversesMaskForAllPatterns(t *testing.T) {
 			if mask != k {
 				t.Fatalf("forced mask %d but got %d", k, mask)
 			}
-			data, v, _, _ := encodeText("HELLO WORLD", ECLevelM, 0)
+			data, v, _ := encodeText("HELLO WORLD", ECLevelM, 0)
 			want := rsEncode(data, v, ECLevelM)
 			grid := make([][]bool, m.size)
 			for i := 0; i < m.size; i++ {
@@ -229,7 +229,7 @@ func TestDeinterleaveAndCorrectRoundTrip(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			data, v, _, err := encodeText(c.text, c.ec, 0)
+			data, v, err := encodeText(c.text, c.ec, 0)
 			if err != nil {
 				t.Fatalf("encodeText: %v", err)
 			}
@@ -248,7 +248,7 @@ func TestDeinterleaveAndCorrectRoundTrip(t *testing.T) {
 // TestDeinterleaveAndCorrectTolerates corrupts a small number of bytes
 // (within the spec's RS budget) and verifies recovery still succeeds.
 func TestDeinterleaveAndCorrectTolerates(t *testing.T) {
-	data, v, _, _ := encodeText("HELLO WORLD", ECLevelM, 0)
+	data, v, _ := encodeText("HELLO WORLD", ECLevelM, 0)
 	stream := rsEncode(data, v, ECLevelM)
 	// V1-M has 1 block, n=10 EC codewords → t=5 byte budget.
 	corrupted := append([]byte(nil), stream...)
@@ -265,7 +265,7 @@ func TestDeinterleaveAndCorrectTolerates(t *testing.T) {
 }
 
 func TestDeinterleaveAndCorrectFailsBeyondCapacity(t *testing.T) {
-	data, v, _, _ := encodeText("HELLO WORLD", ECLevelM, 0)
+	data, v, _ := encodeText("HELLO WORLD", ECLevelM, 0)
 	stream := rsEncode(data, v, ECLevelM)
 	// 6 byte flips exceed the t=5 budget for V1-M's single block.
 	corrupted := append([]byte(nil), stream...)
