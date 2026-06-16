@@ -23,6 +23,10 @@ This release adds a **scalable SVG renderer** alongside the original PNG output,
 
 - Corrected `docs/theory/08-rendering.md` (both languages): the sentence promising a `Render` interface that was never built now describes sibling render functions sharing `renderOptions`, cross-linked to doc 16.
 
+### Dependencies
+
+- Bumped `golang.org/x/text` 0.3.7 → 0.3.8 (Dependabot). This is an indirect, **test-only** dependency pulled in transitively by `github.com/makiuchi-d/gozxing`; it never appears in `go list -deps` of `qrgen` or `cmd/qrgen`, so it does not affect consumers of the library. The bump picks up the fix for CVE-2022-32149 in `language.ParseAcceptLanguage`.
+
 ### Validated
 
 - `TestEncodeSVGRoundTripGrid` closes an encode -> SVG -> grid loop: it reconstructs the module grid straight from the emitted path (reading the canvas dimension from the `viewBox`, deriving the quiet zone, walking each `M x y` subpath) and asserts it equals `Matrix` cell for cell across V1-M, a URL at EC-Q, a small-quiet-zone numeric payload, a multi-block EC-H payload, and a custom-colour case — dependency-free, consistent with the stdlib-only policy.
