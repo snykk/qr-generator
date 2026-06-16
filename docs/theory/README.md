@@ -29,6 +29,10 @@ This folder contains the literature review and theoretical foundation for the `q
 
 15. [Rotation Handling](15-rotation-handling.md) — where the upright assumption lives in the v0.3 pipeline, why right-angle vertex detection is already rotation-invariant, the cross-product handedness identity that disambiguates top-right from bottom-left at any rotation, and the scope boundary at ~30 degrees set by the 1:1:3:1:1 scanner's tolerance.
 
+### Output formats (v0.5.0)
+
+16. [SVG Rendering](16-svg-rendering.md) — why SVG (lossless scaling, small files, crisp edges), the SVG document model for a QR symbol, single-path drawing versus one rect per module, the module-unit viewBox with pixel sizing, crispEdges and decodability, colour-to-hex with fill-opacity for alpha, and why the renderer is a sibling function rather than a Render interface.
+
 ## Primary references
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* The normative source.
@@ -63,5 +67,6 @@ Additional references appear at the end of each document.
 | 13-decoder-pipeline.md              | `qrgen/decode.go` (planned, D7 + D12)         |
 | 14-adaptive-thresholding.md         | `qrgen/decode_image_sauvola.go` (planned, T2 + T3) |
 | 15-rotation-handling.md             | `qrgen/decode_image.go` (planned, R2: `orderFinderTriple`) |
+| 16-svg-rendering.md                 | `qrgen/render_svg.go` (planned, S3) |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.

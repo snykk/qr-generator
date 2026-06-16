@@ -86,6 +86,20 @@ for _, row := range modules {
 
 Runnable demos live in [examples/encode/basic](examples/encode/basic/main.go) and [examples/encode/styled](examples/encode/styled/main.go).
 
+## Rendering to SVG
+
+`qrgen.EncodeSVG` produces a scalable vector document instead of a PNG raster. It runs the exact same encoding pipeline as `Encode` and accepts all the same options (`WithModuleSize`, `WithQuietZone`, `WithColors`, …); only the final render step differs.
+
+```go
+data, err := qrgen.EncodeSVG("https://example.com", qrgen.WithModuleSize(10))
+if err != nil { log.Fatal(err) }
+os.WriteFile("qr.svg", data, 0o644)
+// or in one call:
+err = qrgen.EncodeSVGToFile("https://example.com", "qr.svg", qrgen.WithECLevel(qrgen.ECLevelQ))
+```
+
+The output uses a module-unit `viewBox` so it scales to any size with no blur, `shape-rendering="crispEdges"` so module boundaries stay decodable, and a single `<path>` for all dark modules. Pick SVG for resolution independence and HTML embedding — not for file size: a QR PNG is actually smaller on disk because its zlib compresses a monochrome bitmap very tightly, though a gzipped SVG lands close. SVG encoding is, however, several times faster than PNG because it skips rasterisation. See [docs/theory/16-svg-rendering.md](docs/theory/16-svg-rendering.md). A runnable demo lives in [examples/encode/svg](examples/encode/svg/main.go).
+
 ## Decoding QR codes
 
 `qrgen.DecodeBytes` reads PNG, JPEG, or GIF bytes back into the original text:
@@ -121,6 +135,10 @@ qrgen -text "https://example.com" -ec Q -size 12 -fg "#102E57" -bg "#FFF8E7" -ou
 
 # Read the payload from stdin, pipe the PNG out to another tool.
 echo -n "HELLO" | qrgen -out - | open -f -a Preview
+
+# SVG output: inferred from the .svg extension, or forced with -format svg.
+qrgen -text "https://example.com" -out url.svg
+qrgen -text "HELLO" -format svg -out - > qr.svg
 ```
 
 **Decoding:**
@@ -146,6 +164,8 @@ Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: �
 |---|---|
 | `Encode(text, opts...) ([]byte, error)` | Text → PNG bytes. |
 | `EncodeToFile(text, path, opts...) error` | Text → PNG file on disk. |
+| `EncodeSVG(text, opts...) ([]byte, error)` | Text → SVG document bytes. Same options as `Encode`. |
+| `EncodeSVGToFile(text, path, opts...) error` | Text → SVG file on disk. |
 | `Matrix(text, opts...) ([][]bool, error)` | Text → raw boolean module grid for custom rendering. |
 | `WithECLevel(ec)` | Error-correction level (`ECLevelL`, `ECLevelM`, `ECLevelQ`, `ECLevelH`). Default `M`. |
 | `WithVersion(v)` | Force QR version `1..40`. Default `0` (auto-select smallest fitting). |
@@ -187,11 +207,11 @@ In scope as of v0.2.0:
 - Encoding modes: numeric, alphanumeric, byte (UTF-8 passthrough).
 - Versions: 1–40.
 - Error-correction levels: L, M, Q, H.
-- PNG output (grayscale or RGBA, depending on colour options).
+- PNG output (grayscale or RGBA, depending on colour options) and SVG output (scalable vector, as of v0.5).
 - Image decoding (PNG / JPEG / GIF / `image.Image`) with binarisation, finder detection, perspective transform, and alignment refinement.
 - Matrix decoding from `[][]bool` for callers that already have a clean grid.
 
-Still out of scope (kept open as roadmap items): Kanji mode, ECI segments, Micro QR, structured-append, logo embedding, SVG/terminal renderers, arbitrary-angle decoding in the 30..90 degree band.
+Still out of scope (kept open as roadmap items): Kanji mode, ECI segments, Micro QR, structured-append, logo embedding, terminal/JPEG/PDF renderers, arbitrary-angle decoding in the 30..90 degree band.
 
 ## Limitations
 
@@ -211,7 +231,7 @@ The library covers the encoder and the decoder end-to-end as of v0.2.0; the foll
 
 Candidates for future minor releases (post-v0.2.0):
 
-- **Additional renderers:** SVG, terminal/ASCII, JPEG, PDF.
+- **Additional renderers:** terminal/ASCII, JPEG, PDF. (SVG shipped in v0.5.)
 - **Encoding completeness:** ECI segments, Kanji mode, mixed-mode segmentation for tighter packing.
 - **Convenience helpers:** `EncodeURL`, `EncodeWiFi`, `EncodeVCard`, `EncodeEmail` for well-known payload shapes that ship with the right formatting.
 - **Logo embedding:** centred logo with automatic EC-level bump for the occluded area.

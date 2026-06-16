@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-24
+
+This release adds a **scalable SVG renderer** alongside the original PNG output, opening an encoder/output-breadth phase after two decoder-robustness releases. No breaking change: `Encode` still returns PNG bytes; SVG is a new additive surface that reuses the entire encoding pipeline.
+
+### Added
+
+- `EncodeSVG(text, opts...) ([]byte, error)` and `EncodeSVGToFile(text, path, opts...) error` in `qrgen/api.go`. Both run the identical `resolveOptions -> validate -> buildMatrix` front-half as `Encode` and only swap the final render call, so every existing option (`WithECLevel`, `WithVersion`, `WithMask`, `WithModuleSize`, `WithQuietZone`, `WithColors`) works unchanged.
+- `renderSVG` in `qrgen/render_svg.go`, a sibling of `renderPNG` sharing the identical signature and the `renderOptions` struct — deliberately no `Renderer` interface and no `WithFormat` enum (YAGNI for two non-polymorphic renderers, mirroring the v0.3 Sauvola dispatch decision). Output is a module-unit `viewBox` for clean scaling, pixel `width`/`height` matching the equivalent PNG's nominal size, `shape-rendering="crispEdges"` for decodability, a single background `<rect>`, and a single foreground `<path>` (one closed unit square per dark module rather than one `<rect>` per module). `colorToHex` un-premultiplies `color.Color` channels and emits `fill-opacity` only for non-opaque colours.
+- `cmd/qrgen` gains a `-format png|svg` flag; when unset, a `.svg` extension on `-out` infers SVG, otherwise PNG. The default output filename is `qr.svg` for SVG, `qr.png` otherwise. Existing PNG invocations are unchanged.
+- New theory doc `docs/theory/16-svg-rendering.md` (English plus Indonesian) and plan doc `docs/plan-svg-renderer.md` (plus Indonesian) covering milestones S1..S6.
+- Benchmarks `BenchmarkEncodeSVGSmall` and `BenchmarkEncodeSVGURL`.
+- Runnable example `examples/encode/svg`.
+
+### Changed
+
+- Corrected `docs/theory/08-rendering.md` (both languages): the sentence promising a `Render` interface that was never built now describes sibling render functions sharing `renderOptions`, cross-linked to doc 16.
+
+### Dependencies
+
+- Bumped `golang.org/x/text` 0.3.7 → 0.3.8 (Dependabot). This is an indirect, **test-only** dependency pulled in transitively by `github.com/makiuchi-d/gozxing`; it never appears in `go list -deps` of `qrgen` or `cmd/qrgen`, so it does not affect consumers of the library. The bump picks up the fix for CVE-2022-32149 in `language.ParseAcceptLanguage`.
+
+### Validated
+
+- `TestEncodeSVGRoundTripGrid` closes an encode -> SVG -> grid loop: it reconstructs the module grid straight from the emitted path (reading the canvas dimension from the `viewBox`, deriving the quiet zone, walking each `M x y` subpath) and asserts it equals `Matrix` cell for cell across V1-M, a URL at EC-Q, a small-quiet-zone numeric payload, a multi-block EC-H payload, and a custom-colour case — dependency-free, consistent with the stdlib-only policy.
+- `renderSVG` unit tests parse every output through `encoding/xml`, check `viewBox`/`width`/`height` against the option math, verify opaque and alpha colour handling, assert the move-command count equals the dark-module total, and confirm an all-light matrix emits no `<path>`. A real V1 symbol was rasterised via qlmanage and visually confirmed as a valid three-finder QR.
+- CLI tests cover `-format svg` to file and stdout, `.svg` extension inference, an invalid `-format` error, and that the no-format default still produces PNG.
+- `go test -race ./...` clean.
+
+### Note on file size
+
+SVG is **not** smaller than PNG for a QR symbol: PNG's zlib compresses a monochrome bitmap very tightly, so a V1 "HELLO WORLD" is 632 bytes as PNG versus 3209 bytes as raw SVG (719 bytes gzipped). Choose SVG for lossless scaling and HTML embedding, not for disk size. SVG encoding is, however, several times faster than PNG (it skips rasterisation and zlib). The theory doc and plan were corrected to stop claiming SVG is smaller.
+
 ## [0.4.0] - 2026-05-24
 
 This release adds **axis-aligned rotation handling** to the decoder. The fix is one line of geometry: `orderFinderTriple` now disambiguates top-right from bottom-left via a cross-product handedness test instead of the upright `if tr.y > bl.y { swap }` shortcut. The rest of the image pipeline was already rotation-invariant, so no other code changes. Coverage includes 90 / 180 / 270 plus soft tilts up to about 30 degrees off-axis; the 30..90 degree band remains future work because it would need a wider finder scanner.
@@ -127,7 +159,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/snykk/qr-generator/releases/tag/v0.5.0
 [0.4.0]: https://github.com/snykk/qr-generator/releases/tag/v0.4.0
 [0.3.0]: https://github.com/snykk/qr-generator/releases/tag/v0.3.0
 [0.2.0]: https://github.com/snykk/qr-generator/releases/tag/v0.2.0
