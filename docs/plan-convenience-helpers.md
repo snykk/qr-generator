@@ -86,9 +86,9 @@ Goal: prove the built payloads encode and decode intact, including on an indepen
 
 Goal: cut `v0.7.0`.
 
-- [ ] README: a "Payload helpers" usage section with a Wi-Fi and a vCard example showing composition with both `Encode` and `EncodeSVG`; API-summary rows for the six builders and the `WiFi`/`VCard` structs; update Scope; drop "convenience helpers" from the Roadmap.
-- [ ] `CHANGELOG.md` `v0.7.0` entry plus compare/tag anchors.
-- [ ] `go test -race ./...` clean.
+- [x] README: a "Payload helpers" usage section showing a Wi-Fi PNG and a vCard SVG from the same builder; a "Payload builders" sub-table in the API summary listing all six plus the `WiFi`/`VCard`/`WiFiSecurity` types; Scope gains a payload-builders line; the Roadmap "Convenience helpers" bullet is replaced with future builders (VEVENT, payment, MeCard) noting Wi-Fi/vCard/mailto/tel/SMS/geo shipped in v0.7.
+- [x] `CHANGELOG.md` `v0.7.0` entry plus compare/tag anchors written; left unstaged in the working tree for the maintainer to commit with the release (mirroring v0.6).
+- [x] `go test -race ./...` clean.
 - [ ] Tag `v0.7.0` (left for the maintainer per the established git/release workflow; annotation recommended in the release conversation).
 
 ---

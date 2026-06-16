@@ -86,9 +86,9 @@ Goal: membuktikan payload yang dibangun encode dan decode utuh, termasuk di deco
 
 Goal: memotong `v0.7.0`.
 
-- [ ] README: section usage "Payload helpers" dengan contoh Wi-Fi dan vCard yang menunjukkan komposisi dengan `Encode` dan `EncodeSVG`; baris API-summary untuk enam builder dan struct `WiFi`/`VCard`; update Scope; drop "convenience helpers" dari Roadmap.
-- [ ] Entry `CHANGELOG.md` `v0.7.0` plus anchor compare/tag.
-- [ ] `go test -race ./...` bersih.
+- [x] README: section usage "Payload helpers" yang menunjukkan Wi-Fi PNG dan vCard SVG dari builder yang sama; sub-tabel "Payload builders" di API summary yang mendaftar keenam plus type `WiFi`/`VCard`/`WiFiSecurity`; Scope mendapat baris payload-builders; bullet Roadmap "Convenience helpers" diganti dengan builder masa depan (VEVENT, payment, MeCard) yang mencatat Wi-Fi/vCard/mailto/tel/SMS/geo rilis di v0.7.
+- [x] Entry `CHANGELOG.md` `v0.7.0` plus anchor compare/tag ditulis; dibiarkan unstaged di working tree untuk maintainer commit bersama rilis (mengikuti v0.6).
+- [x] `go test -race ./...` bersih.
 - [ ] Tag `v0.7.0` (diserahkan ke maintainer sesuai alur git/rilis yang disepakati; annotation direkomendasikan di percakapan rilis).
 
 ---
