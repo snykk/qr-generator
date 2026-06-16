@@ -41,6 +41,10 @@ This folder contains the literature review and theoretical foundation for the `q
 
 18. [Payload Formats](18-payload-formats.md) — the scanner conventions the convenience builders produce (Wi-Fi, vCard, mailto, tel, SMS, geo): exact templates, escaping rules, citations, and worked examples, plus why string builders compose with every output format.
 
+### Output formats (v0.8.0)
+
+19. [Terminal Rendering](19-terminal-rendering.md) — why a terminal renderer (immediacy, pipeable text, scannable from a screen), the cell aspect ratio that motivates half-block packing, the module-pair to glyph mapping, the ASCII fallback, the polarity problem and the invert switch, the quiet-zone and odd-row-tail handling, and why the renderer is a sibling function returning a string.
+
 ## Primary references
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* The normative source.
@@ -78,5 +82,6 @@ Additional references appear at the end of each document.
 | 16-svg-rendering.md                 | `qrgen/render_svg.go` |
 | 17-optimal-segmentation.md          | `qrgen/segment.go` |
 | 18-payload-formats.md               | `qrgen/payload.go` (planned, P3) |
+| 19-terminal-rendering.md            | `qrgen/render_terminal.go` (planned, TR3) |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.
