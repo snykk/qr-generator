@@ -10,7 +10,7 @@ Dokumen ini menjelaskan rencana implementasi enhancement **SVG renderer** yang m
 
 ## 1. Visi & Tujuan
 
-- Menambahkan **output vektor yang scalable** ke library supaya caller dapat menghasilkan QR code yang resolution-independent — tajam di ukuran berapa pun, kecil di disk untuk payload umum, dan mudah ditanam di HTML, pipeline cetak, dan tool desain.
+- Menambahkan **output vektor yang scalable** ke library supaya caller dapat menghasilkan QR code yang resolution-independent — tajam di ukuran berapa pun dan mudah ditanam di HTML, pipeline cetak, dan tool desain. (Catatan: SVG mentah lebih besar dari PNG ekuivalen untuk simbol QR; keunggulannya adalah scalability dan embeddability, bukan ukuran file — lihat catatan ukuran yang dikoreksi di bagian 6 dan doc 16 bagian 1.)
 - Mengekspos-nya sebagai **fungsi publik yang additive** `EncodeSVG` dan `EncodeSVGToFile` yang mencerminkan bentuk `Encode` / `EncodeToFile` yang ada dan memakai ulang setiap option yang ada (`WithECLevel`, `WithVersion`, `WithMask`, `WithModuleSize`, `WithQuietZone`, `WithColors`). Tidak ada breaking change pada kontrak PNG-bytes milik `Encode`.
 - Menjaga **filosofi yang sama** dengan setiap milestone sebelumnya: pure Go, zero runtime dependency di luar standard library (SVG adalah teks polos yang di-emit dengan `strings`/`fmt`), spec-first dengan theory doc bilingual, dan tes golden/round-trip.
 - **Membayar utang dokumentasi** yang ditemukan saat triage: `docs/theory/08-rendering.md` menjanjikan bahwa "format lain dapat ditambahkan belakangan di balik `Render` interface yang sama", padahal interface itu tidak ada. v0.5.0 secara sengaja **tidak** memperkenalkan interface tersebut (YAGNI — hanya ada dua renderer dan tidak ada yang dipilih secara polimorfik saat runtime, sesuai keputusan straight-code-daripada-strategy-interface yang sudah dibuat untuk dispatch Sauvola di v0.3). Sebagai gantinya ia menambah `renderSVG` sebagai saudara `renderPNG` yang berbagi `renderOptions` yang ada, dan menulis ulang kalimat di doc 08 supaya mendeskripsikan sibling render function alih-alih interface.
@@ -102,11 +102,12 @@ Goal: membuat SVG terjangkau dari binary `qrgen`.
 
 Goal: memotong `v0.5.0`.
 
-- [ ] Tambah `BenchmarkEncodeSVGSmall` dan `BenchmarkEncodeSVGURL` di samping benchmark encode yang ada; catat ns/op dan bytes/op supaya ukuran output SVG terlihat di samping PNG.
-- [ ] README: `## Rendering to SVG` baru (atau lipat ke section rendering) dengan contoh kode, satu baris `EncodeSVG`/`EncodeSVGToFile` di tabel ringkasan API, contoh CLI `-format svg`, dan update Scope/Roadmap (hapus SVG dari "still out of scope" dan dari bullet roadmap renderer, menyisakan terminal/JPEG/PDF).
-- [ ] Entry `CHANGELOG.md` `v0.5.0` di bawah `### Added` dan `### Validated` plus anchor compare/tag di bawah file.
-- [ ] `go test -race ./...` bersih; benchmark encoder dalam variansi run-to-run milik v0.4 (SVG adalah jalur baru, jadi satu-satunya perhatian adalah kode paruh-depan yang dibagi tidak tersentuh).
-- [ ] Tag `v0.5.0` setelah push pertama ke GitHub supaya tag mendarat pada commit yang dilihat remote. Dikerjakan manual oleh user; annotation direkomendasikan di percakapan rilis.
+- [x] Menambah `BenchmarkEncodeSVGSmall` dan `BenchmarkEncodeSVGURL` di `qrgen/bench_test.go`. Terukur (Apple M5): encode SVG sekitar 5x lebih cepat dari PNG (87us vs 451us untuk payload kecil; 175us vs 845us untuk URL) dengan alokasi jauh lebih sedikit (39 KB/op vs 926 KB/op), karena melewati rasterisasi dan zlib.
+- [x] README: section `## Rendering to SVG` baru dengan contoh kode dan catatan ukuran yang jujur, baris `EncodeSVG`/`EncodeSVGToFile` di tabel ringkasan API, contoh CLI `-format svg` dan inferensi `.svg`, dan update Scope/Roadmap (SVG dihapus dari "still out of scope" dan dari bullet roadmap renderer, yang kini berbunyi terminal/JPEG/PDF dengan catatan "SVG shipped in v0.5"; Scope kini mencantumkan output SVG).
+- [x] Entry `CHANGELOG.md` `v0.5.0` di bawah Added / Changed / Validated plus "Note on file size" yang mencatat angka PNG-vs-SVG terukur, dan anchor compare/tag di bawah file.
+- [x] **Mengoreksi inakurasi yang ditemukan saat S6:** plan dan theory doc mengklaim SVG "lebih kecil dari PNG". Pengukuran menunjukkan sebaliknya (SVG mentah ~5x lebih besar; gzipped kira-kira seukuran PNG), jadi doc 16, klaim di sekitar doc 08, dan kedua file plan dikoreksi untuk menyatakan trade-off yang sebenarnya — scaling dan embeddability, bukan ukuran.
+- [x] `go test -race ./...` bersih. Paruh-depan encoder yang dibagi tidak tersentuh, jadi benchmark encode PNG yang ada tidak terpengaruh; hanya jalur SVG baru yang ditambahkan.
+- [ ] Tag `v0.5.0` pada merge commit setelah branch di-push ke GitHub supaya tag mendarat pada commit yang dilihat remote. Dikerjakan manual oleh user; annotation direkomendasikan di percakapan rilis.
 
 ---
 
@@ -140,7 +141,7 @@ docs/
 - **Kebenaran XML dan escaping.** SVG adalah XML; atribut numerik sepenuhnya kita kontrol sehingga injeksi bukan kekhawatiran, tapi emitter harus menghasilkan output yang well-formed (namespace yang benar, tag tertutup, atribut dalam tanda kutip). Tes mem-parse output dengan `encoding/xml` untuk menjamin well-formedness alih-alih melihat string secara kasat mata.
 - **Anti-aliasing pada skala fraksional.** Kalau viewer men-scale `viewBox` unit-modul ke ukuran pixel non-integer, tepi modul bisa buram. `shape-rendering="crispEdges"` memitigasi ini; theory doc mencatat trade-off-nya dan kenapa kita tetap lebih memilih sistem koordinat unit-modul demi scalability.
 - **Konversi color-model.** `color.Color.RGBA()` mengembalikan channel premultiplied 16-bit; mengonversi ke hex 8-bit harus membagi dengan 0x101 (bukan sekadar bit-shift) supaya membulatkan dengan benar, dan penanganan alpha harus menghindari double-premultiplication. Helper `colorToHex` di-unit-test terhadap warna yang diketahui.
-- **Ekspektasi ukuran file.** Satu `<path>` untuk simbol V40 besar tapi tetap lebih kecil dari PNG ekuivalen untuk mayoritas payload, dan mudah di-gzip. Run-length merging akan mengecilkannya lagi; ditunda.
+- **Ekspektasi ukuran file (dikoreksi setelah pengukuran S6).** SVG mentah *lebih besar* dari PNG ekuivalen, bukan lebih kecil — zlib milik PNG sangat ketat pada bitmap monokrom. Terukur: V1 "HELLO WORLD" 632 B PNG vs 3209 B SVG mentah (719 B gzipped); URL ~40-byte 1155 B PNG vs 6047 B SVG mentah (1205 B gzipped). SVG gzipped kira-kira seukuran PNG, dan encoding SVG sekitar 5x lebih cepat dengan alokasi jauh lebih sedikit karena melewati rasterisasi dan zlib. Run-length merging akan mengecilkan path mentah; ditunda. Dokumen dikoreksi supaya berhenti mengklaim SVG lebih kecil dari PNG.
 - **Tidak ada dampak decoder.** Decoder tidak pernah membaca SVG. Tidak ada perubahan pada jalur decode, jadi seluruh suite tes dan benchmark decoder tidak terpengaruh — tapi `go test -race ./...` tetap menjalankannya untuk memastikan tidak ada yang rusak di package yang dibagi.
 - **Creep permukaan CLI.** Menambah `-format` tidak boleh mengubah perilaku default invokasi PNG yang ada; flag-nya default ke PNG dan inferensi `.svg` hanya menyala ketika `-format` tidak diset.
 

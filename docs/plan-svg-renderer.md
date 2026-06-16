@@ -10,7 +10,7 @@ This document describes the implementation plan for the **SVG renderer** enhance
 
 ## 1. Vision & Goals
 
-- Add a **scalable vector output** to the library so callers can produce resolution-independent QR codes — crisp at any size, tiny on disk for typical payloads, and trivially embeddable in HTML, print pipelines, and design tools.
+- Add a **scalable vector output** to the library so callers can produce resolution-independent QR codes — crisp at any size and trivially embeddable in HTML, print pipelines, and design tools. (Note: raw SVG is larger than the equivalent PNG for a QR symbol; the win is scalability and embeddability, not file size — see the corrected size note in section 6 and doc 16 section 1.)
 - Expose it as **additive public functions** `EncodeSVG` and `EncodeSVGToFile` that mirror the existing `Encode` / `EncodeToFile` shape and reuse every existing option (`WithECLevel`, `WithVersion`, `WithMask`, `WithModuleSize`, `WithQuietZone`, `WithColors`). No breaking change to `Encode`'s documented PNG-bytes contract.
 - Keep the **same philosophy** as every prior milestone: pure Go, zero runtime dependencies beyond the standard library (SVG is plain text emitted with `strings`/`fmt`), spec-first with a bilingual theory doc, and golden/round-trip tests.
 - **Correct the documentation debt** that the triage surfaced: `docs/theory/08-rendering.md` promises that "other formats can be added later behind the same `Render` interface", but no such interface exists. v0.5.0 deliberately does **not** introduce that interface (YAGNI — there are only two renderers and neither is selected polymorphically at runtime, matching the straight-code-over-strategy-interface decision already made for the Sauvola dispatch in v0.3). Instead it adds `renderSVG` as a sibling of `renderPNG` sharing the existing `renderOptions`, and rewrites the doc 08 sentence to describe sibling render functions rather than an interface.
@@ -102,11 +102,12 @@ Goal: make SVG reachable from the `qrgen` binary.
 
 Goal: cut `v0.5.0`.
 
-- [ ] Add `BenchmarkEncodeSVGSmall` and `BenchmarkEncodeSVGURL` alongside the existing encode benchmarks; record ns/op and bytes/op so SVG output size is visible next to PNG.
-- [ ] README: new `## Rendering to SVG` (or fold into a rendering section) with a code sample, an `EncodeSVG`/`EncodeSVGToFile` row in the API summary table, a CLI `-format svg` example, and updates to Scope/Roadmap (remove SVG from "still out of scope" and from the renderers roadmap bullet, leaving terminal/JPEG/PDF).
-- [ ] `CHANGELOG.md` `v0.5.0` entry under `### Added` and `### Validated` plus the bottom-of-file compare/tag anchors.
-- [ ] `go test -race ./...` clean; encoder benchmarks within run-to-run variance of v0.4 (SVG is a new path, so the only concern is that shared front-half code is untouched).
-- [ ] Tag `v0.5.0` after the first push to GitHub so the tag lands on the commit the remote sees. Left for the user to run manually; annotation recommended in the release conversation.
+- [x] Added `BenchmarkEncodeSVGSmall` and `BenchmarkEncodeSVGURL` in `qrgen/bench_test.go`. Measured (Apple M5): SVG encode is ~5x faster than PNG (87us vs 451us for the small payload; 175us vs 845us for the URL) with far fewer allocations (39 KB/op vs 926 KB/op), because it skips rasterisation and zlib.
+- [x] README: new `## Rendering to SVG` section with a code sample and an honest size note, `EncodeSVG`/`EncodeSVGToFile` rows in the API summary table, CLI `-format svg` and `.svg`-inference examples, and Scope/Roadmap updates (SVG removed from "still out of scope" and from the renderers roadmap bullet, which now reads terminal/JPEG/PDF with a "SVG shipped in v0.5" note; Scope now lists SVG output).
+- [x] `CHANGELOG.md` `v0.5.0` entry under Added / Changed / Validated plus a "Note on file size" recording the measured PNG-vs-SVG numbers, and the bottom-of-file compare/tag anchors.
+- [x] **Corrected an inaccuracy found during S6:** the plan and theory doc had claimed SVG is "smaller than PNG". Measurement showed the opposite (raw SVG ~5x larger; gzipped roughly PNG-sized), so doc 16, doc 08-adjacent claims, and both plan files were corrected to state the real trade-off — scaling and embeddability, not size.
+- [x] `go test -race ./...` clean. The shared encoder front-half is untouched, so the existing PNG encode benchmarks are unaffected; only the new SVG path was added.
+- [ ] Tag `v0.5.0` on the merge commit after pushing the branch to GitHub so the tag lands on the commit the remote sees. Left for the user to run manually; annotation recommended in the release conversation.
 
 ---
 
@@ -140,7 +141,7 @@ docs/
 - **XML correctness and escaping.** SVG is XML; numeric attributes are fully controlled by us so injection is not a concern, but the emitter must produce well-formed output (proper namespace, closed tags, quoted attributes). Tests parse the output with `encoding/xml` to guarantee well-formedness rather than eyeballing strings.
 - **Anti-aliasing at fractional scales.** If a viewer scales the module-unit `viewBox` to a non-integer pixel size, module edges can blur. `shape-rendering="crispEdges"` mitigates this; the theory doc records the trade-off and why we still prefer a module-unit coordinate system for scalability.
 - **Colour-model conversion.** `color.Color.RGBA()` returns 16-bit premultiplied channels; converting to 8-bit hex must divide by 0x101 (not bit-shift alone) to round correctly, and alpha handling must avoid double-premultiplication. The `colorToHex` helper is unit-tested against known colours.
-- **File-size expectations.** A single `<path>` for a V40 symbol is large but still smaller than the equivalent PNG for most payloads, and trivially gzip-compressible. Run-length merging would shrink it further; deferred.
+- **File-size expectations (corrected after S6 measurement).** Raw SVG is *larger* than the equivalent PNG, not smaller — PNG's zlib is very tight on a monochrome bitmap. Measured: V1 "HELLO WORLD" is 632 B PNG vs 3209 B raw SVG (719 B gzipped); the ~40-byte URL is 1155 B PNG vs 6047 B raw SVG (1205 B gzipped). Gzipped SVG is roughly PNG-sized, and SVG encoding is ~5x faster with far fewer allocations because it skips rasterisation and zlib. Run-length merging would shrink the raw path; deferred. The docs were corrected to stop claiming SVG is smaller than PNG.
 - **No decoder impact.** The decoder never reads SVG. There is zero change to the decode path, so the entire decoder test and benchmark suite is unaffected — but `go test -race ./...` still runs it to be sure nothing in the shared package broke.
 - **CLI surface creep.** Adding `-format` must not change the default behaviour of existing PNG invocations; the flag defaults to PNG and `.svg` inference only triggers when `-format` is unset.
 

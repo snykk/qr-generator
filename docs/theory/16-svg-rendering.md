@@ -1,13 +1,13 @@
 # SVG Rendering
 
-The v0.5 renderer adds a **scalable vector** output alongside the original PNG raster. Where `renderPNG` writes a fixed grid of pixels, `renderSVG` writes a text document that describes the symbol geometrically, so it stays crisp at any zoom and is tiny on disk for typical payloads. This document records the SVG document model used for a QR symbol, the path-data drawing approach, the coordinate system, colour handling, and why the renderer is a sibling function rather than something hidden behind an interface.
+The v0.5 renderer adds a **scalable vector** output alongside the original PNG raster. Where `renderPNG` writes a fixed grid of pixels, `renderSVG` writes a text document that describes the symbol geometrically, so it stays crisp at any zoom and embeds directly into HTML. This document records the SVG document model used for a QR symbol, the path-data drawing approach, the coordinate system, colour handling, and why the renderer is a sibling function rather than something hidden behind an interface.
 
 > Indonesian version: [16-svg-rendering.id.md](16-svg-rendering.id.md).
 
 ## 1. Why SVG
 
 - **Lossless scaling.** A QR symbol is pure geometry — squares on a grid. A raster fixes that geometry at one resolution; an SVG describes it once and lets the viewer scale it to any size with no blur and no resampling artefacts. Print pipelines and high-DPI displays get a perfect symbol at any dimension.
-- **Small files.** For most payloads the vector description is smaller than the equivalent PNG, and it gzip-compresses well because the path data is highly repetitive.
+- **Not about file size.** Raw SVG is actually *larger* than the equivalent PNG for a QR symbol — PNG's zlib compresses a small monochrome bitmap extremely tightly, so a V1 "HELLO WORLD" is ~630 bytes as PNG versus ~3.2 KB as raw SVG. The SVG path data is highly repetitive and gzips back down to roughly PNG's size (~720 bytes), and servers gzip SVG over the wire by default, so on the network the gap closes — but raw bytes are not a reason to pick SVG. The reasons are scaling and embeddability, not size.
 - **Embeddability.** SVG drops straight into HTML, can be styled or themed by the host document, and is understood by every design tool.
 - **Crisp edges.** With one instruction the renderer can tell viewers not to anti-alias module boundaries, which keeps the symbol decodable (see section 5).
 

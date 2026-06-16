@@ -1,13 +1,13 @@
 # Rendering SVG
 
-Renderer v0.5 menambahkan output **vektor yang scalable** di samping raster PNG awal. Jika `renderPNG` menulis grid pixel berukuran tetap, `renderSVG` menulis dokumen teks yang mendeskripsikan simbol secara geometris, sehingga ia tetap tajam di zoom berapa pun dan kecil di disk untuk payload umum. Dokumen ini mencatat model dokumen SVG yang dipakai untuk simbol QR, pendekatan menggambar path-data, sistem koordinat, penanganan warna, dan kenapa renderer-nya berupa sibling function alih-alih sesuatu yang disembunyikan di balik interface.
+Renderer v0.5 menambahkan output **vektor yang scalable** di samping raster PNG awal. Jika `renderPNG` menulis grid pixel berukuran tetap, `renderSVG` menulis dokumen teks yang mendeskripsikan simbol secara geometris, sehingga ia tetap tajam di zoom berapa pun dan menempel langsung ke HTML. Dokumen ini mencatat model dokumen SVG yang dipakai untuk simbol QR, pendekatan menggambar path-data, sistem koordinat, penanganan warna, dan kenapa renderer-nya berupa sibling function alih-alih sesuatu yang disembunyikan di balik interface.
 
 > Versi Inggris: [16-svg-rendering.md](16-svg-rendering.md).
 
 ## 1. Kenapa SVG
 
 - **Scaling lossless.** Simbol QR adalah geometri murni — persegi-persegi di atas grid. Raster mengunci geometri itu pada satu resolusi; SVG mendeskripsikannya sekali dan membiarkan viewer men-scale-nya ke ukuran apa pun tanpa blur dan tanpa artefak resampling. Pipeline cetak dan display high-DPI mendapat simbol yang sempurna di dimensi berapa pun.
-- **File kecil.** Untuk mayoritas payload deskripsi vektor lebih kecil dari PNG ekuivalen, dan ia gzip-compress dengan baik karena path data sangat repetitif.
+- **Bukan soal ukuran file.** SVG mentah justru *lebih besar* dari PNG ekuivalen untuk simbol QR — zlib milik PNG meng-compress bitmap monokrom kecil dengan sangat ketat, jadi V1 "HELLO WORLD" sekitar 630 byte sebagai PNG versus sekitar 3.2 KB sebagai SVG mentah. Path data SVG sangat repetitif dan gzip turun kembali ke kira-kira seukuran PNG (sekitar 720 byte), dan server meng-gzip SVG di kabel secara default, jadi di jaringan jaraknya menutup — tapi raw bytes bukan alasan memilih SVG. Alasannya adalah scaling dan embeddability, bukan ukuran.
 - **Embeddability.** SVG masuk langsung ke HTML, dapat di-style atau di-theme oleh dokumen host, dan dipahami setiap tool desain.
 - **Tepi tajam.** Dengan satu instruksi renderer dapat memberi tahu viewer untuk tidak meng-anti-alias batas modul, yang menjaga simbol tetap decodable (lihat bagian 5).
 
