@@ -78,9 +78,9 @@ Goal: the builders themselves, with escaping fully covered.
 
 Goal: prove the built payloads encode and decode intact, including on an independent decoder.
 
-- [ ] Round-trip tests: for each builder, `DecodeBytes(Encode(builder(...)))` must return the exact built string (this also exercises the v0.6 segmentation, since tel/SMS/geo payloads are digit-heavy and will segment).
-- [ ] gozxing cross-check on one representative payload per builder so an independent decoder confirms the bytes.
-- [ ] Runnable example `examples/encode/payloads/main.go` building a Wi-Fi join QR and a vCard QR to PNG and SVG.
+- [x] `TestPayloadRoundTrip` builds all six payloads (Wi-Fi with escaped specials + hidden, a full vCard, mailto, tel, SMS, geo) and asserts `DecodeBytes(Encode(...))` returns the exact built string; the digit-heavy ones exercise v0.6 segmentation in passing.
+- [x] `TestRoundTripWithThirdPartyDecoder` gained four representative payloads (Wi-Fi, vCard, mailto, geo); the independent gozxing decoder reads each exactly, confirming the escaping/format is sound.
+- [x] Runnable example `examples/encode/payloads/main.go` writes a Wi-Fi join QR to PNG and a vCard QR to SVG (showing the same builder composing with both outputs) and prints the tel/geo payloads; verified with `go run`.
 
 ### P5 — Polish & Release `(S)`
 

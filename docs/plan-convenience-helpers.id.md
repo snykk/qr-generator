@@ -78,9 +78,9 @@ Goal: builder-nya sendiri, dengan escaping ter-cover penuh.
 
 Goal: membuktikan payload yang dibangun encode dan decode utuh, termasuk di decoder independen.
 
-- [ ] Tes round-trip: untuk tiap builder, `DecodeBytes(Encode(builder(...)))` harus mengembalikan string persis yang dibangun (ini juga menjalankan segmentation v0.6, karena payload tel/SMS/geo digit-heavy dan akan ter-segmentasi).
-- [ ] gozxing cross-check pada satu payload representatif per builder supaya decoder independen mengkonfirmasi byte-nya.
-- [ ] Example yang bisa dijalankan `examples/encode/payloads/main.go` yang membangun QR Wi-Fi join dan QR vCard ke PNG dan SVG.
+- [x] `TestPayloadRoundTrip` membangun keenam payload (Wi-Fi dengan special ter-escape + hidden, vCard penuh, mailto, tel, SMS, geo) dan meng-assert `DecodeBytes(Encode(...))` mengembalikan string persis yang dibangun; yang digit-heavy menjalankan segmentation v0.6 sekalian.
+- [x] `TestRoundTripWithThirdPartyDecoder` mendapat empat payload representatif (Wi-Fi, vCard, mailto, geo); decoder gozxing independen membaca tiap-tiapnya persis, mengkonfirmasi escaping/format-nya sound.
+- [x] Example yang bisa dijalankan `examples/encode/payloads/main.go` menulis QR Wi-Fi join ke PNG dan QR vCard ke SVG (menunjukkan builder yang sama compose dengan kedua output) dan mencetak payload tel/geo; diverifikasi dengan `go run`.
 
 ### P5 — Polish & Rilis `(S)`
 

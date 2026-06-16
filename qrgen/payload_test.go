@@ -165,3 +165,33 @@ func TestEscapeVCard(t *testing.T) {
 		t.Errorf("escapeVCard newlines = %q, want %q", got, `a\nb\nc\nd`)
 	}
 }
+
+// TestPayloadRoundTrip confirms every builder's output survives the full
+// encode -> decode pipeline intact. The digit-heavy tel/SMS/geo payloads also
+// exercise the v0.6 segmentation on the way through.
+func TestPayloadRoundTrip(t *testing.T) {
+	payloads := []string{
+		WiFiPayload(WiFi{SSID: "Cafe; Wifi", Password: `p:w,d\1`, Security: WiFiWPA, Hidden: true}),
+		VCardPayload(VCard{Name: "Ada Lovelace", FamilyName: "Lovelace", GivenName: "Ada",
+			Org: "Analytical Engine, Ltd", Phones: []string{"+15551234567"}, Emails: []string{"ada@example.com"}}),
+		MailtoPayload("ada@example.com", "Hello there", "Hi & bye"),
+		TelPayload("+15551234567"),
+		SMSPayload("+15551234567", "on my way"),
+		GeoPayload(37.422, -122.084),
+	}
+	for _, p := range payloads {
+		t.Run(p, func(t *testing.T) {
+			data, err := Encode(p)
+			if err != nil {
+				t.Fatalf("Encode: %v", err)
+			}
+			got, err := DecodeBytes(data)
+			if err != nil {
+				t.Fatalf("DecodeBytes: %v", err)
+			}
+			if got != p {
+				t.Errorf("round-trip mismatch:\n got  %q\n want %q", got, p)
+			}
+		})
+	}
+}
