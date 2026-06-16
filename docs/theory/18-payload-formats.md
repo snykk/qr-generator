@@ -33,19 +33,19 @@ The builder emits vCard 3.0:
 ```text
 BEGIN:VCARD
 VERSION:3.0
-FN:<formatted name>
-N:<family>;<given>;<additional>;<prefix>;<suffix>
+FN:<name>
+N:<family>;<given>;;;
 ORG:<org>
 TITLE:<title>
-TEL;TYPE=CELL:<number>
-EMAIL:<address>
+TEL:<number>          (one line per phone)
+EMAIL:<address>       (one line per email)
 URL:<url>
-ADR:;;<street>;<city>;<region>;<postcode>;<country>
+ADR:;;<address>;;;;
 NOTE:<note>
 END:VCARD
 ```
 
-Lines are separated by CRLF (`\r\n`). Only the fields the caller fills are emitted; empty optionals are skipped. `N` is a structured field with five semicolon-separated components; `ADR` has seven (the first two — post-office-box and extended address — are conventionally left empty).
+Lines are separated by CRLF (`\r\n`). Only the fields the caller fills are emitted; empty optionals are skipped. `N` is a structured field with five semicolon-separated components — the builder fills the first two (family, given) and leaves additional/prefix/suffix empty. `ADR` has seven components (post-office-box, extended, street, city, region, postcode, country); a free-form address string is placed in the street component and the rest are left empty. Phones and emails are emitted untyped (one `TEL:` / `EMAIL:` line each), since the input carries no type information.
 
 **Escaping** (RFC 6350 §3.4, which vCard 3.0 follows in practice): within a text value, escape `\` as `\\`, `;` as `\;`, `,` as `\,`, and a newline as `\n`. The structural semicolons that separate `N`/`ADR` components are *not* escaped — only literal semicolons inside a component value are.
 

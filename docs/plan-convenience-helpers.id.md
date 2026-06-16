@@ -68,9 +68,9 @@ Goal: mendokumentasikan tiap skema payload dan aturan escaping-nya sebelum kode 
 
 Goal: builder-nya sendiri, dengan escaping ter-cover penuh.
 
-- [ ] `qrgen/payload.go` dengan config struct `WiFi` dan `VCard` dan enam fungsi builder, plus helper tak-di-export `escapeWiFi` dan `escapeVCard`; percent-encoding via `net/url`.
-- [ ] Perilaku zero-value yang masuk akal: field opsional kosong dihilangkan dari output (tidak ada `;P:;` menggantung), bukan diemit kosong.
-- [ ] Tes di `qrgen/payload_test.go`: golden string berbasis tabel untuk tiap builder; tes escaping yang mencakup SSID/password dengan `;`, `,`, `:`, `\`, `"`, dan spasi; nama/note vCard dengan `;`, `,`, `\`, dan newline; subject/body mailto dengan spasi, `&`, `=`, dan Unicode; formatting koordinat geo (tanpa notasi saintifik, presisi wajar).
+- [x] `qrgen/payload.go` dengan config struct `WiFi` dan `VCard`, type `WiFiSecurity` (`WiFiWPA`/`WiFiWEP`/`WiFiNoPass`), dan enam builder, plus `escapeWiFi`/`escapeVCard` tak-di-export (via `strings.Replacer`) dan `mailtoEscape` (via `net/url`, mengonversi `+` ke `%20`). Set vCard dilangsingkan ke `Name`, `FamilyName`, `GivenName`, `Org`, `Title`, `Phones`, `Emails`, `URL`, `Address`, `Note` (`TEL`/`EMAIL` tanpa tipe, `ADR` free-form di komponen street, `N` mengisi family/given) — template vCard doc 18 direkonsiliasi agar cocok.
+- [x] Perilaku zero-value: opsional kosong dihilangkan (tidak ada separator menggantung); Wi-Fi default ke `WiFiWPA` dan menghilangkan password untuk `nopass`/kosong.
+- [x] Tes di `qrgen/payload_test.go`: golden string berbasis tabel untuk tiap builder; escaping Wi-Fi untuk `; , : \ "`; escaping koma/newline vCard, banyak phone/email, dan opsional yang dihilangkan; mailto `%20`-bukan-`+` plus `&`→`%26`; formatting shortest-exact geo dengan kasus tanpa-notasi-saintifik; tes langsung `escapeWiFi`/`escapeVCard`. gofmt-clean, race-clean.
 
 ### Checkpoint A — builder menghasilkan payload yang ter-escape benar dan spec-faithful.
 

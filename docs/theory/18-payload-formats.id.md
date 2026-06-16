@@ -33,19 +33,19 @@ Builder mengemit vCard 3.0:
 ```text
 BEGIN:VCARD
 VERSION:3.0
-FN:<formatted name>
-N:<family>;<given>;<additional>;<prefix>;<suffix>
+FN:<name>
+N:<family>;<given>;;;
 ORG:<org>
 TITLE:<title>
-TEL;TYPE=CELL:<number>
-EMAIL:<address>
+TEL:<number>          (satu baris per telepon)
+EMAIL:<address>       (satu baris per email)
 URL:<url>
-ADR:;;<street>;<city>;<region>;<postcode>;<country>
+ADR:;;<address>;;;;
 NOTE:<note>
 END:VCARD
 ```
 
-Baris dipisahkan oleh CRLF (`\r\n`). Hanya field yang caller isi yang diemit; opsional kosong dilewati. `N` adalah field terstruktur dengan lima komponen dipisah-semicolon; `ADR` punya tujuh (dua pertama — post-office-box dan extended address — konvensional dibiarkan kosong).
+Baris dipisahkan oleh CRLF (`\r\n`). Hanya field yang caller isi yang diemit; opsional kosong dilewati. `N` adalah field terstruktur dengan lima komponen dipisah-semicolon — builder mengisi dua pertama (family, given) dan membiarkan additional/prefix/suffix kosong. `ADR` punya tujuh komponen (post-office-box, extended, street, city, region, postcode, country); string alamat free-form ditaruh di komponen street dan sisanya dibiarkan kosong. Telepon dan email diemit tanpa tipe (satu baris `TEL:` / `EMAIL:` masing-masing), karena input tidak membawa informasi tipe.
 
 **Escaping** (RFC 6350 §3.4, yang vCard 3.0 ikuti dalam praktik): di dalam text value, escape `\` jadi `\\`, `;` jadi `\;`, `,` jadi `\,`, dan newline jadi `\n`. Semicolon struktural yang memisahkan komponen `N`/`ADR` *tidak* di-escape — hanya semicolon literal di dalam value komponen.
 

@@ -68,9 +68,9 @@ Goal: document each payload scheme and its escaping rules before any code lands.
 
 Goal: the builders themselves, with escaping fully covered.
 
-- [ ] `qrgen/payload.go` with the `WiFi` and `VCard` config structs and the six builder functions, plus unexported `escapeWiFi` and `escapeVCard` helpers; percent-encoding via `net/url`.
-- [ ] Sensible zero-value behaviour: an empty optional field is omitted from the output (no dangling `;P:;`), not emitted blank.
-- [ ] Tests in `qrgen/payload_test.go`: table-driven golden strings for each builder; escaping tests covering SSIDs/passwords with `;`, `,`, `:`, `\`, `"`, and spaces; vCard names/notes with `;`, `,`, `\`, and newlines; mailto subjects/bodies with spaces, `&`, `=`, and Unicode; geo coordinate formatting (no scientific notation, reasonable precision).
+- [x] `qrgen/payload.go` with the `WiFi` and `VCard` config structs, the `WiFiSecurity` type (`WiFiWPA`/`WiFiWEP`/`WiFiNoPass`), and the six builders, plus unexported `escapeWiFi`/`escapeVCard` (via `strings.Replacer`) and `mailtoEscape` (via `net/url`, converting `+` to `%20`). The vCard set was leaned to `Name`, `FamilyName`, `GivenName`, `Org`, `Title`, `Phones`, `Emails`, `URL`, `Address`, `Note` (untyped `TEL`/`EMAIL`, free-form `ADR` in the street component, `N` filling family/given) — doc 18's vCard template was reconciled to match.
+- [x] Zero-value behaviour: empty optionals are omitted (no dangling separators); Wi-Fi defaults to `WiFiWPA` and omits the password for `nopass`/empty.
+- [x] Tests in `qrgen/payload_test.go`: table-driven golden strings for every builder; Wi-Fi escaping of `; , : \ "`; vCard comma/newline escaping, multiple phones/emails, and omitted optionals; mailto `%20`-not-`+` plus `&`→`%26`; geo shortest-exact formatting with a no-scientific-notation case; direct `escapeWiFi`/`escapeVCard` tests. gofmt-clean, race-clean.
 
 ### Checkpoint A — builders produce correctly-escaped, spec-faithful payloads.
 
