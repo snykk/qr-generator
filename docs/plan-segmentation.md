@@ -67,10 +67,10 @@ Goal: cover the algorithm and its subtleties in `docs/theory/` before any code l
 
 Goal: the segmenter itself, with no encoder integration yet.
 
-- [ ] `qrgen/segment.go` with the `segment` struct and `segmentText(text string, v Version) []segment` implementing the DP, plus `segmentsBitLength(segs []segment, v Version) int`.
-- [ ] Correctly handle the empty string (one empty segment, or an explicit empty result the encoder treats as a zero-length numeric segment, matching today's empty-input behaviour).
-- [ ] UTF-8: iterate runes; ASCII digits/alnum are DP-eligible for numeric/alphanumeric; everything else forces byte mode; byte-mode cost counts UTF-8 bytes.
-- [ ] Tests in `qrgen/segment_test.go`: homogeneous inputs return a single segment of the expected mode (identity invariant); `"PHONE: 12345"`-style mixed inputs return the expected alphanumeric+numeric split with a strictly smaller bit count than the single-mode encoding; the segmentation is never worse than greedy for a sweep of payloads; version-group boundary cases (same text, versions 9 vs 10 vs 27) recompute correctly; UTF-8 payloads keep multi-byte runes intact in byte segments.
+- [x] `qrgen/segment.go` with the `segment` struct, `segmentText(text string, v Version) []segment` implementing the DP, `segmentsBitLength`, and the count-based `numericPayloadBits`/`alphanumericPayloadBits` helpers. The DP is `dp[i] = min bits to encode the first i runes`, closing one segment `runes[j:i]` per transition; numeric/alpha inner loops break at the first ineligible rune (bounding them to contiguous runs), byte is always eligible (the O(n²) part). Costs use the exact closed-form payload, so each transition is O(1).
+- [x] Empty string returns a single zero-length numeric segment, matching today's empty-input behaviour.
+- [x] UTF-8: the DP iterates runes; a rune is numeric/alphanumeric-eligible only if ASCII digit / in the alphanumeric set; multi-byte runes are byte-only and counted in bytes via a prefix byte-length array, so a rune is never split across segments.
+- [x] Tests in `qrgen/segment_test.go`: homogeneous inputs return one segment of the expected mode AND cost exactly the greedy length (identity invariant); `"Order #1234567890"` splits into byte + numeric at exactly 116 vs 148 bits; `"PHONE: 12345"` stays a single alphanumeric segment (the short-run counter-example, 79 bits); a 15-payload × 6-version sweep asserts the segmentation reconstructs the input and is never worse than greedy; version-group boundaries (9/10/27) recompute and stay valid; a `"café☕ 1234567890"` case proves multi-byte runes stay whole in byte segments; plus empty-input and `segmentsBitLength` unit checks. Race-clean.
 
 ### Checkpoint A — segmenter is correct and provably never worse than greedy.
 

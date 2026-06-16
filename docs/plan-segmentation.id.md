@@ -67,10 +67,10 @@ Goal: menutupi algoritma dan subtletinya di `docs/theory/` sebelum kode apa pun 
 
 Goal: segmenter-nya sendiri, belum ada integrasi encoder.
 
-- [ ] `qrgen/segment.go` dengan struct `segment` dan `segmentText(text string, v Version) []segment` yang mengimplementasi DP, plus `segmentsBitLength(segs []segment, v Version) int`.
-- [ ] Menangani string kosong dengan benar (satu segment kosong, atau hasil kosong eksplisit yang diperlakukan encoder sebagai segment numeric panjang-nol, cocok dengan perilaku input-kosong hari ini).
-- [ ] UTF-8: iterasi rune; digit/alnum ASCII eligible-DP untuk numeric/alphanumeric; selainnya memaksa byte mode; biaya byte-mode menghitung byte UTF-8.
-- [ ] Tes di `qrgen/segment_test.go`: input homogen mengembalikan satu segment dengan mode yang diharapkan (invariant identitas); input campuran gaya `"PHONE: 12345"` mengembalikan split alphanumeric+numeric yang diharapkan dengan jumlah bit strictly lebih kecil dari encoding single-mode; segmentation tidak pernah lebih buruk dari greedy untuk sweep payload; kasus batas version-group (teks sama, versi 9 vs 10 vs 27) menghitung ulang dengan benar; payload UTF-8 menjaga rune multi-byte utuh di byte segment.
+- [x] `qrgen/segment.go` dengan struct `segment`, `segmentText(text string, v Version) []segment` yang mengimplementasi DP, `segmentsBitLength`, dan helper berbasis-count `numericPayloadBits`/`alphanumericPayloadBits`. DP-nya `dp[i] = bit minimum untuk encode i rune pertama`, menutup satu segment `runes[j:i]` per transisi; inner loop numeric/alpha break di rune ineligible pertama (membatasinya ke run kontigu), byte selalu eligible (bagian O(n²)). Biaya memakai closed-form payload eksak, jadi tiap transisi O(1).
+- [x] String kosong mengembalikan satu segment numeric panjang-nol, cocok dengan perilaku input-kosong hari ini.
+- [x] UTF-8: DP iterasi rune; sebuah rune numeric/alphanumeric-eligible hanya kalau ASCII digit / di set alphanumeric; rune multi-byte byte-only dan dihitung dalam byte via prefix byte-length array, jadi rune tidak pernah dipecah lintas segment.
+- [x] Tes di `qrgen/segment_test.go`: input homogen mengembalikan satu segment dengan mode yang diharapkan DAN berbiaya persis panjang greedy (invariant identitas); `"Order #1234567890"` split menjadi byte + numeric pada persis 116 vs 148 bit; `"PHONE: 12345"` tetap satu alphanumeric segment (counter-example run-pendek, 79 bit); sweep 15-payload × 6-versi meng-assert segmentation merekonstruksi input dan tidak pernah lebih buruk dari greedy; batas version-group (9/10/27) menghitung ulang dan tetap valid; kasus `"café☕ 1234567890"` membuktikan rune multi-byte tetap utuh di byte segment; plus cek unit input-kosong dan `segmentsBitLength`. Race-clean.
 
 ### Checkpoint A — segmenter benar dan terbukti tidak pernah lebih buruk dari greedy.
 
