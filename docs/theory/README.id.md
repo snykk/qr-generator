@@ -39,6 +39,10 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 17. [Optimal Mode Segmentation](17-optimal-segmentation.id.md) — kenapa greedy single-mode meninggalkan bit terbuang, cost model per-segment, dynamic program atas posisi dan mode, contoh terkerjakan, interplay version-group, aturan batas rune UTF-8, dan jaminan identitas input-homogen.
 
+### Konvensi payload (v0.7.0)
+
+18. [Payload Formats](18-payload-formats.id.md) — konvensi scanner yang dihasilkan convenience builder (Wi-Fi, vCard, mailto, tel, SMS, geo): template persis, aturan escaping, sitasi, dan contoh terkerjakan, plus kenapa string builder compose dengan setiap format output.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -74,6 +78,7 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 14-adaptive-thresholding.id.md         | `qrgen/decode_image_sauvola.go` (direncanakan, T2 + T3) |
 | 15-rotation-handling.id.md             | `qrgen/decode_image.go` (direncanakan, R2: `orderFinderTriple`) |
 | 16-svg-rendering.id.md                 | `qrgen/render_svg.go` |
-| 17-optimal-segmentation.id.md          | `qrgen/segment.go` (direncanakan, MM3) |
+| 17-optimal-segmentation.id.md          | `qrgen/segment.go` |
+| 18-payload-formats.id.md               | `qrgen/payload.go` (direncanakan, P3) |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.

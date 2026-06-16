@@ -57,6 +57,12 @@ func TestRoundTripWithThirdPartyDecoder(t *testing.T) {
 		{"seg invoice", "Invoice INV-2026 000123456789 total", []Option{WithECLevel(ECLevelQ)}},
 		{"seg utf8+numeric", "café☕ 1234567890", []Option{WithECLevel(ECLevelM)}},
 		{"seg long digit run", "ID:" + strings.Repeat("0", 60) + " END", []Option{WithECLevel(ECLevelL)}},
+		// Convenience payload builders (v0.7): an independent decoder must read
+		// the exact built string, confirming the escaping/format is sound.
+		{"payload wifi", WiFiPayload(WiFi{SSID: "Cafe Net", Password: "p@ss;word", Security: WiFiWPA}), nil},
+		{"payload vcard", VCardPayload(VCard{Name: "Ada Lovelace", Org: "Analytical Engine, Ltd", Phones: []string{"+15551234567"}}), []Option{WithECLevel(ECLevelQ)}},
+		{"payload mailto", MailtoPayload("ada@example.com", "Hello there", "Hi & bye"), nil},
+		{"payload geo", GeoPayload(37.422, -122.084), nil},
 	}
 
 	reader := qrcode.NewQRCodeReader()
