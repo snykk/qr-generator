@@ -59,9 +59,9 @@ Goal: dokumen ini dan padanan Indonesia-nya, di-commit sebelum kode atau theory 
 
 Goal: menutupi algoritma dan subtletinya di `docs/theory/` sebelum kode apa pun mendarat.
 
-- [ ] `docs/theory/17-optimal-segmentation.md` — kenapa greedy single-mode meninggalkan bit yang terbuang, cost model per-segment (`4 + CharCountBits(v) + payload bits`), formulasi DP (state = posisi x ending-mode, transisi extend/switch, base case, traceback), contoh terkerjakan untuk payload campuran yang menunjukkan jumlah bit greedy-vs-optimal, interplay version-group dan kenapa pemilihan menghitung ulang per versi, aturan batas rune UTF-8 dan byte-counting byte-mode, dan jaminan identitas input-homogen.
-- [ ] Padanan Indonesia `docs/theory/17-optimal-segmentation.id.md`.
-- [ ] Update `docs/theory/README.md` dan `docs/theory/README.id.md` untuk menambah entry 17 di subsection baru "Encoder completeness (v0.6.0)" plus baris code-mapping yang merujuk ke `qrgen/segment.go`. Cross-link dari doc 02 (data encoding), yang catatan greedy-analyzer-nya mesti menunjuk maju ke doc 17.
+- [x] `docs/theory/17-optimal-segmentation.md` — delapan bagian: kenapa greedy meninggalkan bit terbuang (dengan tabel densitas bit/char), cost model per-segment, formulasi DP (state, transisi, base case, traceback), contoh terkerjakan yang *benar* `"Order #1234567890"` (greedy byte 148 bit vs byte+numeric 116 bit pada V1) plus counter-example `"PHONE: 12345"` yang menunjukkan run 5-digit terlalu pendek untuk dipecah dan menyatakan break-even ~7-digit (dari alpha) / ~4-digit (dari byte), interplay version-group dan recompute per-versi, aturan batas rune UTF-8, dan jaminan identitas input-homogen.
+- [x] Padanan Indonesia `docs/theory/17-optimal-segmentation.id.md`.
+- [x] Mengupdate `docs/theory/README.md` dan `.id.md`: entry 17 di subsection baru "Encoder completeness (v0.6.0)" plus baris code-mapping yang merujuk ke `qrgen/segment.go`; juga mengoreksi frasa "small files" di entry-16 supaya cocok dengan koreksi ukuran v0.5. Cross-link dari doc 02 (kedua bahasa): catatan greedy-analyzer-nya kini menunjuk maju ke doc 17 dan menyatakan segmentation rilis di v0.6.
 
 ### MM3 — Type `segment` + Segmenter DP `(M)`
 

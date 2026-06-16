@@ -31,7 +31,11 @@ This folder contains the literature review and theoretical foundation for the `q
 
 ### Output formats (v0.5.0)
 
-16. [SVG Rendering](16-svg-rendering.md) — why SVG (lossless scaling, small files, crisp edges), the SVG document model for a QR symbol, single-path drawing versus one rect per module, the module-unit viewBox with pixel sizing, crispEdges and decodability, colour-to-hex with fill-opacity for alpha, and why the renderer is a sibling function rather than a Render interface.
+16. [SVG Rendering](16-svg-rendering.md) — why SVG (lossless scaling, crisp edges, HTML embedding — not file size), the SVG document model for a QR symbol, single-path drawing versus one rect per module, the module-unit viewBox with pixel sizing, crispEdges and decodability, colour-to-hex with fill-opacity for alpha, and why the renderer is a sibling function rather than a Render interface.
+
+### Encoder completeness (v0.6.0)
+
+17. [Optimal Mode Segmentation](17-optimal-segmentation.md) — why single-mode greedy leaves bits on the table, the per-segment cost model, the dynamic program over positions and modes, a worked example, the version-group interplay, the UTF-8 rune-boundary rule, and the homogeneous-input identity guarantee.
 
 ## Primary references
 
@@ -67,6 +71,7 @@ Additional references appear at the end of each document.
 | 13-decoder-pipeline.md              | `qrgen/decode.go` (planned, D7 + D12)         |
 | 14-adaptive-thresholding.md         | `qrgen/decode_image_sauvola.go` (planned, T2 + T3) |
 | 15-rotation-handling.md             | `qrgen/decode_image.go` (planned, R2: `orderFinderTriple`) |
-| 16-svg-rendering.md                 | `qrgen/render_svg.go` (planned, S3) |
+| 16-svg-rendering.md                 | `qrgen/render_svg.go` |
+| 17-optimal-segmentation.md          | `qrgen/segment.go` (planned, MM3) |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.

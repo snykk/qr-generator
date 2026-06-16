@@ -59,9 +59,9 @@ Goal: this document and its Indonesian counterpart, committed before any code or
 
 Goal: cover the algorithm and its subtleties in `docs/theory/` before any code lands.
 
-- [ ] `docs/theory/17-optimal-segmentation.md` — why greedy single-mode leaves bits on the table, the per-segment cost model (`4 + CharCountBits(v) + payload bits`), the DP formulation (state = position x ending-mode, transitions extend/switch, base case, traceback), worked example for a mixed payload showing greedy-vs-optimal bit counts, the version-group interplay and why selection recomputes per version, the UTF-8 rune-boundary rule and byte-mode byte-counting, and the homogeneous-input identity guarantee.
-- [ ] Indonesian counterpart `docs/theory/17-optimal-segmentation.id.md`.
-- [ ] Update `docs/theory/README.md` and `docs/theory/README.id.md` to add entry 17 under a new "Encoder completeness (v0.6.0)" subsection plus a code-mapping row pointing at `qrgen/segment.go`. Cross-link from doc 02 (data encoding), whose greedy-analyzer note should point forward to doc 17.
+- [x] `docs/theory/17-optimal-segmentation.md` — eight sections: why greedy leaves bits on the table (with the bits/char density table), the per-segment cost model, the DP formulation (state, transitions, base case, traceback), a *correct* worked example `"Order #1234567890"` (greedy byte 148 bits vs byte+numeric 116 bits at V1) plus the `"PHONE: 12345"` counter-example showing a 5-digit run is too short to split and stating the ~7-digit (from alpha) / ~4-digit (from byte) break-evens, the version-group interplay and per-version recompute, the UTF-8 rune-boundary rule, and the homogeneous-input identity guarantee.
+- [x] Indonesian counterpart `docs/theory/17-optimal-segmentation.id.md`.
+- [x] Updated `docs/theory/README.md` and `.id.md`: entry 17 under a new "Encoder completeness (v0.6.0)" subsection plus a code-mapping row pointing at `qrgen/segment.go`; also corrected the entry-16 "small files" phrasing to match the v0.5 size correction. Cross-linked from doc 02 (both languages): its greedy-analyzer note now points forward to doc 17 and states segmentation shipped in v0.6.
 
 ### MM3 — `segment` Type + DP Segmenter `(M)`
 
