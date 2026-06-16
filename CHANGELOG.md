@@ -6,7 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
-## [0.5.0] - 2026-05-24
+## [0.6.0] - 2026-06-16
+
+This release replaces the encoder's single-mode greedy analyzer with **DP-optimal mixed-mode segmentation**, closing the long-standing "greedy mode analyzer" limitation. Encoder-only, no public API change, no decoder change — the decoder already parses an arbitrary sequence of mode segments.
+
+### Added
+
+- `qrgen/segment.go`: a `segment` type, `segmentText(text, v)` that computes a minimum-bit-length segmentation by dynamic programming, and `segmentsBitLength`. The DP splits a payload into numeric / alphanumeric / byte segments to minimise total encoded size; e.g. `"Order #1234567890"` drops from 148 bits (greedy byte) to 116 bits (byte + numeric) at V1, and `"x"+16×"9"+"x"` drops from V2-L to V1-L.
+- New theory doc `docs/theory/17-optimal-segmentation.md` (English plus Indonesian) covering the cost model, the DP, the version-group interplay, the UTF-8 rune-boundary rule, and the homogeneous-input identity guarantee.
+- Plan doc `docs/plan-segmentation.md` (plus Indonesian) with milestones MM1..MM6.
+- `BenchmarkEncodeMixed` for the segmented encode path.
+
+### Changed
+
+- `selectVersion(text, ec)` now sizes the optimal segmentation per candidate version; because the segmentation only changes at the three character-count groups, a per-group cache runs the DP at most three times per encode.
+- `encodeText` now emits one `[mode indicator][char count][payload]` block per segment followed by the shared terminator and padding, and its internal `m Mode` return (already discarded by `buildMatrix`) was dropped.
+- `docs/theory/02-data-encoding.md` (both languages) now points at doc 17 and describes segmentation as shipped rather than deferred.
+
+### Validated
+
+- `TestRoundTripWithThirdPartyDecoder` gained four segmented payloads (byte+numeric, an invoice, a UTF-8+numeric case, and a 60-digit run in byte text); the independent gozxing decoder reads all of them, confirming the multi-segment stream is spec-valid.
+- `TestEncodeSegmentationDropsAVersion` proves a real version drop end to end; `TestEncodeMixedPayloadRoundTrip` round-trips five mixed payloads through both the matrix and byte paths; the segmenter's own suite covers the identity invariant, never-worse-than-greedy across a payload×version sweep, version-group recompute, and UTF-8 rune integrity.
+- The `HELLO WORLD` golden bytes are unchanged: a homogeneous input collapses to a single segment, so pure-mode payloads encode byte-for-byte as before.
+- `go test -race ./...` clean.
+
+### Performance note
+
+The DP adds modest cost to the encode hot path: `BenchmarkEncodeURL` is flat versus v0.5 (~850us), `BenchmarkEncodeSmall` is ~550us versus ~451us (~+20%, driven by the DP's slice allocations on tiny payloads, not the O(n²) loop). `EncodeLarge` is unchanged in character — dominated by Reed–Solomon and PNG rendering. The per-group cache holds the DP to three runs; a Nayuki O(n) DP and a homogeneous fast path remain available if a profile ever shows the DP hot.
+
+## [0.5.0] - 2026-06-16
 
 This release adds a **scalable SVG renderer** alongside the original PNG output, opening an encoder/output-breadth phase after two decoder-robustness releases. No breaking change: `Encode` still returns PNG bytes; SVG is a new additive surface that reuses the entire encoding pipeline.
 
@@ -159,7 +187,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/snykk/qr-generator/releases/tag/v0.6.0
 [0.5.0]: https://github.com/snykk/qr-generator/releases/tag/v0.5.0
 [0.4.0]: https://github.com/snykk/qr-generator/releases/tag/v0.4.0
 [0.3.0]: https://github.com/snykk/qr-generator/releases/tag/v0.3.0

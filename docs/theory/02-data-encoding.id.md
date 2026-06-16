@@ -70,7 +70,7 @@ Setelah bit stream payload terbentuk, ada tiga langkah penutup:
 
 - `qrgen/mode.go` akan memuat encoder per-mode dan mode analyzer.
 - `qrgen/version.go` akan memuat tabel kapasitas dan pencarian versi terkecil.
-- Untuk v0.1 mode analyzer cukup greedy single-segment: pilih mode paling ketat yang menutup semua karakter input. Segmentasi mode campuran (DP kecil) ditunda.
+- Mode analyzer v0.1 dulu greedy single-segment: pilih mode paling ketat yang menutup semua karakter input. Mulai v0.6 encoder memakai DP-optimal mixed-mode segmentation, yang memecah payload menjadi urutan mode segment yang meminimalkan total panjang bit; pilihan greedy kini menjadi special case yang terbukti untuk input homogen. Lihat [17-optimal-segmentation.id.md](17-optimal-segmentation.id.md).
 
 ## Referensi
 

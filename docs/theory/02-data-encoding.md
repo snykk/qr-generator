@@ -68,7 +68,7 @@ Once the payload bit stream is built, three steps finish the codeword stream:
 
 - `qrgen/mode.go` will host the per-mode encoders and the mode analyzer.
 - `qrgen/version.go` will host the capacity tables and the smallest-version search.
-- For v0.1 the mode analyzer is a single-segment greedy: pick the most restrictive mode that covers all input characters. Mixed-mode segmentation (a small DP) is deferred.
+- The v0.1 mode analyzer was a single-segment greedy: pick the most restrictive mode that covers all input characters. As of v0.6 the encoder uses DP-optimal mixed-mode segmentation instead, which splits the payload into a sequence of mode segments minimising the total bit length; the greedy choice is now a provable special case for homogeneous input. See [17-optimal-segmentation.md](17-optimal-segmentation.md).
 
 ## References
 
