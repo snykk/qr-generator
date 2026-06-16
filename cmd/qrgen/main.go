@@ -13,6 +13,9 @@
 //	qrgen -text "https://example.com" -ec Q -size 12 -out url.png
 //	qrgen -text "https://example.com" -out url.svg           # SVG (inferred from .svg)
 //	qrgen -text "HELLO" -format svg -out - > qr.svg          # SVG to stdout
+//	qrgen -text "HELLO" -format terminal                     # print to terminal (half-block)
+//	qrgen -text "HELLO" -format terminal -invert             # for a dark-background terminal
+//	qrgen -text "HELLO" -format ascii                        # ASCII fallback to stdout
 //	echo -n "HELLO" | qrgen -out hello.png                   # text from stdin
 //	qrgen -text "HELLO" -out - > qr.png                      # PNG to stdout
 //	qrgen -decode -in qr.png                                 # decode → stdout
@@ -50,6 +53,7 @@ type cliConfig struct {
 	quietZone  int
 	version    int
 	mask       int
+	invert     bool
 }
 
 func main() {
@@ -58,7 +62,7 @@ func main() {
 	flag.StringVar(&cfg.in, "in", "", "decode mode: input image path (default: read from stdin)")
 	flag.StringVar(&cfg.text, "text", "", "encode mode: text to encode; if empty, read from stdin")
 	flag.StringVar(&cfg.out, "out", "", "output path; default qr.png/qr.svg for encode, stdout for decode. Use \"-\" to force stdout")
-	flag.StringVar(&cfg.format, "format", "", "encode mode: output format png or svg; default png, inferred as svg from a .svg -out extension")
+	flag.StringVar(&cfg.format, "format", "", "encode mode: output format png, svg, terminal, or ascii; default png, inferred as svg from a .svg -out extension")
 	flag.IntVar(&cfg.moduleSize, "size", 8, "encode mode: module size in pixels")
 	flag.StringVar(&cfg.ec, "ec", "M", "encode mode: error-correction level L, M, Q, or H")
 	flag.StringVar(&cfg.fg, "fg", "", "encode mode: foreground hex colour (e.g. #102E57); default black")
@@ -66,6 +70,7 @@ func main() {
 	flag.IntVar(&cfg.quietZone, "quiet-zone", 4, "encode mode: modules of background around the symbol")
 	flag.IntVar(&cfg.version, "version", 0, "encode mode: force QR version 1..40 (0 = auto)")
 	flag.IntVar(&cfg.mask, "mask", -1, "encode mode: force mask 0..7 (-1 = auto)")
+	flag.BoolVar(&cfg.invert, "invert", false, "encode mode: invert terminal/ascii output for dark-background terminals")
 
 	flag.Usage = func() {
 		fmt.Fprintln(flag.CommandLine.Output(), "Usage: qrgen [flags]")
@@ -80,6 +85,9 @@ func main() {
 		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"https://example.com\" -ec Q -size 12 -out url.png")
 		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"https://example.com\" -out url.svg")
 		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"HELLO\" -format svg -out - > qr.svg")
+		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"HELLO\" -format terminal")
+		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"HELLO\" -format terminal -invert")
+		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"HELLO\" -format ascii")
 		fmt.Fprintln(flag.CommandLine.Output(), "  echo -n \"HELLO\" | qrgen -out hello.png")
 		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"HELLO\" -out - > qr.png")
 		fmt.Fprintln(flag.CommandLine.Output(), "")
@@ -147,9 +155,16 @@ func runEncode(cfg cliConfig, stdin io.Reader, stdout io.Writer) error {
 	}
 
 	var data []byte
-	if format == "svg" {
+	switch format {
+	case "svg":
 		data, err = qrgen.EncodeSVG(text, opts...)
-	} else {
+	case "terminal", "ascii":
+		var s string
+		s, err = qrgen.EncodeTerminal(text, append(opts,
+			qrgen.WithTerminalASCII(format == "ascii"),
+			qrgen.WithTerminalInvert(cfg.invert))...)
+		data = []byte(s)
+	default:
 		data, err = qrgen.Encode(text, opts...)
 	}
 	if err != nil {
@@ -158,9 +173,13 @@ func runEncode(cfg cliConfig, stdin io.Reader, stdout io.Writer) error {
 
 	out := cfg.out
 	if out == "" {
-		out = "qr.png"
-		if format == "svg" {
+		switch format {
+		case "svg":
 			out = "qr.svg"
+		case "terminal", "ascii":
+			out = "-" // text formats default to stdout
+		default:
+			out = "qr.png"
 		}
 	}
 	if out == "-" {
@@ -184,13 +203,17 @@ func resolveFormat(format, out string) (string, error) {
 		return "png", nil
 	case "svg":
 		return "svg", nil
+	case "terminal":
+		return "terminal", nil
+	case "ascii":
+		return "ascii", nil
 	case "":
 		if strings.HasSuffix(strings.ToLower(out), ".svg") {
 			return "svg", nil
 		}
 		return "png", nil
 	}
-	return "", fmt.Errorf("invalid -format %q (want png or svg)", format)
+	return "", fmt.Errorf("invalid -format %q (want png, svg, terminal, or ascii)", format)
 }
 
 // runDecode performs the decode pipeline: read PNG/JPEG/GIF bytes from -in

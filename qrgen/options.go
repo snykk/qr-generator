@@ -28,6 +28,9 @@ type options struct {
 	quietZone  int         // modules of background around the symbol
 	foreground color.Color // dark module colour
 	background color.Color // light module colour
+
+	terminalInvert bool // EncodeTerminal: swap dark/light polarity for dark backgrounds
+	terminalASCII  bool // EncodeTerminal: ASCII double-width fallback instead of half-block
 }
 
 // defaultOptions returns the spec-conformant defaults.
@@ -134,4 +137,22 @@ func WithColors(foreground, background color.Color) Option {
 		o.foreground = foreground
 		o.background = background
 	}
+}
+
+// WithTerminalInvert swaps the dark/light polarity of [EncodeTerminal] output.
+// The default targets a light-background terminal, where a block glyph reads as
+// a dark module; set this on a dark-background terminal so the rendered dark
+// modules still read as dark to a scanner. It has no effect on PNG or SVG
+// output.
+func WithTerminalInvert(invert bool) Option {
+	return func(o *options) { o.terminalInvert = invert }
+}
+
+// WithTerminalASCII renders [EncodeTerminal] output with a portable
+// double-width ASCII form ("##" per dark module) instead of Unicode half-block
+// glyphs, for terminals or fonts without block-element support. It is roughly
+// twice as tall as the default half-block rendering. It has no effect on PNG or
+// SVG output.
+func WithTerminalASCII(ascii bool) Option {
+	return func(o *options) { o.terminalASCII = ascii }
 }
