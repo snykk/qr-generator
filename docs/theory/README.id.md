@@ -43,6 +43,10 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 18. [Payload Formats](18-payload-formats.id.md) — konvensi scanner yang dihasilkan convenience builder (Wi-Fi, vCard, mailto, tel, SMS, geo): template persis, aturan escaping, sitasi, dan contoh terkerjakan, plus kenapa string builder compose dengan setiap format output.
 
+### Format output (v0.8.0)
+
+19. [Terminal Rendering](19-terminal-rendering.id.md) — kenapa renderer terminal (kesegeraan, teks pipeable, bisa dipindai dari layar), aspect ratio sel yang melatari half-block packing, pemetaan pasangan-modul ke glyph, fallback ASCII, masalah polaritas dan saklar invert, penanganan quiet zone dan ekor baris ganjil, serta kenapa renderer ini fungsi sibling yang mengembalikan string.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -80,5 +84,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 16-svg-rendering.id.md                 | `qrgen/render_svg.go` |
 | 17-optimal-segmentation.id.md          | `qrgen/segment.go` |
 | 18-payload-formats.id.md               | `qrgen/payload.go` (direncanakan, P3) |
+| 19-terminal-rendering.id.md            | `qrgen/render_terminal.go` (direncanakan, TR3) |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.

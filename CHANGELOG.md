@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-16
+
+This release adds a **terminal / ASCII renderer**, a third output target alongside PNG and SVG. `EncodeTerminal` returns a multi-line `string` of block characters that prints straight to a terminal and scans from the screen; it runs the same encoding pipeline as `Encode` and `EncodeSVG` and differs only in the final render step.
+
+### Added
+
+- `EncodeTerminal(text string, opts ...Option) (string, error)` in `qrgen/render_terminal.go` — renders the finished matrix to text. By default it packs two module rows per text row with Unicode half-block glyphs (`█ ▀ ▄`) so modules stay near-square against a terminal's roughly 2:1 cell aspect ratio; the trailing unpaired row of an odd-sized symbol renders as a top-half glyph.
+- `WithTerminalInvert(bool)` — swaps dark/light polarity for dark-background terminals, so the rendered dark modules still read as dark to a scanner.
+- `WithTerminalASCII(bool)` — a portable double-width ASCII fallback (`##` per dark module) for terminals or fonts without block-element support. `WithQuietZone` applies; `WithModuleSize` and `WithColors` are no-ops for text output, as they are for `Matrix`.
+- CLI: `-format terminal` and `-format ascii` route through `EncodeTerminal`, an `-invert` flag maps to `WithTerminalInvert`, and both text formats default to stdout when `-out` is omitted.
+- New reference doc `docs/theory/19-terminal-rendering.md` (English plus Indonesian) on the cell aspect ratio, half-block packing, the glyph mapping, the ASCII fallback, polarity/inversion, and the quiet-zone and odd-row handling.
+- Plan doc `docs/plan-terminal-renderer.md` (plus Indonesian) with milestones TR1..TR5.
+- Runnable example `examples/encode/terminal` printing a URL QR in the default and inverted forms.
+
+### Validated
+
+- `TestTerminalRoundTrip` renders a range of payloads in half-block, inverted, and ASCII modes, parses the block characters back into a `[][]bool` grid, and confirms `DecodeMatrix` recovers the exact input — proving the rendering is loss-free without an image decoder.
+- Golden-string tests pin the half-block, inverted, ASCII, and quiet-zone renderings against the worked example in doc 19, plus CLI tests for the terminal and ASCII formats and the stdout default. gofmt-clean, `go test -race ./...` clean.
+
+### Design note
+
+`renderTerminal` is a sibling of `renderPNG` and `renderSVG` but returns a `string` rather than `[]byte`, because terminal output is human-facing text meant to be printed. Polarity is the one thing that decides scannability — a block glyph reads dark on a light terminal and light on a dark one — so the default targets a light background and `WithTerminalInvert` covers the dark case; a theme-independent ANSI-colour mode honouring `WithColors` is deferred to a follow-up.
+
 ## [0.7.0] - 2026-06-16
 
 This release adds **convenience payload builders** for the common real-world QR conventions. They are pure string formatting — no encoder or decoder change — and return a `string` so they compose with `Encode`, `EncodeSVG`, and `Matrix` alike.
@@ -215,7 +238,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/snykk/qr-generator/releases/tag/v0.8.0
 [0.7.0]: https://github.com/snykk/qr-generator/releases/tag/v0.7.0
 [0.6.0]: https://github.com/snykk/qr-generator/releases/tag/v0.6.0
 [0.5.0]: https://github.com/snykk/qr-generator/releases/tag/v0.5.0

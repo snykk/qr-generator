@@ -98,6 +98,44 @@ func EncodeSVGToFile(text, path string, opts ...Option) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
+// EncodeTerminal encodes text as a QR code and returns it as a multi-line
+// string of block characters, ready to print to a terminal and scan from the
+// screen. It runs the exact same encoding pipeline as [Encode] and [EncodeSVG]
+// — the same version selection, mask choice, and option handling — and differs
+// only in the final render step, which emits text instead of a raster or
+// vector image.
+//
+// By default the symbol is drawn with Unicode half-block glyphs, packing two
+// module rows per text row so modules stay near-square on a terminal. The
+// output targets a light-background terminal, where a block glyph reads as a
+// dark module; on a dark-background terminal pass [WithTerminalInvert] so the
+// dark modules still read as dark to a scanner. [WithTerminalASCII] falls back
+// to a portable double-width ASCII rendering, and [WithQuietZone] controls the
+// light border. [WithModuleSize] and [WithColors] have no effect on the text
+// output, the same way they do not affect [Matrix]. See
+// docs/theory/19-terminal-rendering.md.
+//
+// Example:
+//
+//	s, err := qrgen.EncodeTerminal("https://example.com")
+//	if err != nil { log.Fatal(err) }
+//	fmt.Print(s)
+func EncodeTerminal(text string, opts ...Option) (string, error) {
+	o := resolveOptions(opts...)
+	if err := o.validate(); err != nil {
+		return "", err
+	}
+	m, _, err := buildMatrix(text, o)
+	if err != nil {
+		return "", err
+	}
+	return renderTerminal(m, terminalOptions{
+		quietZone: o.quietZone,
+		invert:    o.terminalInvert,
+		ascii:     o.terminalASCII,
+	}), nil
+}
+
 // Matrix returns the underlying boolean module grid of the encoded QR
 // symbol, where true means a dark module. The matrix is square with side
 // length 21 + 4*(version-1) and already includes functional patterns, data
