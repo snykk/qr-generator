@@ -32,7 +32,7 @@ Scanner QR butuh kontras cukup antara modul gelap dan terang. Renderer secara de
 
 - PNG bersifat lossless sehingga tepi modul tetap tajam — penting untuk decodability.
 - Encoder standard library sudah berada dalam scope; tidak butuh dependency baru.
-- Format lain (SVG, terminal, JPEG) dapat ditambahkan kemudian di balik interface `Render` yang sama tanpa membongkar public API.
+- Format lain dapat ditambahkan kemudian sebagai sibling render function yang berbagi struct `renderOptions` yang sama dan signature `func(m *matrix, opts renderOptions) ([]byte, error)`, tanpa membongkar public API. SVG tiba lewat cara ini di v0.5 — lihat [16-svg-rendering.id.md](16-svg-rendering.id.md), bagian 7, untuk alasan kenapa interface bersama akan prematur untuk dua renderer non-polimorfik.
 
 ## Penunjuk implementasi
 

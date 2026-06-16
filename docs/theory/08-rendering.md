@@ -30,7 +30,7 @@ A QR scanner needs sufficient contrast between dark and light modules. The rende
 
 - PNG is loss-less, so module edges stay crisp — important for decodability.
 - The standard library encoder is already in scope; no new dependencies.
-- Other formats (SVG, terminal, JPEG) can be added later behind the same `Render` interface without breaking the public API.
+- Other formats can be added later as sibling render functions that share the same `renderOptions` struct and the `func(m *matrix, opts renderOptions) ([]byte, error)` signature, without breaking the public API. SVG arrived this way in v0.5 — see [16-svg-rendering.md](16-svg-rendering.md), section 7, for why a shared interface would be premature for two non-polymorphic renderers.
 
 ## Implementation pointers
 

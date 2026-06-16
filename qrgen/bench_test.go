@@ -73,3 +73,28 @@ func BenchmarkMatrixOnly(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkEncodeSVGSmall mirrors BenchmarkEncodeSmall on the SVG path so the
+// two renderers can be compared directly. The bytes/op figure also publishes
+// the SVG document size for the common short payload.
+func BenchmarkEncodeSVGSmall(b *testing.B) {
+	const text = "HELLO WORLD"
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := EncodeSVG(text); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkEncodeSVGURL mirrors BenchmarkEncodeURL on the SVG path: the
+// representative ~40-byte URL payload that lands around V2-V3.
+func BenchmarkEncodeSVGURL(b *testing.B) {
+	const text = "https://github.com/snykk/qr-generator"
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := EncodeSVG(text); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

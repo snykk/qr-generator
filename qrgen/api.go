@@ -52,6 +52,52 @@ func EncodeToFile(text, path string, opts ...Option) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
+// EncodeSVG encodes text as a QR code and returns a standalone SVG document
+// as bytes. It runs the exact same encoding pipeline as [Encode] — the same
+// version selection, mask choice, and option handling — and differs only in
+// the final render step, which emits a scalable vector document instead of a
+// PNG raster. All options accepted by [Encode] also work here;
+// [WithModuleSize], [WithQuietZone], and [WithColors] all take effect on the
+// SVG output.
+//
+// The output is resolution-independent: its viewBox is in module units so it
+// scales to any size, while its width/height default to the same nominal
+// pixel dimensions a PNG would have for the same options. See
+// docs/theory/16-svg-rendering.md.
+//
+// Example:
+//
+//	data, err := qrgen.EncodeSVG("https://example.com", qrgen.WithModuleSize(8))
+//	if err != nil { log.Fatal(err) }
+//	os.WriteFile("qr.svg", data, 0o644)
+func EncodeSVG(text string, opts ...Option) ([]byte, error) {
+	o := resolveOptions(opts...)
+	if err := o.validate(); err != nil {
+		return nil, err
+	}
+	m, _, err := buildMatrix(text, o)
+	if err != nil {
+		return nil, err
+	}
+	return renderSVG(m, renderOptions{
+		moduleSize: o.moduleSize,
+		quietZone:  o.quietZone,
+		foreground: o.foreground,
+		background: o.background,
+	})
+}
+
+// EncodeSVGToFile encodes text and writes the resulting SVG document to path.
+// The file is created with mode 0644 and any existing file at path is
+// overwritten. All options accepted by [Encode] also work here.
+func EncodeSVGToFile(text, path string, opts ...Option) error {
+	data, err := EncodeSVG(text, opts...)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
 // Matrix returns the underlying boolean module grid of the encoded QR
 // symbol, where true means a dark module. The matrix is square with side
 // length 21 + 4*(version-1) and already includes functional patterns, data
