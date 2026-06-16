@@ -87,11 +87,11 @@ Goal: route the encoder through the segmenter.
 
 Goal: prove the win and guard the hot path.
 
-- [ ] Optimality assertions: a table of mixed payloads where the segmented version/bit-count is strictly better than the greedy single-mode baseline, with the exact expected numbers recorded.
-- [ ] Cross-validation: extend the gozxing round-trip test (and our own decoder round-trip) with segmented payloads so an independent decoder confirms the segmented stream is spec-valid.
-- [ ] No-regression: confirm pure-numeric / pure-alphanumeric / pure-byte inputs still match their existing golden outputs byte-for-byte.
-- [ ] Benchmarks: the DP runs per candidate version, so measure `BenchmarkEncodeSmall` / `URL` / `MultiBlock` / `Large` against the v0.5 baseline and record the delta. If the per-version DP is measurably hot, cache the segmentation across versions within a group (same `CharCountBits`) as an optimisation.
-- [ ] `go test -race ./...` clean.
+- [x] Optimality assertions: `TestEncodeMixedPayloadFitsSmallerVersion` and the segmenter's `TestSegmentTextMixedSplitsAndWins` pin the exact 116-vs-148-bit win for `"Order #1234567890"`, and the new `TestEncodeSegmentationDropsAVersion` proves a real version drop end-to-end — `"x" + 16×"9" + "x"` needs V2-L greedily (156 bits) but fits V1-L segmented (108 bits) and still round-trips.
+- [x] Cross-validation: `TestRoundTripWithThirdPartyDecoder` gained four segmented payloads (byte+numeric, an invoice string, a UTF-8+numeric case, and a 60-digit run embedded in byte text); the independent gozxing decoder reads all of them, confirming the multi-segment stream is spec-valid, not merely self-consistent.
+- [x] No-regression: the existing `TestEncodeTextHelloWorld` golden bytes and the homogeneous gozxing cases are unchanged, confirming the identity invariant.
+- [x] Benchmarks (Apple M5, `count=3`): `EncodeURL` ~850us (≈ v0.5's 845us, flat), `EncodeSmall` ~550us vs v0.5's 451us (~+20%, driven by the DP's slice allocations — 467 vs 451 allocs/op — not the n² loop, since these payloads are tiny), `EncodeMultiBlock` ~1.05ms, new `EncodeMixed` ~860us. `EncodeLarge` (~17ms) is dominated by Reed-Solomon and PNG rendering, not segmentation. The per-group cache added in MM4 keeps the DP to at most three runs per encode; the residual small-payload cost is a handful of allocations, judged an acceptable trade for the version-drop win. The Nayuki O(n) DP and a homogeneous-numeric fast path remain available if a future profile shows the DP hot.
+- [x] `go test -race ./...` clean (~11s).
 
 ### MM6 — Polish & Release `(S)`
 

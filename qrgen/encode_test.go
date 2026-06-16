@@ -296,3 +296,34 @@ func TestEncodeMixedPayloadFitsSmallerVersion(t *testing.T) {
 		t.Fatalf("round-trip got %q, err %v; want %q", got, err, p)
 	}
 }
+
+// TestEncodeSegmentationDropsAVersion is the headline real-world win: a byte
+// payload with a 16-digit embedded run needs V2-L under the greedy single-mode
+// encoder (156 bits > V1-L's 152) but fits V1-L once segmented into
+// byte+numeric+byte (108 bits). The smaller symbol still round-trips.
+func TestEncodeSegmentationDropsAVersion(t *testing.T) {
+	p := "x" + strings.Repeat("9", 16) + "x"
+
+	// Greedy (byte) must overflow V1-L for the fixture to be meaningful.
+	m := analyzeMode(p)
+	greedyBits := 4 + m.CharCountBits(1) + payloadBitLength(m, p)
+	if greedyBits <= Version(1).DataCodewords(ECLevelL)*8 {
+		t.Fatalf("fixture invalid: greedy already fits V1-L (%d bits)", greedyBits)
+	}
+
+	segV, err := selectVersion(p, ECLevelL)
+	if err != nil {
+		t.Fatalf("selectVersion: %v", err)
+	}
+	if segV != 1 {
+		t.Errorf("segmented version = %d, want 1 (segmentation should drop a version)", segV)
+	}
+
+	png, err := Encode(p, WithECLevel(ECLevelL))
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	if got, err := DecodeBytes(png); err != nil || got != p {
+		t.Fatalf("round-trip got %q, err %v; want %q", got, err, p)
+	}
+}

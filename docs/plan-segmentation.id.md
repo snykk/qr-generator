@@ -87,11 +87,11 @@ Goal: mengarahkan encoder lewat segmenter.
 
 Goal: membuktikan kemenangannya dan menjaga hot path.
 
-- [ ] Assertion optimality: tabel payload campuran di mana versi/jumlah-bit ter-segmentasi strictly lebih baik dari baseline greedy single-mode, dengan angka yang diharapkan persis dicatat.
-- [ ] Cross-validation: perluas tes round-trip gozxing (dan round-trip decoder kita sendiri) dengan payload ter-segmentasi supaya decoder independen mengkonfirmasi stream ter-segmentasi valid-spec.
-- [ ] No-regression: konfirmasi input pure-numeric / pure-alphanumeric / pure-byte tetap cocok dengan output golden-nya byte-for-byte.
-- [ ] Benchmark: DP jalan per versi kandidat, jadi ukur `BenchmarkEncodeSmall` / `URL` / `MultiBlock` / `Large` terhadap baseline v0.5 dan catat delta-nya. Kalau DP per-versi terukur hot, cache segmentation lintas versi dalam satu group (CharCountBits sama) sebagai optimisasi.
-- [ ] `go test -race ./...` bersih.
+- [x] Assertion optimality: `TestEncodeMixedPayloadFitsSmallerVersion` dan `TestSegmentTextMixedSplitsAndWins` milik segmenter memaku kemenangan persis 116-vs-148-bit untuk `"Order #1234567890"`, dan `TestEncodeSegmentationDropsAVersion` baru membuktikan version drop nyata end-to-end — `"x" + 16×"9" + "x"` butuh V2-L greedily (156 bit) tapi muat V1-L ter-segmentasi (108 bit) dan tetap round-trip.
+- [x] Cross-validation: `TestRoundTripWithThirdPartyDecoder` mendapat empat payload ter-segmentasi (byte+numeric, string invoice, kasus UTF-8+numeric, dan run 60-digit tertanam di teks byte); decoder gozxing independen membaca semuanya, mengkonfirmasi stream multi-segment valid-spec, bukan sekadar self-consistent.
+- [x] No-regression: golden bytes `TestEncodeTextHelloWorld` yang ada dan kasus gozxing homogen tidak berubah, mengkonfirmasi invariant identitas.
+- [x] Benchmark (Apple M5, `count=3`): `EncodeURL` ~850us (≈ 845us v0.5, flat), `EncodeSmall` ~550us vs 451us v0.5 (~+20%, didorong alokasi slice DP — 467 vs 451 allocs/op — bukan loop n², karena payload ini kecil), `EncodeMultiBlock` ~1.05ms, `EncodeMixed` baru ~860us. `EncodeLarge` (~17ms) didominasi Reed-Solomon dan PNG rendering, bukan segmentation. Cache per-group yang ditambah di MM4 menjaga DP paling banyak tiga run per encode; sisa biaya payload-kecil adalah segelintir alokasi, dinilai trade yang dapat diterima untuk kemenangan version-drop. DP Nayuki O(n) dan fast path homogeneous-numeric tetap tersedia kalau profil masa depan menunjukkan DP hot.
+- [x] `go test -race ./...` bersih (~11s).
 
 ### MM6 — Polish & Rilis `(S)`
 

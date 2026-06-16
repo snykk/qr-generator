@@ -62,6 +62,19 @@ func BenchmarkEncodeLarge(b *testing.B) {
 	}
 }
 
+// BenchmarkEncodeMixed measures a payload that the v0.6 segmenter splits into
+// byte + numeric segments. The DP runs (cached per version group) sit on the
+// encode hot path here, so this is the figure to watch for segmentation cost.
+func BenchmarkEncodeMixed(b *testing.B) {
+	const text = "Order #1234567890 shipped to bay 42"
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := Encode(text); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 // BenchmarkMatrixOnly skips PNG rendering to isolate the encoder pipeline
 // (M3..M6) from the rasterisation path.
 func BenchmarkMatrixOnly(b *testing.B) {
