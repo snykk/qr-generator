@@ -62,10 +62,11 @@ Goal: this document and its Indonesian counterpart, committed before any code or
 
 Goal: cover the SVG document model and rendering choices in `docs/theory/` before any code lands, and pay down the phantom-interface documentation debt.
 
-- [ ] `docs/theory/16-svg-rendering.md` — why SVG (lossless scaling, small files, crisp edges), the SVG document structure for a QR symbol (root `<svg>` with `viewBox` and `width`/`height`, a background `<rect>`, a single foreground `<path>`), the path-data drawing approach and why it beats one `<rect>` per module, `shape-rendering="crispEdges"` and decodability, the module-unit coordinate system with pixel-dimension scaling, colour-to-hex plus `fill-opacity` for alpha, and the rationale for sibling functions over a `Render` interface (YAGNI, mirrors the v0.3 dispatch decision).
-- [ ] Indonesian counterpart `docs/theory/16-svg-rendering.id.md`.
-- [ ] Correct `docs/theory/08-rendering.md`: rewrite the "behind the same `Render` interface" sentence to describe sibling render functions that share `renderOptions`, and cross-link doc 16.
-- [ ] Update `docs/theory/README.md` and `docs/theory/README.id.md` to add entry 16 under a new "Output formats (v0.5.0)" subsection plus a row in the "How these notes relate to the code" table pointing at `qrgen/render_svg.go`.
+- [x] `docs/theory/16-svg-rendering.md` — eight sections: why SVG, the SVG document model, single-path drawing vs one rect per module, the module-unit coordinate system with pixel sizing, `crispEdges` and decodability, colour-to-hex with `fill-opacity` for alpha (including the 0x101 division and premultiplied-alpha note), the sibling-function-not-interface rationale, and implementation pointers.
+- [x] Indonesian counterpart `docs/theory/16-svg-rendering.id.md`.
+- [x] Corrected `docs/theory/08-rendering.md` and its `.id.md`: rewrote the "behind the same `Render` interface" sentence to describe sibling render functions sharing `renderOptions` and the `func(m *matrix, opts renderOptions) ([]byte, error)` signature, with a cross-link to doc 16 section 7.
+- [x] Updated `docs/theory/README.md` and `docs/theory/README.id.md`: entry 16 under a new "Output formats (v0.5.0)" subsection plus a code-mapping row pointing at `qrgen/render_svg.go` (planned, S3).
+- [ ] **Surfaced separately (not yet actioned):** doc 08 also documents a contrast check and a `WithSkipContrastCheck` option that are not implemented in the code (only an advisory comment on `WithColors`). Flagged to the maintainer to decide between implementing the check or removing it from the doc; out of scope for S2's interface correction.
 
 ### S3 — `renderSVG` Implementation `(M)`
 

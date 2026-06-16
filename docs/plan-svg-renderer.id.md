@@ -62,10 +62,11 @@ Goal: dokumen ini dan padanan Indonesia-nya, di-commit sebelum kode atau theory 
 
 Goal: menutupi model dokumen SVG dan pilihan rendering di `docs/theory/` sebelum kode apa pun mendarat, dan melunasi utang dokumentasi phantom-interface.
 
-- [ ] `docs/theory/16-svg-rendering.md` — kenapa SVG (scaling lossless, file kecil, tepi tajam), struktur dokumen SVG untuk simbol QR (root `<svg>` dengan `viewBox` dan `width`/`height`, sebuah `<rect>` background, satu `<path>` foreground), pendekatan menggambar path-data dan kenapa ia mengalahkan satu `<rect>` per modul, `shape-rendering="crispEdges"` dan decodability, sistem koordinat unit-modul dengan scaling dimensi-pixel, warna-ke-hex plus `fill-opacity` untuk alpha, dan alasan sibling function di atas `Render` interface (YAGNI, mencerminkan keputusan dispatch v0.3).
-- [ ] Padanan Indonesia `docs/theory/16-svg-rendering.id.md`.
-- [ ] Koreksi `docs/theory/08-rendering.md`: tulis ulang kalimat "behind the same `Render` interface" supaya mendeskripsikan sibling render function yang berbagi `renderOptions`, dan cross-link doc 16.
-- [ ] Update `docs/theory/README.md` dan `docs/theory/README.id.md` untuk menambah entry 16 di subsection baru "Output formats (v0.5.0)" plus satu baris di tabel "Hubungan dengan kode" yang merujuk ke `qrgen/render_svg.go`.
+- [x] `docs/theory/16-svg-rendering.md` — delapan bagian: kenapa SVG, model dokumen SVG, menggambar satu-path vs satu rect per modul, sistem koordinat unit-modul dengan sizing pixel, `crispEdges` dan decodability, warna-ke-hex dengan `fill-opacity` untuk alpha (termasuk pembagian 0x101 dan catatan premultiplied-alpha), alasan sibling-function-bukan-interface, dan pointer implementasi.
+- [x] Padanan Indonesia `docs/theory/16-svg-rendering.id.md`.
+- [x] Mengoreksi `docs/theory/08-rendering.md` dan `.id.md`-nya: menulis ulang kalimat "behind the same `Render` interface" supaya mendeskripsikan sibling render function yang berbagi `renderOptions` dan signature `func(m *matrix, opts renderOptions) ([]byte, error)`, dengan cross-link ke doc 16 bagian 7.
+- [x] Mengupdate `docs/theory/README.md` dan `docs/theory/README.id.md`: entry 16 di subsection baru "Output formats (v0.5.0)" plus satu baris code-mapping yang merujuk ke `qrgen/render_svg.go` (direncanakan, S3).
+- [ ] **Disurfacing terpisah (belum diaksikan):** doc 08 juga mendokumentasikan contrast check dan option `WithSkipContrastCheck` yang tidak diimplementasi di kode (hanya komentar advisory pada `WithColors`). Diflag ke maintainer untuk memutuskan antara mengimplementasi check-nya atau menghapusnya dari doc; di luar cakupan koreksi interface S2.
 
 ### S3 — Implementasi `renderSVG` `(M)`
 

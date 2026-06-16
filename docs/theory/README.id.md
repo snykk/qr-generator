@@ -31,6 +31,10 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 15. [Rotation Handling](15-rotation-handling.id.md) — di mana asumsi tegak tinggal di pipeline v0.3, kenapa deteksi vertex sudut-siku-siku sudah rotation-invariant, identitas handedness cross-product yang mendisambiguasi top-right dari bottom-left di rotasi apa pun, dan boundary cakupan di ~30 derajat yang ditetapkan oleh toleransi scanner 1:1:3:1:1.
 
+### Format output (v0.5.0)
+
+16. [SVG Rendering](16-svg-rendering.id.md) — kenapa SVG (scaling lossless, file kecil, tepi tajam), model dokumen SVG untuk simbol QR, menggambar satu-path versus satu rect per modul, viewBox unit-modul dengan sizing pixel, crispEdges dan decodability, warna-ke-hex dengan fill-opacity untuk alpha, dan kenapa renderer-nya sibling function alih-alih Render interface.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -65,5 +69,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 13-decoder-pipeline.id.md              | `qrgen/decode.go` (direncanakan, D7 + D12)    |
 | 14-adaptive-thresholding.id.md         | `qrgen/decode_image_sauvola.go` (direncanakan, T2 + T3) |
 | 15-rotation-handling.id.md             | `qrgen/decode_image.go` (direncanakan, R2: `orderFinderTriple`) |
+| 16-svg-rendering.id.md                 | `qrgen/render_svg.go` (direncanakan, S3) |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.
