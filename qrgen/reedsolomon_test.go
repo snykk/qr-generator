@@ -171,7 +171,7 @@ func TestRSEncodePipelineFromEncodeText(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			data, v, _, err := encodeText(c.text, c.ec, 0)
+			data, v, err := encodeText(c.text, c.ec, 0)
 			if err != nil {
 				t.Fatalf("encodeText: %v", err)
 			}

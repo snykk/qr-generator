@@ -17,15 +17,17 @@ import (
 // requested EC level. Returned by encodeText.
 var ErrCapacityExceeded = errors.New("qrgen: payload exceeds the capacity of the largest QR version at the requested EC level")
 
-// analyzeMode picks the most compact mode that can encode every character in
-// text. Numeric wins if all chars are digits; alphanumeric wins next; byte is
-// the fallback. Empty input is reported as Numeric (it costs zero payload
-// bits in either of the compact modes, but Numeric keeps later size math
-// consistent).
+// analyzeMode picks the most compact single mode that can encode every
+// character in text. Numeric wins if all chars are digits; alphanumeric wins
+// next; byte is the fallback. Empty input is reported as Numeric (it costs
+// zero payload bits in either of the compact modes, but Numeric keeps later
+// size math consistent).
 //
-// This is a single-segment greedy analyzer. Mixed-mode segmentation could
-// produce a smaller bit count for some inputs and is deferred past v0.1.
-// See docs/theory/02-data-encoding.md.
+// As of v0.6 the encoder no longer drives sizing from this single-mode choice;
+// encodeText uses the DP-optimal segmenter (segmentText) instead, for which a
+// homogeneous input yields exactly the segment analyzeMode would pick. This
+// helper is retained for that homogeneous fast-reasoning and for tests.
+// See docs/theory/02-data-encoding.md and docs/theory/17-optimal-segmentation.md.
 func analyzeMode(text string) Mode {
 	allNumeric := true
 	allAlphanumeric := true
@@ -110,18 +112,43 @@ func payloadBitLength(mode Mode, text string) int {
 }
 
 // selectVersion returns the smallest Version whose data-codeword capacity (in
-// bits) is enough to hold the header + payload at the given EC level.
-// Returns ErrCapacityExceeded if even V40 cannot hold the payload.
-func selectVersion(mode Mode, text string, ec ECLevel) (Version, error) {
-	payloadBits := payloadBitLength(mode, text)
+// bits) is enough to hold the optimal mixed-mode segmentation of text at the
+// given EC level. Because the optimal segmentation depends on the version
+// (the character-count indicator width varies by version group), the
+// segmentation is recomputed for each candidate version. Returns
+// ErrCapacityExceeded if even V40 cannot hold the payload.
+// See docs/theory/17-optimal-segmentation.md.
+func selectVersion(text string, ec ECLevel) (Version, error) {
+	// The optimal segmentation and its bit length depend on the version only
+	// through CharCountBits, which is constant within each version group
+	// (1-9, 10-26, 27-40). So recompute the segmentation only when the group
+	// changes — three DP runs at most instead of forty.
+	group := -1
+	needed := 0
 	for v := MinVersion; v <= MaxVersion; v++ {
-		needed := 4 + mode.CharCountBits(v) + payloadBits
-		capacity := v.DataCodewords(ec) * 8
-		if needed <= capacity {
+		if g := versionGroup(v); g != group {
+			group = g
+			needed = segmentsBitLength(segmentText(text, v), v)
+		}
+		if needed <= v.DataCodewords(ec)*8 {
 			return v, nil
 		}
 	}
 	return 0, ErrCapacityExceeded
+}
+
+// versionGroup maps a version to its character-count-indicator group: 0 for
+// versions 1-9, 1 for 10-26, 2 for 27-40. CharCountBits is constant within a
+// group, so the optimal segmentation is too.
+func versionGroup(v Version) int {
+	switch {
+	case v <= 9:
+		return 0
+	case v <= 26:
+		return 1
+	default:
+		return 2
+	}
 }
 
 // writePayload appends the encoded payload bits to bb. The mode must already
@@ -180,7 +207,7 @@ func writeByte(bb *bitBuffer, text string) {
 // format-info codeword. The returned matrix is the final, scannable QR symbol;
 // callers only need to render it to pixels.
 func buildMatrix(text string, opts *options) (*matrix, int, error) {
-	data, v, _, err := encodeText(text, opts.ec, opts.version)
+	data, v, err := encodeText(text, opts.ec, opts.version)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -203,28 +230,32 @@ func buildMatrix(text string, opts *options) (*matrix, int, error) {
 	return m, mask, nil
 }
 
-// encodeText runs the M3 pipeline end-to-end: it analyzes the mode, picks
-// (or accepts) a version that fits, then emits header + payload + terminator
-// + bit padding + pad bytes to fill the data-codeword capacity exactly.
+// encodeText runs the M3 pipeline end-to-end: it computes the optimal
+// mixed-mode segmentation, picks (or accepts) a version that fits, then emits
+// each segment's header + payload followed by a single shared terminator +
+// bit padding + pad bytes to fill the data-codeword capacity exactly.
 // forceVersion = 0 means auto-pick the smallest fitting version; any other
-// value is validated against the payload size.
+// value is validated against the segmented payload size.
 //
-// See docs/theory/02-data-encoding.md and docs/theory/10-worked-example.md.
-func encodeText(text string, ec ECLevel, forceVersion Version) (data []byte, v Version, m Mode, err error) {
-	m = analyzeMode(text)
+// For a homogeneous input the segmentation is a single segment, so the output
+// is byte-for-byte identical to the pre-segmentation single-mode encoder.
+//
+// See docs/theory/02-data-encoding.md, docs/theory/10-worked-example.md, and
+// docs/theory/17-optimal-segmentation.md.
+func encodeText(text string, ec ECLevel, forceVersion Version) (data []byte, v Version, err error) {
 	if forceVersion == 0 {
-		v, err = selectVersion(m, text, ec)
+		v, err = selectVersion(text, ec)
 		if err != nil {
-			return nil, 0, 0, err
+			return nil, 0, err
 		}
 	} else {
 		if !forceVersion.IsValid() {
-			return nil, 0, 0, fmt.Errorf("qrgen: invalid version %d (want 1..40)", forceVersion)
+			return nil, 0, fmt.Errorf("qrgen: invalid version %d (want 1..40)", forceVersion)
 		}
-		needed := 4 + m.CharCountBits(forceVersion) + payloadBitLength(m, text)
+		needed := segmentsBitLength(segmentText(text, forceVersion), forceVersion)
 		capacity := forceVersion.DataCodewords(ec) * 8
 		if needed > capacity {
-			return nil, 0, 0, fmt.Errorf("qrgen: payload (%d bits) does not fit in V%d-%s (capacity %d bits)", needed, forceVersion, ec, capacity)
+			return nil, 0, fmt.Errorf("qrgen: payload (%d bits) does not fit in V%d-%s (capacity %d bits)", needed, forceVersion, ec, capacity)
 		}
 		v = forceVersion
 	}
@@ -232,16 +263,20 @@ func encodeText(text string, ec ECLevel, forceVersion Version) (data []byte, v V
 	capacityBits := v.DataCodewords(ec) * 8
 
 	bb := &bitBuffer{}
-	// Header: 4-bit mode indicator + character count indicator.
-	bb.appendBits(uint32(m.Indicator()), 4)
-	bb.appendBits(uint32(len(text)), m.CharCountBits(v))
-	// Payload.
-	writePayload(bb, m, text)
+	// Each segment: 4-bit mode indicator + character-count indicator + payload.
+	// len(s.text) is the correct count for every mode: numeric/alphanumeric
+	// segments hold only single-byte ASCII (so byte length == character
+	// count), and byte mode counts bytes by definition.
+	for _, s := range segmentText(text, v) {
+		bb.appendBits(uint32(s.mode.Indicator()), 4)
+		bb.appendBits(uint32(len(s.text)), s.mode.CharCountBits(v))
+		writePayload(bb, s.mode, s.text)
+	}
 
 	// Terminator: up to 4 zero bits, truncated if fewer remain before capacity.
 	remaining := capacityBits - bb.bits()
 	if remaining < 0 {
-		return nil, 0, 0, fmt.Errorf("qrgen: internal error: encoded length exceeds capacity by %d bits", -remaining)
+		return nil, 0, fmt.Errorf("qrgen: internal error: encoded length exceeds capacity by %d bits", -remaining)
 	}
 	termBits := 4
 	if remaining < termBits {
@@ -260,5 +295,5 @@ func encodeText(text string, ec ECLevel, forceVersion Version) (data []byte, v V
 		bb.appendBits(padBytes[i%2], 8)
 	}
 
-	return bb.bytes(), v, m, nil
+	return bb.bytes(), v, nil
 }
