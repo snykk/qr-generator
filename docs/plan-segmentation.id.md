@@ -97,10 +97,10 @@ Goal: membuktikan kemenangannya dan menjaga hot path.
 
 Goal: memotong `v0.6.0`.
 
-- [ ] README: hapus bullet **"Greedy mode analyzer"** dari `## Limitations`; sebut optimal segmentation di Library usage atau catatan singkat; update `## Roadmap` (drop "mixed-mode segmentation" dari bullet encoding-completeness, menyisakan ECI + Kanji).
-- [ ] Update komentar doc `analyzeMode` dan `docs/theory/02-data-encoding.md` supaya tidak lagi mendeskripsikan segmentation sebagai ditunda.
-- [ ] Entry `CHANGELOG.md` `v0.6.0` di bawah Added / Changed / Validated plus anchor compare/tag.
-- [ ] Tag `v0.6.0` (diserahkan ke maintainer sesuai alur rilis yang sudah disepakati; annotation direkomendasikan di percakapan rilis).
+- [x] README: menghapus bullet **"Greedy mode analyzer"** dari `## Limitations`; section Scope kini mencantumkan DP-optimal mixed-mode segmentation sebagai fitur encoding; `## Roadmap` "Encoding completeness" men-drop mixed-mode segmentation (mencatat ia rilis di v0.6), menyisakan ECI + Kanji. Contoh menyesatkan `"PHONE: 12345"` hilang bersama bullet-nya; doc 17 mendokumentasikannya sebagai counter-example.
+- [x] Komentar doc `analyzeMode` (MM4) dan `docs/theory/02-data-encoding.md` (MM2) sudah menunjuk ke segmenter dan tidak lagi mendeskripsikan segmentation sebagai ditunda.
+- [x] Entry `CHANGELOG.md` `v0.6.0` di bawah Added / Changed / Validated plus Performance note, dan anchor compare/tag. Di-stage tanpa edit tanggal v0.5.0 terpisah milik maintainer.
+- [ ] Tag `v0.6.0` (diserahkan ke maintainer sesuai alur git/rilis yang disepakati; annotation direkomendasikan di percakapan rilis).
 
 ---
 

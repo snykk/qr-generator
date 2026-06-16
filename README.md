@@ -204,7 +204,7 @@ Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: �
 
 In scope as of v0.2.0:
 
-- Encoding modes: numeric, alphanumeric, byte (UTF-8 passthrough).
+- Encoding modes: numeric, alphanumeric, byte (UTF-8 passthrough), with DP-optimal mixed-mode segmentation (as of v0.6) that splits a payload across modes to minimise symbol size.
 - Versions: 1–40.
 - Error-correction levels: L, M, Q, H.
 - PNG output (grayscale or RGBA, depending on colour options) and SVG output (scalable vector, as of v0.5).
@@ -224,7 +224,6 @@ The library covers the encoder and the decoder end-to-end as of v0.2.0; the foll
 - **No logo embedding.** Centred logos with automatic EC compensation are a roadmap item.
 - **Limited arbitrary-angle decoding.** v0.4 added rotation handling for the axis-aligned cases (90 / 180 / 270 degrees) plus soft tilts up to about 30 degrees off-axis, but tilts in the 30..90 degree band defeat the 1:1:3:1:1 finder scanner's ±50% module-width tolerance and a wider scanner (contour-based or fan-of-orientations) is needed to close the remaining gap.
 - **Adaptive thresholding only on the quiet zone.** v0.3 added a Sauvola fallback that recovers QR codes whose quiet zone has been darkened by uneven lighting or soft shadows, but mutations that compress the QR's own ink-paper contrast (very dim photos, heavy gradient across the symbol itself) still defeat both Otsu and Sauvola at default parameters.
-- **Greedy mode analyzer.** A single mode is chosen for the whole input; mixed-mode segmentation (DP-optimal) is deferred. A string like `"PHONE: 12345"` is encoded entirely in alphanumeric instead of splitting into alphanumeric + numeric.
 - **Rule-4 mask penalty.** The dark-ratio bucket boundary uses the Thonky-style floor formula; other implementations use a ceiling-style formula and may pick a different mask for the same input. Output remains spec-compliant either way.
 
 ## Roadmap
@@ -232,7 +231,7 @@ The library covers the encoder and the decoder end-to-end as of v0.2.0; the foll
 Candidates for future minor releases (post-v0.2.0):
 
 - **Additional renderers:** terminal/ASCII, JPEG, PDF. (SVG shipped in v0.5.)
-- **Encoding completeness:** ECI segments, Kanji mode, mixed-mode segmentation for tighter packing.
+- **Encoding completeness:** ECI segments, Kanji mode. (DP-optimal mixed-mode segmentation shipped in v0.6.)
 - **Convenience helpers:** `EncodeURL`, `EncodeWiFi`, `EncodeVCard`, `EncodeEmail` for well-known payload shapes that ship with the right formatting.
 - **Logo embedding:** centred logo with automatic EC-level bump for the occluded area.
 - **Micro QR & rMQR:** smaller form factors for short payloads.

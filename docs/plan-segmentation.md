@@ -97,10 +97,10 @@ Goal: prove the win and guard the hot path.
 
 Goal: cut `v0.6.0`.
 
-- [ ] README: remove the **"Greedy mode analyzer"** bullet from `## Limitations`; mention optimal segmentation under Library usage or a short note; update `## Roadmap` (drop "mixed-mode segmentation" from the encoding-completeness bullet, leaving ECI + Kanji).
-- [ ] Update the `analyzeMode` doc comment and `docs/theory/02-data-encoding.md` so they no longer describe segmentation as deferred.
-- [ ] `CHANGELOG.md` `v0.6.0` entry under Added / Changed / Validated plus the compare/tag anchors.
-- [ ] Tag `v0.6.0` (left for the maintainer per the established release workflow; annotation recommended in the release conversation).
+- [x] README: removed the **"Greedy mode analyzer"** bullet from `## Limitations`; the Scope section now lists DP-optimal mixed-mode segmentation as an encoding feature; `## Roadmap` "Encoding completeness" drops mixed-mode segmentation (noting it shipped in v0.6), leaving ECI + Kanji. The misleading `"PHONE: 12345"` example is gone with the bullet; doc 17 documents it as a counter-example instead.
+- [x] The `analyzeMode` doc comment (MM4) and `docs/theory/02-data-encoding.md` (MM2) already point at the segmenter and no longer describe segmentation as deferred.
+- [x] `CHANGELOG.md` `v0.6.0` entry under Added / Changed / Validated plus a Performance note, and the compare/tag anchors. Staged without the maintainer's separate v0.5.0 date edit.
+- [ ] Tag `v0.6.0` (left for the maintainer per the established git/release workflow; annotation recommended in the release conversation).
 
 ---
 
