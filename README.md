@@ -100,6 +100,29 @@ err = qrgen.EncodeSVGToFile("https://example.com", "qr.svg", qrgen.WithECLevel(q
 
 The output uses a module-unit `viewBox` so it scales to any size with no blur, `shape-rendering="crispEdges"` so module boundaries stay decodable, and a single `<path>` for all dark modules. Pick SVG for resolution independence and HTML embedding — not for file size: a QR PNG is actually smaller on disk because its zlib compresses a monochrome bitmap very tightly, though a gzipped SVG lands close. SVG encoding is, however, several times faster than PNG because it skips rasterisation. See [docs/theory/16-svg-rendering.md](docs/theory/16-svg-rendering.md). A runnable demo lives in [examples/encode/svg](examples/encode/svg/main.go).
 
+## Payload helpers
+
+The common real-world QR payloads have a recognised string format that scanner apps act on — joining a Wi-Fi network, adding a contact, composing an email. The payload builders format and escape these for you and return a `string`, so they compose with any output (`Encode`, `EncodeSVG`, or `Matrix`):
+
+```go
+// Wi-Fi join → PNG
+data, err := qrgen.Encode(qrgen.WiFiPayload(qrgen.WiFi{
+    SSID:     "Cafe Wi-Fi",
+    Password: "latte123",
+    Security: qrgen.WiFiWPA,
+}))
+
+// Contact card → SVG (same builder pattern, different output)
+svg, err := qrgen.EncodeSVG(qrgen.VCardPayload(qrgen.VCard{
+    Name:   "Ada Lovelace",
+    Org:    "Analytical Engine, Ltd",
+    Phones: []string{"+15551234567"},
+    Emails: []string{"ada@example.com"},
+}))
+```
+
+Builders exist for Wi-Fi, vCard, `mailto:`, `tel:`, SMS, and `geo:`. They escape special characters correctly (Wi-Fi `; , : \ "`, vCard text values, percent-encoded mail fields) but do not validate input. See [docs/theory/18-payload-formats.md](docs/theory/18-payload-formats.md) and the demo in [examples/encode/payloads](examples/encode/payloads/main.go).
+
 ## Decoding QR codes
 
 `qrgen.DecodeBytes` reads PNG, JPEG, or GIF bytes back into the original text:
@@ -174,6 +197,17 @@ Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: �
 | `WithQuietZone(modules)` | Module margin around the symbol. Default `4` (spec minimum). |
 | `WithColors(fg, bg)` | Custom foreground/background `color.Color`. Default black-on-white. |
 
+**Payload builders** (return a `string` to pass to `Encode`/`EncodeSVG`/`Matrix`):
+
+| Symbol | Purpose |
+|---|---|
+| `WiFiPayload(WiFi) string` | Wi-Fi join string (`WIFI:`); `WiFi{SSID, Password, Security, Hidden}`, `WiFiWPA`/`WiFiWEP`/`WiFiNoPass`. |
+| `VCardPayload(VCard) string` | vCard 3.0 contact; `VCard{Name, FamilyName, GivenName, Org, Title, Phones, Emails, URL, Address, Note}`. |
+| `MailtoPayload(addr, subject, body) string` | `mailto:` with percent-encoded subject/body. |
+| `TelPayload(number) string` | `tel:` phone. |
+| `SMSPayload(number, message) string` | `SMSTO:` SMS. |
+| `GeoPayload(lat, lon) string` | `geo:` location. |
+
 **Decoding:**
 
 | Symbol | Purpose |
@@ -208,6 +242,7 @@ In scope as of v0.2.0:
 - Versions: 1–40.
 - Error-correction levels: L, M, Q, H.
 - PNG output (grayscale or RGBA, depending on colour options) and SVG output (scalable vector, as of v0.5).
+- Payload builders for Wi-Fi, vCard, mailto, tel, SMS, and geo (as of v0.7).
 - Image decoding (PNG / JPEG / GIF / `image.Image`) with binarisation, finder detection, perspective transform, and alignment refinement.
 - Matrix decoding from `[][]bool` for callers that already have a clean grid.
 
@@ -232,7 +267,7 @@ Candidates for future minor releases (post-v0.2.0):
 
 - **Additional renderers:** terminal/ASCII, JPEG, PDF. (SVG shipped in v0.5.)
 - **Encoding completeness:** ECI segments, Kanji mode. (DP-optimal mixed-mode segmentation shipped in v0.6.)
-- **Convenience helpers:** `EncodeURL`, `EncodeWiFi`, `EncodeVCard`, `EncodeEmail` for well-known payload shapes that ship with the right formatting.
+- **More payload builders:** calendar event (VEVENT), crypto/EPC payment, MeCard. (Wi-Fi, vCard, mailto, tel, SMS, and geo shipped in v0.7.)
 - **Logo embedding:** centred logo with automatic EC-level bump for the occluded area.
 - **Micro QR & rMQR:** smaller form factors for short payloads.
 - **Structured-append:** split long text across multiple linked QR symbols.

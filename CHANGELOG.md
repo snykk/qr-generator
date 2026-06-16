@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-16
+
+This release adds **convenience payload builders** for the common real-world QR conventions. They are pure string formatting — no encoder or decoder change — and return a `string` so they compose with `Encode`, `EncodeSVG`, and `Matrix` alike.
+
+### Added
+
+- `qrgen/payload.go` with six builders that format and escape well-known payloads:
+  - `WiFiPayload(WiFi) string` — `WIFI:` join string; `WiFi{SSID, Password, Security, Hidden}` with the `WiFiSecurity` type (`WiFiWPA`/`WiFiWEP`/`WiFiNoPass`), defaulting to WPA and omitting the password for open/empty networks.
+  - `VCardPayload(VCard) string` — vCard 3.0 contact with CRLF lines; `VCard{Name, FamilyName, GivenName, Org, Title, Phones, Emails, URL, Address, Note}`, empty fields omitted.
+  - `MailtoPayload(addr, subject, body) string` — RFC 6068 `mailto:` with percent-encoded subject/body (`%20`, not `+`).
+  - `TelPayload(number) string` — RFC 3966 `tel:`.
+  - `SMSPayload(number, message) string` — the `SMSTO:` scheme.
+  - `GeoPayload(lat, lon) string` — RFC 5870 `geo:` with shortest-exact coordinate formatting (no scientific notation).
+- Escaping helpers: Wi-Fi escapes `\ ; , : "`, vCard escapes `\ ; ,` and newlines (RFC 6350), mailto query parts via `net/url`.
+- New reference doc `docs/theory/18-payload-formats.md` (English plus Indonesian) documenting each scheme, its escaping, a citation, and a worked example.
+- Plan doc `docs/plan-convenience-helpers.md` (plus Indonesian) with milestones P1..P5.
+- Runnable example `examples/encode/payloads` building a Wi-Fi PNG and a vCard SVG from the same builder pattern.
+
+### Validated
+
+- `TestPayloadRoundTrip` builds all six payloads (including escaped Wi-Fi specials and a full vCard) and confirms `DecodeBytes(Encode(...))` returns the exact string; the digit-heavy ones also exercise the v0.6 segmenter.
+- `TestRoundTripWithThirdPartyDecoder` gained four payloads (Wi-Fi, vCard, mailto, geo); the independent gozxing decoder reads each exactly.
+- Table-driven golden-string and escaping tests for every builder and both escapers. gofmt-clean, `go test -race ./...` clean.
+
+### Design note
+
+The builders deliberately return a `string` rather than PNG bytes (no `EncodeWiFi`-returns-PNG wrappers), so a single builder composes with every output format the library has — PNG, SVG, and the raw matrix — instead of locking each helper to one. They escape but do not validate input.
+
 ## [0.6.0] - 2026-06-16
 
 This release replaces the encoder's single-mode greedy analyzer with **DP-optimal mixed-mode segmentation**, closing the long-standing "greedy mode analyzer" limitation. Encoder-only, no public API change, no decoder change — the decoder already parses an arbitrary sequence of mode segments.
@@ -187,7 +215,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/snykk/qr-generator/releases/tag/v0.7.0
 [0.6.0]: https://github.com/snykk/qr-generator/releases/tag/v0.6.0
 [0.5.0]: https://github.com/snykk/qr-generator/releases/tag/v0.5.0
 [0.4.0]: https://github.com/snykk/qr-generator/releases/tag/v0.4.0
