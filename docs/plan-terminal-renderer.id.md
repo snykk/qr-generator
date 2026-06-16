@@ -60,17 +60,17 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah TR3) memberi renderer de
 
 Tujuan: mendokumentasikan teknik rendering dan trade-off-nya sebelum kode apa pun mendarat.
 
-- [ ] `docs/theory/19-terminal-rendering.md` — aspect ratio sel terminal dan kenapa half-block packing menjaga modul tetap persegi; pemetaan persis pasangan-modul ke glyph (`█ ▀ ▄` dan spasi) berikut code point Unicode Block Element-nya; fallback ASCII lebar-ganda; masalah polaritas (sebuah glyph terbaca gelap di terminal terang dan terang di terminal gelap) dan bagaimana `invert` menyelesaikannya; keharusan quiet zone; bagaimana jumlah baris total yang ganjil menyisakan satu baris modul tak berpasangan; serta contoh kerja untuk simbol kecil. Ditutup dengan rasional compose-not-encode dan penunjuk implementasi.
-- [ ] Padanan Indonesia `docs/theory/19-terminal-rendering.id.md`.
-- [ ] Memperbarui `docs/theory/README.md` dan `.id.md`: entri 19 plus baris pemetaan kode yang menunjuk ke `qrgen/render_terminal.go`.
+- [x] `docs/theory/19-terminal-rendering.md` — aspect ratio sel terminal dan kenapa half-block packing menjaga modul tetap persegi; pemetaan persis pasangan-modul ke glyph (`█ ▀ ▄` dan spasi) berikut code point Unicode Block Element-nya; fallback ASCII lebar-ganda; masalah polaritas (sebuah glyph terbaca gelap di terminal terang dan terang di terminal gelap) dan bagaimana `invert` menyelesaikannya; keharusan quiet zone; bagaimana jumlah baris total yang ganjil menyisakan satu baris modul tak berpasangan; serta contoh kerja untuk simbol kecil. Ditutup dengan rasional compose-not-encode dan penunjuk implementasi.
+- [x] Padanan Indonesia `docs/theory/19-terminal-rendering.id.md`.
+- [x] Memperbarui `docs/theory/README.md` dan `.id.md`: entri 19 plus baris pemetaan kode yang menunjuk ke `qrgen/render_terminal.go`.
 
 ### TR3 — Renderer + Option + Golden Test `(M)`
 
 Tujuan: renderer-nya sendiri, dengan output terkunci golden string.
 
-- [ ] `qrgen/render_terminal.go` dengan `renderTerminal(m *matrix, opts terminalOptions) string` (saudara `renderPNG`/`renderSVG`), mengimplementasikan half-block packing, fallback ASCII, saklar invert, dan quiet zone. Menangani baris terakhir tak berpasangan (separuh atas saja) dengan rapi.
-- [ ] `EncodeTerminal` di `qrgen/api.go` dan `WithTerminalInvert` / `WithTerminalASCII` di `qrgen/options.go`, dialirkan lewat resolved options.
-- [ ] Test golden-string di `qrgen/render_terminal_test.go`: simbol dengan mask terpaku, di-render dalam mode half-block, ASCII, dan invert, dibandingkan terhadap golden string multi-baris; lebar quiet zone; kasus baris ganjil terakhir.
+- [x] `qrgen/render_terminal.go` dengan `renderTerminal(m *matrix, opts terminalOptions) string` (saudara `renderPNG`/`renderSVG`), mengimplementasikan half-block packing, fallback ASCII, saklar invert, dan quiet zone. Menangani baris terakhir tak berpasangan (separuh atas saja) dengan rapi.
+- [x] `EncodeTerminal` di `qrgen/api.go` dan `WithTerminalInvert` / `WithTerminalASCII` di `qrgen/options.go`, dialirkan lewat resolved options.
+- [x] Test golden-string di `qrgen/render_terminal_test.go`: simbol dengan mask terpaku, di-render dalam mode half-block, ASCII, dan invert, dibandingkan terhadap golden string multi-baris; lebar quiet zone; kasus baris ganjil terakhir.
 
 ### Checkpoint A — renderer menghasilkan output terminal yang benar, stabil, dan bisa dipindai.
 
@@ -78,17 +78,17 @@ Tujuan: renderer-nya sendiri, dengan output terkunci golden string.
 
 Tujuan: membuktikan rendering loss-free dan menyambungkannya ke CLI.
 
-- [ ] `TestTerminalRoundTrip` me-render sejumlah payload, mem-parse block character kembali menjadi `[][]bool`, menjalankan `DecodeMatrix`, lalu memastikan teks hasil decode sama dengan input — untuk mode half-block, ASCII, dan invert.
-- [ ] CLI: `-format terminal` dan `-format ascii` dialirkan lewat `EncodeTerminal`; flag `-invert` dipetakan ke `WithTerminalInvert`; output ke stdout secara default untuk format ini. Teks usage dan contoh diperbarui.
-- [ ] Contoh runnable `examples/encode/terminal/main.go` mencetak QR sebuah URL ke stdout dalam half-block lalu sekali lagi dalam mode invert; diverifikasi dengan `go run`.
+- [x] `TestTerminalRoundTrip` me-render sejumlah payload, mem-parse block character kembali menjadi `[][]bool`, menjalankan `DecodeMatrix`, lalu memastikan teks hasil decode sama dengan input — untuk mode half-block, ASCII, dan invert.
+- [x] CLI: `-format terminal` dan `-format ascii` dialirkan lewat `EncodeTerminal`; flag `-invert` dipetakan ke `WithTerminalInvert`; output ke stdout secara default untuk format ini. Teks usage dan contoh diperbarui.
+- [x] Contoh runnable `examples/encode/terminal/main.go` mencetak QR sebuah URL ke stdout dalam half-block lalu sekali lagi dalam mode invert; diverifikasi dengan `go run`.
 
 ### TR5 — Polish & Rilis `(S)`
 
 Tujuan: memotong `v0.8.0`.
 
-- [ ] README: bagian penggunaan "Terminal output"; satu baris terminal di ringkasan API yang mencantumkan `EncodeTerminal`, `WithTerminalInvert`, `WithTerminalASCII`; Scope mendapat baris output terminal; butir Roadmap "Additional renderers" mencatat terminal/ASCII rilis di v0.8 (JPEG/PDF masih terbuka).
-- [ ] Entri `v0.8.0` di `CHANGELOG.md` plus anchor compare/tag ditulis; dibiarkan unstaged di working tree agar maintainer yang commit bersama rilis (meniru v0.6 dan v0.7).
-- [ ] `go test -race ./...` bersih, gofmt bersih.
+- [x] README: bagian penggunaan "Terminal output"; satu baris terminal di ringkasan API yang mencantumkan `EncodeTerminal`, `WithTerminalInvert`, `WithTerminalASCII`; Scope mendapat baris output terminal; butir Roadmap "Additional renderers" mencatat terminal/ASCII rilis di v0.8 (JPEG/PDF masih terbuka).
+- [x] Entri `v0.8.0` di `CHANGELOG.md` plus anchor compare/tag ditulis; dibiarkan unstaged di working tree agar maintainer yang commit bersama rilis (meniru v0.6 dan v0.7).
+- [x] `go test -race ./...` bersih, gofmt bersih.
 - [ ] Tag `v0.8.0` (diserahkan ke maintainer sesuai alur git/rilis yang sudah mapan; anotasi direkomendasikan di percakapan rilis).
 
 ---

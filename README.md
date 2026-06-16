@@ -100,6 +100,18 @@ err = qrgen.EncodeSVGToFile("https://example.com", "qr.svg", qrgen.WithECLevel(q
 
 The output uses a module-unit `viewBox` so it scales to any size with no blur, `shape-rendering="crispEdges"` so module boundaries stay decodable, and a single `<path>` for all dark modules. Pick SVG for resolution independence and HTML embedding — not for file size: a QR PNG is actually smaller on disk because its zlib compresses a monochrome bitmap very tightly, though a gzipped SVG lands close. SVG encoding is, however, several times faster than PNG because it skips rasterisation. See [docs/theory/16-svg-rendering.md](docs/theory/16-svg-rendering.md). A runnable demo lives in [examples/encode/svg](examples/encode/svg/main.go).
 
+## Rendering to a terminal
+
+`qrgen.EncodeTerminal` renders the symbol to a multi-line `string` of block characters you can print straight to a terminal and scan from the screen — no image file, no viewer. Like `EncodeSVG`, it runs the same encoding pipeline as `Encode` and differs only in the final render step.
+
+```go
+s, err := qrgen.EncodeTerminal("https://example.com")
+if err != nil { log.Fatal(err) }
+fmt.Print(s)
+```
+
+By default it packs two module rows per text row with Unicode half-block glyphs (`█ ▀ ▄`) so modules stay near-square against a terminal's roughly 2:1 cell. The output targets a light-background terminal; on a dark background pass `qrgen.WithTerminalInvert(true)` so the dark modules still read as dark to a scanner. `qrgen.WithTerminalASCII(true)` falls back to a portable double-width `##` form for terminals without block-element support, and `WithQuietZone` controls the light border (`WithModuleSize` and `WithColors` have no effect on text output). See [docs/theory/19-terminal-rendering.md](docs/theory/19-terminal-rendering.md) and the demo in [examples/encode/terminal](examples/encode/terminal/main.go).
+
 ## Payload helpers
 
 The common real-world QR payloads have a recognised string format that scanner apps act on — joining a Wi-Fi network, adding a contact, composing an email. The payload builders format and escape these for you and return a `string`, so they compose with any output (`Encode`, `EncodeSVG`, or `Matrix`):
@@ -162,6 +174,11 @@ echo -n "HELLO" | qrgen -out - | open -f -a Preview
 # SVG output: inferred from the .svg extension, or forced with -format svg.
 qrgen -text "https://example.com" -out url.svg
 qrgen -text "HELLO" -format svg -out - > qr.svg
+
+# Terminal output: print the symbol straight to the screen (defaults to stdout).
+qrgen -text "https://example.com" -format terminal
+qrgen -text "https://example.com" -format terminal -invert   # dark-background terminal
+qrgen -text "https://example.com" -format ascii              # ASCII fallback
 ```
 
 **Decoding:**
@@ -189,6 +206,7 @@ Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: �
 | `EncodeToFile(text, path, opts...) error` | Text → PNG file on disk. |
 | `EncodeSVG(text, opts...) ([]byte, error)` | Text → SVG document bytes. Same options as `Encode`. |
 | `EncodeSVGToFile(text, path, opts...) error` | Text → SVG file on disk. |
+| `EncodeTerminal(text, opts...) (string, error)` | Text → multi-line block-character string for printing to a terminal. |
 | `Matrix(text, opts...) ([][]bool, error)` | Text → raw boolean module grid for custom rendering. |
 | `WithECLevel(ec)` | Error-correction level (`ECLevelL`, `ECLevelM`, `ECLevelQ`, `ECLevelH`). Default `M`. |
 | `WithVersion(v)` | Force QR version `1..40`. Default `0` (auto-select smallest fitting). |
@@ -196,6 +214,8 @@ Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: �
 | `WithModuleSize(px)` | Pixels per module. Default `8`. |
 | `WithQuietZone(modules)` | Module margin around the symbol. Default `4` (spec minimum). |
 | `WithColors(fg, bg)` | Custom foreground/background `color.Color`. Default black-on-white. |
+| `WithTerminalInvert(bool)` | Invert `EncodeTerminal` polarity for dark-background terminals. |
+| `WithTerminalASCII(bool)` | Render `EncodeTerminal` with a double-width ASCII fallback instead of half-block glyphs. |
 
 **Payload builders** (return a `string` to pass to `Encode`/`EncodeSVG`/`Matrix`):
 
@@ -241,12 +261,12 @@ In scope as of v0.2.0:
 - Encoding modes: numeric, alphanumeric, byte (UTF-8 passthrough), with DP-optimal mixed-mode segmentation (as of v0.6) that splits a payload across modes to minimise symbol size.
 - Versions: 1–40.
 - Error-correction levels: L, M, Q, H.
-- PNG output (grayscale or RGBA, depending on colour options) and SVG output (scalable vector, as of v0.5).
+- PNG output (grayscale or RGBA, depending on colour options), SVG output (scalable vector, as of v0.5), and terminal output (Unicode half-block or ASCII text, as of v0.8).
 - Payload builders for Wi-Fi, vCard, mailto, tel, SMS, and geo (as of v0.7).
 - Image decoding (PNG / JPEG / GIF / `image.Image`) with binarisation, finder detection, perspective transform, and alignment refinement.
 - Matrix decoding from `[][]bool` for callers that already have a clean grid.
 
-Still out of scope (kept open as roadmap items): Kanji mode, ECI segments, Micro QR, structured-append, logo embedding, terminal/JPEG/PDF renderers, arbitrary-angle decoding in the 30..90 degree band.
+Still out of scope (kept open as roadmap items): Kanji mode, ECI segments, Micro QR, structured-append, logo embedding, JPEG/PDF renderers, arbitrary-angle decoding in the 30..90 degree band.
 
 ## Limitations
 
@@ -265,7 +285,7 @@ The library covers the encoder and the decoder end-to-end as of v0.2.0; the foll
 
 Candidates for future minor releases (post-v0.2.0):
 
-- **Additional renderers:** terminal/ASCII, JPEG, PDF. (SVG shipped in v0.5.)
+- **Additional renderers:** JPEG, PDF. (SVG shipped in v0.5; terminal/ASCII in v0.8.)
 - **Encoding completeness:** ECI segments, Kanji mode. (DP-optimal mixed-mode segmentation shipped in v0.6.)
 - **More payload builders:** calendar event (VEVENT), crypto/EPC payment, MeCard. (Wi-Fi, vCard, mailto, tel, SMS, and geo shipped in v0.7.)
 - **Logo embedding:** centred logo with automatic EC-level bump for the occluded area.

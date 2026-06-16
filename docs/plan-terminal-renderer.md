@@ -60,17 +60,17 @@ Milestones land sequentially. **Checkpoint A** (after TR3) gives the renderer wi
 
 Goal: document the rendering technique and its trade-offs before any code lands.
 
-- [ ] `docs/theory/19-terminal-rendering.md` — the terminal cell aspect ratio and why half-block packing keeps modules square; the exact module-pair to glyph mapping (`█ ▀ ▄` and space) with the Unicode Block Elements code points; the ASCII double-width fallback; the polarity problem (a glyph reads dark on a light terminal and light on a dark one) and how `invert` resolves it; the quiet-zone requirement; how an odd total row count leaves a final unpaired module row; and a worked example for a small symbol. Closes with the compose-not-encode rationale and implementation pointers.
-- [ ] Indonesian counterpart `docs/theory/19-terminal-rendering.id.md`.
-- [ ] Updated `docs/theory/README.md` and `.id.md`: entry 19 plus a code-mapping row pointing at `qrgen/render_terminal.go`.
+- [x] `docs/theory/19-terminal-rendering.md` — the terminal cell aspect ratio and why half-block packing keeps modules square; the exact module-pair to glyph mapping (`█ ▀ ▄` and space) with the Unicode Block Elements code points; the ASCII double-width fallback; the polarity problem (a glyph reads dark on a light terminal and light on a dark one) and how `invert` resolves it; the quiet-zone requirement; how an odd total row count leaves a final unpaired module row; and a worked example for a small symbol. Closes with the compose-not-encode rationale and implementation pointers.
+- [x] Indonesian counterpart `docs/theory/19-terminal-rendering.id.md`.
+- [x] Updated `docs/theory/README.md` and `.id.md`: entry 19 plus a code-mapping row pointing at `qrgen/render_terminal.go`.
 
 ### TR3 — Renderer + Options + Golden Tests `(M)`
 
 Goal: the renderer itself, with output pinned by golden strings.
 
-- [ ] `qrgen/render_terminal.go` with `renderTerminal(m *matrix, opts terminalOptions) string` (sibling of `renderPNG`/`renderSVG`), implementing half-block packing, the ASCII fallback, the invert switch, and the quiet zone. Handles the trailing unpaired row (top half only) cleanly.
-- [ ] `EncodeTerminal` in `qrgen/api.go` and `WithTerminalInvert` / `WithTerminalASCII` in `qrgen/options.go`, threaded through the resolved options.
-- [ ] Golden-string tests in `qrgen/render_terminal_test.go`: a pinned-mask symbol rendered in half-block, ASCII, and inverted modes compared against golden multi-line strings; quiet-zone width; the trailing-odd-row case.
+- [x] `qrgen/render_terminal.go` with `renderTerminal(m *matrix, opts terminalOptions) string` (sibling of `renderPNG`/`renderSVG`), implementing half-block packing, the ASCII fallback, the invert switch, and the quiet zone. Handles the trailing unpaired row (top half only) cleanly.
+- [x] `EncodeTerminal` in `qrgen/api.go` and `WithTerminalInvert` / `WithTerminalASCII` in `qrgen/options.go`, threaded through the resolved options.
+- [x] Golden-string tests in `qrgen/render_terminal_test.go`: a pinned-mask symbol rendered in half-block, ASCII, and inverted modes compared against golden multi-line strings; quiet-zone width; the trailing-odd-row case.
 
 ### Checkpoint A — the renderer produces correct, stable, scannable terminal output.
 
@@ -78,17 +78,17 @@ Goal: the renderer itself, with output pinned by golden strings.
 
 Goal: prove the rendering is loss-free and wire it into the CLI.
 
-- [ ] `TestTerminalRoundTrip` renders a range of payloads, parses the block characters back into `[][]bool`, runs `DecodeMatrix`, and asserts the decoded text equals the input — for half-block, ASCII, and inverted modes.
-- [ ] CLI: `-format terminal` and `-format ascii` route through `EncodeTerminal`; an `-invert` flag maps to `WithTerminalInvert`; output goes to stdout by default for these formats. Usage text and examples updated.
-- [ ] Runnable example `examples/encode/terminal/main.go` printing a URL QR to stdout in half-block and again inverted; verified with `go run`.
+- [x] `TestTerminalRoundTrip` renders a range of payloads, parses the block characters back into `[][]bool`, runs `DecodeMatrix`, and asserts the decoded text equals the input — for half-block, ASCII, and inverted modes.
+- [x] CLI: `-format terminal` and `-format ascii` route through `EncodeTerminal`; an `-invert` flag maps to `WithTerminalInvert`; output goes to stdout by default for these formats. Usage text and examples updated.
+- [x] Runnable example `examples/encode/terminal/main.go` printing a URL QR to stdout in half-block and again inverted; verified with `go run`.
 
 ### TR5 — Polish & Release `(S)`
 
 Goal: cut `v0.8.0`.
 
-- [ ] README: a "Terminal output" usage section; a terminal row in the API summary listing `EncodeTerminal`, `WithTerminalInvert`, `WithTerminalASCII`; Scope gains a terminal-output line; the Roadmap "Additional renderers" bullet notes terminal/ASCII shipped in v0.8 (JPEG/PDF still open).
-- [ ] `CHANGELOG.md` `v0.8.0` entry plus compare/tag anchors written; left unstaged in the working tree for the maintainer to commit with the release (mirroring v0.6 and v0.7).
-- [ ] `go test -race ./...` clean, gofmt-clean.
+- [x] README: a "Terminal output" usage section; a terminal row in the API summary listing `EncodeTerminal`, `WithTerminalInvert`, `WithTerminalASCII`; Scope gains a terminal-output line; the Roadmap "Additional renderers" bullet notes terminal/ASCII shipped in v0.8 (JPEG/PDF still open).
+- [x] `CHANGELOG.md` `v0.8.0` entry plus compare/tag anchors written; left unstaged in the working tree for the maintainer to commit with the release (mirroring v0.6 and v0.7).
+- [x] `go test -race ./...` clean, gofmt-clean.
 - [ ] Tag `v0.8.0` (left for the maintainer per the established git/release workflow; annotation recommended in the release conversation).
 
 ---
