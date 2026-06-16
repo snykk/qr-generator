@@ -93,10 +93,10 @@ Goal: expose the renderer and prove the round trip.
 
 Goal: make SVG reachable from the `qrgen` binary.
 
-- [ ] Decide the surface: a `-format png|svg` flag (explicit) versus inferring from the `-out` extension (ergonomic). Default to explicit `-format` with `.svg`-extension inference as a convenience when `-format` is unset, mirroring how `-out` already has sentinel behaviour.
-- [ ] Wire `runEncode` to dispatch to `EncodeSVG` when SVG is selected; keep PNG the default so existing invocations are unchanged.
-- [ ] Update the CLI help banner and `cmd/qrgen` package doc with SVG examples.
-- [ ] Tests in `cmd/qrgen/main_test.go`: `-format svg` writes parseable SVG to a file and to stdout; `.svg` extension inference works; PNG remains the default.
+- [x] Surface settled as both: a `-format png|svg` flag wins when set, and a `.svg` extension on `-out` infers SVG when `-format` is unset, via the `resolveFormat` helper. PNG stays the default for everything else.
+- [x] `runEncode` builds the shared option list once, then dispatches to `EncodeSVG` or `Encode` by format; the default output filename becomes `qr.svg` for SVG and stays `qr.png` otherwise. Existing PNG invocations are byte-for-byte unchanged.
+- [x] CLI help banner and `cmd/qrgen` package doc gained SVG examples (`-out url.svg` inference and `-format svg -out -` to stdout).
+- [x] Tests in `cmd/qrgen/main_test.go`: `-format svg` writes parseable SVG to a file (even with a non-`.svg` name) and to stdout; `.svg` extension inference works without `-format`; an invalid `-format gif` errors; and a no-format `.png` output still decodes as PNG so the default did not regress. Smoke-tested the built binary. Race-clean.
 
 ### S6 — Benchmarks, Docs Polish & Release `(S)`
 

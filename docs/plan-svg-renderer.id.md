@@ -93,10 +93,10 @@ Goal: mengekspos renderer dan membuktikan round trip.
 
 Goal: membuat SVG terjangkau dari binary `qrgen`.
 
-- [ ] Putuskan permukaannya: flag `-format png|svg` (eksplisit) versus inferensi dari ekstensi `-out` (ergonomis). Default ke `-format` eksplisit dengan inferensi ekstensi `.svg` sebagai kenyamanan ketika `-format` tidak diset, mencerminkan bagaimana `-out` sudah punya perilaku sentinel.
-- [ ] Wire `runEncode` untuk dispatch ke `EncodeSVG` ketika SVG dipilih; jaga PNG tetap default supaya invokasi yang ada tidak berubah.
-- [ ] Update banner help CLI dan doc package `cmd/qrgen` dengan contoh SVG.
-- [ ] Tes di `cmd/qrgen/main_test.go`: `-format svg` menulis SVG yang parseable ke file dan ke stdout; inferensi ekstensi `.svg` bekerja; PNG tetap default.
+- [x] Permukaan diputuskan jadi keduanya: flag `-format png|svg` menang ketika diset, dan ekstensi `.svg` pada `-out` menginferensi SVG ketika `-format` tidak diset, via helper `resolveFormat`. PNG tetap default untuk selain itu.
+- [x] `runEncode` membangun daftar option yang dibagi sekali, lalu dispatch ke `EncodeSVG` atau `Encode` per format; nama file output default menjadi `qr.svg` untuk SVG dan tetap `qr.png` selain itu. Invokasi PNG yang ada byte-for-byte tidak berubah.
+- [x] Banner help CLI dan doc package `cmd/qrgen` mendapat contoh SVG (inferensi `-out url.svg` dan `-format svg -out -` ke stdout).
+- [x] Tes di `cmd/qrgen/main_test.go`: `-format svg` menulis SVG yang parseable ke file (bahkan dengan nama non-`.svg`) dan ke stdout; inferensi ekstensi `.svg` bekerja tanpa `-format`; `-format gif` invalid error; dan output `.png` tanpa-format tetap decode sebagai PNG sehingga default tidak regresi. Binary yang dibuild di-smoke-test. Race-clean.
 
 ### S6 — Benchmark, Polish Dokumentasi & Rilis `(S)`
 

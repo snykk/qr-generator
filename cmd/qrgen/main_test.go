@@ -10,6 +10,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/xml"
 	"image/color"
 	"image/png"
 	"os"
@@ -277,5 +278,120 @@ func TestRunCustomColors(t *testing.T) {
 	gr, gg, gb, _ := img.At(0, 0).RGBA()
 	if gr>>8 != 0xFF || gg>>8 != 0xF8 || gb>>8 != 0xE7 {
 		t.Errorf("quiet-zone pixel = (%x %x %x), want (FF F8 E7)", gr>>8, gg>>8, gb>>8)
+	}
+}
+
+// svgRoot is a minimal parse target proving CLI output is well-formed SVG.
+type svgRoot struct {
+	XMLName xml.Name `xml:"svg"`
+}
+
+func assertSVG(t *testing.T, data []byte) {
+	t.Helper()
+	var root svgRoot
+	if err := xml.Unmarshal(data, &root); err != nil {
+		t.Fatalf("output is not well-formed SVG: %v\n%s", err, data)
+	}
+	if root.XMLName.Local != "svg" {
+		t.Errorf("root element = %q, want svg", root.XMLName.Local)
+	}
+}
+
+func TestRunEncodeSVGFormatFlag(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "out.txt") // non-.svg name; -format forces SVG
+	cfg := cliConfig{
+		text:       "HELLO WORLD",
+		out:        out,
+		format:     "svg",
+		moduleSize: 8,
+		ec:         "M",
+		quietZone:  4,
+		mask:       -1,
+	}
+	if err := run(cfg, strings.NewReader(""), &bytes.Buffer{}); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertSVG(t, data)
+}
+
+func TestRunEncodeSVGExtensionInference(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "qr.svg") // .svg extension, no -format
+	cfg := cliConfig{
+		text:       "HELLO WORLD",
+		out:        out,
+		moduleSize: 8,
+		ec:         "M",
+		quietZone:  4,
+		mask:       -1,
+	}
+	if err := run(cfg, strings.NewReader(""), &bytes.Buffer{}); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertSVG(t, data)
+}
+
+func TestRunEncodeSVGToStdout(t *testing.T) {
+	cfg := cliConfig{
+		text:       "HELLO",
+		out:        "-",
+		format:     "svg",
+		moduleSize: 8,
+		ec:         "M",
+		quietZone:  4,
+		mask:       -1,
+	}
+	var stdout bytes.Buffer
+	if err := run(cfg, strings.NewReader(""), &stdout); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	assertSVG(t, stdout.Bytes())
+}
+
+func TestRunEncodeInvalidFormat(t *testing.T) {
+	cfg := cliConfig{
+		text:       "HELLO",
+		out:        "/tmp/should-not-exist.gif",
+		format:     "gif",
+		moduleSize: 8,
+		ec:         "M",
+		quietZone:  4,
+		mask:       -1,
+	}
+	if err := run(cfg, strings.NewReader(""), &bytes.Buffer{}); err == nil {
+		t.Error("expected error for invalid -format, got nil")
+	}
+}
+
+func TestRunEncodeDefaultRemainsPNG(t *testing.T) {
+	// No -format and a non-.svg -out must still produce a PNG.
+	dir := t.TempDir()
+	out := filepath.Join(dir, "qr.png")
+	cfg := cliConfig{
+		text:       "HELLO",
+		out:        out,
+		moduleSize: 8,
+		ec:         "M",
+		quietZone:  4,
+		mask:       -1,
+	}
+	if err := run(cfg, strings.NewReader(""), &bytes.Buffer{}); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := png.Decode(bytes.NewReader(data)); err != nil {
+		t.Fatalf("default output was not a PNG: %v", err)
 	}
 }
