@@ -79,7 +79,11 @@ func TestOtsuThresholdBimodal(t *testing.T) {
 		pixels[i] = 255
 	}
 	got, eta := otsuThreshold(pixels)
-	if got >= 255 {
+	// A threshold of 255 would classify the value-255 pixels as dark too (the
+	// `p <= t` convention), collapsing both classes into one. Any t in [0, 254]
+	// separates them; only t == 255 fails. (uint8 cannot exceed 255, so this is
+	// the complete failure condition — staticcheck SA4003 flags `>= 255` here.)
+	if got == 255 {
 		t.Errorf("threshold = %d does not separate value-255 pixels from value-0 pixels", got)
 	}
 	// Perfectly bimodal 50/50 input gives the maximum separability η = 1.
