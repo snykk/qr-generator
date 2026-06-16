@@ -83,11 +83,11 @@ Goal: the renderer itself, sharing `renderOptions` with `renderPNG`.
 
 Goal: expose the renderer and prove the round trip.
 
-- [ ] `EncodeSVG(text string, opts ...Option) ([]byte, error)` and `EncodeSVGToFile(text, path string, opts ...Option) error` in `qrgen/api.go` (or a new `qrgen/api_svg.go`), each running `resolveOptions -> validate -> buildMatrix -> renderSVG` and, for the file variant, writing with mode 0644.
-- [ ] Doc comments mirroring `Encode`/`EncodeToFile`, noting the shared option set and the PNG-vs-SVG distinction.
-- [ ] **Cross-validation:** rasterise the SVG (or, more simply, reconstruct the module grid from the emitted path) and assert it matches `Matrix(text, opts...)` for a spread of payloads / versions / EC levels, closing a loop analogous to the decoder round-trip tests. At minimum, parse the path back into a `[][]bool` and compare to the matrix.
-- [ ] Runnable example `examples/encode/svg/main.go` writing a styled SVG to disk.
-- [ ] Tests in `qrgen/api_svg_test.go` covering byte output, file output, option propagation, and the grid round-trip.
+- [x] `EncodeSVG(text string, opts ...Option) ([]byte, error)` and `EncodeSVGToFile(text, path string, opts ...Option) error` added to `qrgen/api.go`, each running the identical `resolveOptions -> validate -> buildMatrix` front-half as `Encode` and only swapping `renderPNG` for `renderSVG`; the file variant writes with mode 0644.
+- [x] Doc comments mirror `Encode`/`EncodeToFile`, note the shared option set, and point at doc 16.
+- [x] **Cross-validation:** `TestEncodeSVGRoundTripGrid` reconstructs the module grid from the emitted path — reading the canvas dimension from the `viewBox`, deriving the quiet zone as `(dim - n) / 2`, and walking every `M x y` subpath — then asserts it equals `Matrix(text, opts...)` cell for cell. Covers V1-M default, a URL at EC-Q, a small-quiet-zone numeric payload, a multi-block EC-H payload, and a custom-colour case. This closes an encode -> SVG -> grid loop analogous to the decoder round-trip tests, dependency-free.
+- [x] Runnable example `examples/encode/svg/main.go` writes a styled navy-on-cream SVG; verified end-to-end (`go run ./examples/encode/svg`).
+- [x] `qrgen/api_svg_test.go` also covers module-size propagation into `width`/`height`, file output well-formedness, and the invalid-option error path. Race-clean.
 
 ### S5 — CLI SVG Support `(S)`
 

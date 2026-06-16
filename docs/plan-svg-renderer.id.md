@@ -83,11 +83,11 @@ Goal: renderer-nya sendiri, berbagi `renderOptions` dengan `renderPNG`.
 
 Goal: mengekspos renderer dan membuktikan round trip.
 
-- [ ] `EncodeSVG(text string, opts ...Option) ([]byte, error)` dan `EncodeSVGToFile(text, path string, opts ...Option) error` di `qrgen/api.go` (atau file baru `qrgen/api_svg.go`), masing-masing menjalankan `resolveOptions -> validate -> buildMatrix -> renderSVG` dan, untuk varian file, menulis dengan mode 0644.
-- [ ] Komentar doc yang mencerminkan `Encode`/`EncodeToFile`, mencatat set option yang dibagi dan perbedaan PNG-vs-SVG.
-- [ ] **Cross-validation:** rasterisasi SVG (atau, lebih sederhana, rekonstruksi grid modul dari path yang di-emit) dan assert ia cocok dengan `Matrix(text, opts...)` untuk sebaran payload / versi / level EC, menutup loop yang analog dengan tes round-trip decoder. Minimal, parse path kembali ke `[][]bool` dan bandingkan dengan matrix.
-- [ ] Example yang bisa dijalankan `examples/encode/svg/main.go` yang menulis SVG bergaya ke disk.
-- [ ] Tes di `qrgen/api_svg_test.go` yang mencakup output byte, output file, propagasi option, dan round-trip grid.
+- [x] `EncodeSVG(text string, opts ...Option) ([]byte, error)` dan `EncodeSVGToFile(text, path string, opts ...Option) error` ditambahkan ke `qrgen/api.go`, masing-masing menjalankan paruh-depan `resolveOptions -> validate -> buildMatrix` yang identik dengan `Encode` dan hanya menukar `renderPNG` dengan `renderSVG`; varian file menulis dengan mode 0644.
+- [x] Komentar doc mencerminkan `Encode`/`EncodeToFile`, mencatat set option yang dibagi, dan menunjuk ke doc 16.
+- [x] **Cross-validation:** `TestEncodeSVGRoundTripGrid` merekonstruksi grid modul dari path yang di-emit — membaca dimensi kanvas dari `viewBox`, menurunkan quiet zone sebagai `(dim - n) / 2`, dan menelusuri tiap subpath `M x y` — lalu meng-assert ia sama dengan `Matrix(text, opts...)` sel demi sel. Mencakup V1-M default, URL di EC-Q, payload numerik quiet-zone-kecil, payload multi-block EC-H, dan kasus warna custom. Ini menutup loop encode -> SVG -> grid yang analog dengan tes round-trip decoder, bebas-dependency.
+- [x] Example yang bisa dijalankan `examples/encode/svg/main.go` menulis SVG navy-di-cream bergaya; diverifikasi end-to-end (`go run ./examples/encode/svg`).
+- [x] `qrgen/api_svg_test.go` juga mencakup propagasi module-size ke `width`/`height`, well-formedness output file, dan jalur error invalid-option. Race-clean.
 
 ### S5 — Dukungan SVG di CLI `(S)`
 
