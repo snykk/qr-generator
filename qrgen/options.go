@@ -31,6 +31,8 @@ type options struct {
 
 	terminalInvert bool // EncodeTerminal: swap dark/light polarity for dark backgrounds
 	terminalASCII  bool // EncodeTerminal: ASCII double-width fallback instead of half-block
+
+	eci ECI // ECINone = no ECI header (byte mode treated as UTF-8)
 }
 
 // defaultOptions returns the spec-conformant defaults.
@@ -90,6 +92,9 @@ func (o *options) validate() error {
 	}
 	if o.background == nil {
 		o.background = color.White
+	}
+	if o.eci != ECINone && o.eci != ECILatin1 && o.eci != ECIUTF8 {
+		return fmt.Errorf("qrgen: unsupported ECI %d (only ECIUTF8=26 and ECILatin1=3 are supported)", int(o.eci))
 	}
 	return nil
 }
@@ -155,4 +160,16 @@ func WithTerminalInvert(invert bool) Option {
 // SVG output.
 func WithTerminalASCII(ascii bool) Option {
 	return func(o *options) { o.terminalASCII = ascii }
+}
+
+// WithECI declares an Extended Channel Interpretation, emitting an ECI header
+// that tells a decoder the character set of the byte data. The default
+// ([ECINone]) emits no header and treats byte mode as UTF-8, which keeps the
+// output byte-for-byte identical to earlier versions. [ECIUTF8] makes that
+// UTF-8 assumption explicit and standards-conformant; [ECILatin1] encodes the
+// byte payload as ISO-8859-1 (and errors if the text contains a rune above
+// U+00FF). Numeric and alphanumeric data are unaffected. See
+// docs/theory/20-eci-segments.md.
+func WithECI(eci ECI) Option {
+	return func(o *options) { o.eci = eci }
 }
