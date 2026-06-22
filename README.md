@@ -135,6 +135,20 @@ svg, err := qrgen.EncodeSVG(qrgen.VCardPayload(qrgen.VCard{
 
 Builders exist for Wi-Fi, vCard, `mailto:`, `tel:`, SMS, and `geo:`. They escape special characters correctly (Wi-Fi `; , : \ "`, vCard text values, percent-encoded mail fields) but do not validate input. See [docs/theory/18-payload-formats.md](docs/theory/18-payload-formats.md) and the demo in [examples/encode/payloads](examples/encode/payloads/main.go).
 
+## Character sets (ECI)
+
+By default the encoder emits byte-mode data as UTF-8 with no character-set declaration, and the decoder reads it back as UTF-8 — which is what virtually every scanner assumes. `WithECI` adds an explicit Extended Channel Interpretation header so the symbol states its charset:
+
+```go
+// Explicit UTF-8 (ECI 26): standards-conformant rather than merely assumed.
+data, err := qrgen.Encode("Héllo 世界", qrgen.WithECI(qrgen.ECIUTF8))
+
+// ISO-8859-1 / Latin-1 (ECI 3): the byte payload is genuine Latin-1.
+data, err = qrgen.Encode("Café résumé", qrgen.WithECI(qrgen.ECILatin1))
+```
+
+Only the two charsets transcodable with the standard library are supported — `ECIUTF8` (a passthrough, since Go strings are UTF-8) and `ECILatin1` (one byte per rune, erroring if any rune is above U+00FF) — which keeps the zero-dependency rule. Other code pages such as Shift-JIS would need an external charset library and are out of scope. The default (no ECI) output is byte-for-byte unchanged. See [docs/theory/20-eci-segments.md](docs/theory/20-eci-segments.md) and the demo in [examples/encode/eci](examples/encode/eci/main.go).
+
 ## Decoding QR codes
 
 `qrgen.DecodeBytes` reads PNG, JPEG, or GIF bytes back into the original text:
@@ -216,6 +230,7 @@ Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: �
 | `WithColors(fg, bg)` | Custom foreground/background `color.Color`. Default black-on-white. |
 | `WithTerminalInvert(bool)` | Invert `EncodeTerminal` polarity for dark-background terminals. |
 | `WithTerminalASCII(bool)` | Render `EncodeTerminal` with a double-width ASCII fallback instead of half-block glyphs. |
+| `WithECI(eci)` | Declare a byte-mode character set via an ECI header. `ECIUTF8` (26), `ECILatin1` (3); default none (implicit UTF-8). |
 
 **Payload builders** (return a `string` to pass to `Encode`/`EncodeSVG`/`Matrix`):
 
@@ -263,16 +278,17 @@ In scope as of v0.2.0:
 - Error-correction levels: L, M, Q, H.
 - PNG output (grayscale or RGBA, depending on colour options), SVG output (scalable vector, as of v0.5), and terminal output (Unicode half-block or ASCII text, as of v0.8).
 - Payload builders for Wi-Fi, vCard, mailto, tel, SMS, and geo (as of v0.7).
+- Optional ECI character-set declaration for byte mode (`ECIUTF8`, `ECILatin1`; as of v0.9).
 - Image decoding (PNG / JPEG / GIF / `image.Image`) with binarisation, finder detection, perspective transform, and alignment refinement.
 - Matrix decoding from `[][]bool` for callers that already have a clean grid.
 
-Still out of scope (kept open as roadmap items): Kanji mode, ECI segments, Micro QR, structured-append, logo embedding, JPEG/PDF renderers, arbitrary-angle decoding in the 30..90 degree band.
+Still out of scope (kept open as roadmap items): Kanji mode, Micro QR, structured-append, logo embedding, JPEG/PDF renderers, arbitrary-angle decoding in the 30..90 degree band.
 
 ## Limitations
 
 The library covers the encoder and the decoder end-to-end as of v0.2.0; the following are known not-yet-supported behaviours and intentional non-goals:
 
-- **No ECI segment.** Byte-mode payloads are emitted as raw UTF-8 without an ECI character-set declaration, and the decoder treats byte segments as UTF-8 implicitly. Modern QR scanners assume UTF-8 anyway, but this is a known spec non-conformance on both sides.
+- **ECI limited to UTF-8 and Latin-1.** `WithECI` (v0.9) declares a byte-mode character set with an explicit ECI header, but only `ECIUTF8` and `ECILatin1` are supported, since they are the only charsets transcodable with the standard library; other code pages such as Shift-JIS would need an external dependency. Without `WithECI` the encoder emits, and the decoder reads, byte mode as UTF-8 — a deliberate deviation from the spec's ISO-8859-1 default that matches real-world scanners.
 - **No Kanji mode.** Japanese strings fall through to byte mode on encode and decode, and pay roughly 4× the bits per character compared to native Kanji encoding.
 - **No Micro QR or rMQR.** Only the standard 40-version family is supported.
 - **No structured-append.** Long payloads must fit in a single symbol (V40 caps at ~2,953 bytes in byte mode at EC-L).
@@ -286,7 +302,7 @@ The library covers the encoder and the decoder end-to-end as of v0.2.0; the foll
 Candidates for future minor releases (post-v0.2.0):
 
 - **Additional renderers:** JPEG, PDF. (SVG shipped in v0.5; terminal/ASCII in v0.8.)
-- **Encoding completeness:** ECI segments, Kanji mode. (DP-optimal mixed-mode segmentation shipped in v0.6.)
+- **Encoding completeness:** Kanji mode. (DP-optimal mixed-mode segmentation shipped in v0.6; ECI segments in v0.9.)
 - **More payload builders:** calendar event (VEVENT), crypto/EPC payment, MeCard. (Wi-Fi, vCard, mailto, tel, SMS, and geo shipped in v0.7.)
 - **Logo embedding:** centred logo with automatic EC-level bump for the occluded area.
 - **Micro QR & rMQR:** smaller form factors for short payloads.

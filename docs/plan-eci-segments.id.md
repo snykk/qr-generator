@@ -56,17 +56,17 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah ECI3) memberi encoder ya
 
 Tujuan: mendokumentasikan mekanisme ECI dan scope charset yang dibatasi sebelum kode apa pun mendarat.
 
-- [ ] `docs/theory/20-eci-segments.md` — apa itu ECI dan masalah yang dipecahkannya (ketidaksesuaian implicit-UTF-8); mode indicator `0111`; encoding designator 1/2/3-byte berikut prefix panjang `0` / `10` / `110`-nya dan rentang nilainya; nomor assignment umum (3 = ISO-8859-1, 26 = UTF-8); di mana ECI segment duduk dalam data stream; batas transcoding zero-dependency (kenapa hanya UTF-8 dan Latin-1); serta contoh kerja. Ditutup dengan penunjuk implementasi.
-- [ ] Padanan Indonesia `docs/theory/20-eci-segments.id.md`.
-- [ ] Memperbarui `docs/theory/README.md` dan `.id.md`: entri 20 plus baris pemetaan kode yang menunjuk ke `qrgen/eci.go`.
+- [x] `docs/theory/20-eci-segments.md` — apa itu ECI dan masalah yang dipecahkannya (ketidaksesuaian implicit-UTF-8); mode indicator `0111`; encoding designator 1/2/3-byte berikut prefix panjang `0` / `10` / `110`-nya dan rentang nilainya; nomor assignment umum (3 = ISO-8859-1, 26 = UTF-8); di mana ECI segment duduk dalam data stream; batas transcoding zero-dependency (kenapa hanya UTF-8 dan Latin-1); serta contoh kerja. Ditutup dengan penunjuk implementasi.
+- [x] Padanan Indonesia `docs/theory/20-eci-segments.id.md`.
+- [x] Memperbarui `docs/theory/README.md` dan `.id.md`: entri 20 plus baris pemetaan kode yang menunjuk ke `qrgen/eci.go`.
 
 ### ECI3 — Encoder + Codec Designator `(M)`
 
 Tujuan: sisi encoder, dengan jalur default terbukti tak berubah.
 
-- [ ] `qrgen/eci.go` dengan tipe `ECI`, `ECIUTF8`/`ECILatin1`, `appendECIDesignator`/`readECIDesignator` (1/2/3-byte), dan helper `transcodeTo`/`transcodeFrom` (UTF-8 passthrough, penyempitan Latin-1). `ModeECI` (`0111`) ditambahkan ke `mode.go` demi simetri.
-- [ ] `WithECI(ECI)` di `qrgen/options.go` (zero value = none); `encodeText` mengeluarkan ECI segment saat di-set dan men-transcode payload byte; `selectVersion`/`segmentsBitLength` menambah overhead ECI.
-- [ ] Test: codec designator di batas 127/128 dan 16383/16384; input all-numeric dengan `WithECI` tetap memilih version yang benar; payload Latin-1 dengan rune di atas `0xFF` mengembalikan error yang jelas; dan guard test yang memastikan output tanpa-ECI byte-identical dengan encoder pra-perubahan untuk input representatif.
+- [x] `qrgen/eci.go` dengan tipe `ECI`, `ECIUTF8`/`ECILatin1`, `appendECIDesignator`/`readECIDesignator` (1/2/3-byte), dan helper `transcodeTo`/`transcodeFrom` (UTF-8 passthrough, penyempitan Latin-1). `ModeECI` (`0111`) ditambahkan ke `mode.go` demi simetri.
+- [x] `WithECI(ECI)` di `qrgen/options.go` (zero value = none); `encodeText` mengeluarkan ECI segment saat di-set dan men-transcode payload byte; `selectVersion`/`segmentsBitLength` menambah overhead ECI.
+- [x] Test: codec designator di batas 127/128 dan 16383/16384; input all-numeric dengan `WithECI` tetap memilih version yang benar; payload Latin-1 dengan rune di atas `0xFF` mengembalikan error yang jelas; dan guard test yang memastikan output tanpa-ECI byte-identical dengan encoder pra-perubahan untuk input representatif.
 
 ### Checkpoint A — encoder mengeluarkan ECI setia-spec; jalur default tanpa-ECI byte-identical.
 
@@ -74,18 +74,18 @@ Tujuan: sisi encoder, dengan jalur default terbukti tak berubah.
 
 Tujuan: mem-parse ECI saat decode dan membuktikan round-trip, termasuk pada decoder independen.
 
-- [ ] `decodeText` mendapat `case 0b0111`: membaca designator, menetapkan charset aktif, lalu men-decode byte segment berikutnya lewatnya (3 → Latin-1, 26 → UTF-8). Menentukan dan mendokumentasikan perilaku ECI-tak-dikenal (lihat pertanyaan terbuka).
-- [ ] `TestECIRoundTrip` meng-encode payload UTF-8 (ECI 26) dan Latin-1 (ECI 3), men-decode-nya, dan memastikan teks persisnya kembali; cakupan kelas designator lewat payload yang memaksa designator 1- dan 2-byte sejauh praktis.
-- [ ] `TestRoundTripWithThirdPartyDecoder` mendapat satu kasus UTF-8 ber-ECI; gozxing membacanya secara identik, mengonfirmasi kesesuaian spec.
+- [x] `decodeText` mendapat `case 0b0111`: membaca designator, menetapkan charset aktif, lalu men-decode byte segment berikutnya lewatnya (3 → Latin-1, 26 → UTF-8). Menentukan dan mendokumentasikan perilaku ECI-tak-dikenal (lihat pertanyaan terbuka).
+- [x] `TestECIRoundTrip` meng-encode payload UTF-8 (ECI 26) dan Latin-1 (ECI 3), men-decode-nya, dan memastikan teks persisnya kembali; cakupan kelas designator lewat payload yang memaksa designator 1- dan 2-byte sejauh praktis.
+- [x] `TestRoundTripWithThirdPartyDecoder` mendapat satu kasus UTF-8 ber-ECI; gozxing membacanya secara identik, mengonfirmasi kesesuaian spec.
 
 ### ECI5 — Polish & Rilis `(S)`
 
 Tujuan: memotong `v0.9.0`.
 
-- [ ] README: catatan penggunaan ECI; baris `WithECI` plus konstanta `ECI` di ringkasan API; butir Limitations "No ECI segment" diperbarui mencerminkan dukungan opt-in baru dan scope charset-nya yang dibatasi; Scope dan Roadmap diperbarui.
-- [ ] Contoh runnable `examples/encode/eci/main.go` (explicit-UTF-8 dan satu payload Latin-1).
-- [ ] Entri `v0.9.0` di `CHANGELOG.md` plus anchor compare/tag ditulis; dibiarkan unstaged di working tree agar maintainer yang commit bersama rilis (meniru v0.6, v0.7, dan v0.8).
-- [ ] `go test -race ./...` bersih, gofmt bersih.
+- [x] README: catatan penggunaan ECI; baris `WithECI` plus konstanta `ECI` di ringkasan API; butir Limitations "No ECI segment" diperbarui mencerminkan dukungan opt-in baru dan scope charset-nya yang dibatasi; Scope dan Roadmap diperbarui.
+- [x] Contoh runnable `examples/encode/eci/main.go` (explicit-UTF-8 dan satu payload Latin-1).
+- [x] Entri `v0.9.0` di `CHANGELOG.md` plus anchor compare/tag ditulis; dibiarkan unstaged di working tree agar maintainer yang commit bersama rilis (meniru v0.6, v0.7, dan v0.8).
+- [x] `go test -race ./...` bersih, gofmt bersih.
 - [ ] Tag `v0.9.0` (diserahkan ke maintainer sesuai alur git/rilis yang sudah mapan; anotasi direkomendasikan di percakapan rilis).
 
 ---

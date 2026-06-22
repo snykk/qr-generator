@@ -56,17 +56,17 @@ Milestones land sequentially. **Checkpoint A** (after ECI3) gives a spec-correct
 
 Goal: document the ECI mechanism and the bounded charset scope before any code lands.
 
-- [ ] `docs/theory/20-eci-segments.md` — what ECI is and the problem it solves (implicit-UTF-8 non-conformance); the `0111` mode indicator; the 1/2/3-byte designator encoding with its `0` / `10` / `110` length prefixes and the value ranges; the common assignment numbers (3 = ISO-8859-1, 26 = UTF-8); where the ECI segment sits in the data stream; the zero-dependency transcoding boundary (why only UTF-8 and Latin-1); and a worked example. Closes with implementation pointers.
-- [ ] Indonesian counterpart `docs/theory/20-eci-segments.id.md`.
-- [ ] Updated `docs/theory/README.md` and `.id.md`: entry 20 plus a code-mapping row pointing at `qrgen/eci.go`.
+- [x] `docs/theory/20-eci-segments.md` — what ECI is and the problem it solves (implicit-UTF-8 non-conformance); the `0111` mode indicator; the 1/2/3-byte designator encoding with its `0` / `10` / `110` length prefixes and the value ranges; the common assignment numbers (3 = ISO-8859-1, 26 = UTF-8); where the ECI segment sits in the data stream; the zero-dependency transcoding boundary (why only UTF-8 and Latin-1); and a worked example. Closes with implementation pointers.
+- [x] Indonesian counterpart `docs/theory/20-eci-segments.id.md`.
+- [x] Updated `docs/theory/README.md` and `.id.md`: entry 20 plus a code-mapping row pointing at `qrgen/eci.go`.
 
 ### ECI3 — Encoder + Designator Codec `(M)`
 
 Goal: the encoder side, with the default path provably unchanged.
 
-- [ ] `qrgen/eci.go` with the `ECI` type, `ECIUTF8`/`ECILatin1`, `appendECIDesignator`/`readECIDesignator` (1/2/3-byte), and `transcodeTo`/`transcodeFrom` helpers (UTF-8 passthrough, Latin-1 narrowing). `ModeECI` (`0111`) added to `mode.go` for symmetry.
-- [ ] `WithECI(ECI)` in `qrgen/options.go` (zero value = none); `encodeText` emits the ECI segment when set and transcodes byte payloads; `selectVersion`/`segmentsBitLength` add the ECI overhead.
-- [ ] Tests: designator codec at the 127/128 and 16383/16384 boundaries; an all-numeric input with `WithECI` still selects the right version; a Latin-1 payload with a rune above `0xFF` returns a clear error; and a guard test asserting the no-ECI output is byte-identical to the pre-change encoder for representative inputs.
+- [x] `qrgen/eci.go` with the `ECI` type, `ECIUTF8`/`ECILatin1`, `appendECIDesignator`/`readECIDesignator` (1/2/3-byte), and `transcodeTo`/`transcodeFrom` helpers (UTF-8 passthrough, Latin-1 narrowing). `ModeECI` (`0111`) added to `mode.go` for symmetry.
+- [x] `WithECI(ECI)` in `qrgen/options.go` (zero value = none); `encodeText` emits the ECI segment when set and transcodes byte payloads; `selectVersion`/`segmentsBitLength` add the ECI overhead.
+- [x] Tests: designator codec at the 127/128 and 16383/16384 boundaries; an all-numeric input with `WithECI` still selects the right version; a Latin-1 payload with a rune above `0xFF` returns a clear error; and a guard test asserting the no-ECI output is byte-identical to the pre-change encoder for representative inputs.
 
 ### Checkpoint A — encoder emits spec-correct ECI; the default no-ECI path is byte-identical.
 
@@ -74,18 +74,18 @@ Goal: the encoder side, with the default path provably unchanged.
 
 Goal: parse ECI on decode and prove the round-trip, including on an independent decoder.
 
-- [ ] `decodeText` gains `case 0b0111`: read the designator, set the active charset, and decode subsequent byte segments through it (3 → Latin-1, 26 → UTF-8). Decide and document the unknown-ECI behaviour (see open questions).
-- [ ] `TestECIRoundTrip` encodes UTF-8 (ECI 26) and Latin-1 (ECI 3) payloads, decodes them, and asserts the exact text returns; designator-class coverage via payloads that force 1- and 2-byte designators where practical.
-- [ ] `TestRoundTripWithThirdPartyDecoder` gains an ECI-tagged UTF-8 case; gozxing reads it identically, confirming spec conformance.
+- [x] `decodeText` gains `case 0b0111`: read the designator, set the active charset, and decode subsequent byte segments through it (3 → Latin-1, 26 → UTF-8). Decide and document the unknown-ECI behaviour (see open questions).
+- [x] `TestECIRoundTrip` encodes UTF-8 (ECI 26) and Latin-1 (ECI 3) payloads, decodes them, and asserts the exact text returns; designator-class coverage via payloads that force 1- and 2-byte designators where practical.
+- [x] `TestRoundTripWithThirdPartyDecoder` gains an ECI-tagged UTF-8 case; gozxing reads it identically, confirming spec conformance.
 
 ### ECI5 — Polish & Release `(S)`
 
 Goal: cut `v0.9.0`.
 
-- [ ] README: an ECI usage note; a `WithECI` row plus the `ECI` constants in the API summary; the Limitations "No ECI segment" bullet updated to reflect the new opt-in support and its bounded charset scope; Scope and Roadmap updated.
-- [ ] Runnable example `examples/encode/eci/main.go` (explicit-UTF-8 and a Latin-1 payload).
-- [ ] `CHANGELOG.md` `v0.9.0` entry plus compare/tag anchors written; left unstaged in the working tree for the maintainer to commit with the release (mirroring v0.6, v0.7, and v0.8).
-- [ ] `go test -race ./...` clean, gofmt-clean.
+- [x] README: an ECI usage note; a `WithECI` row plus the `ECI` constants in the API summary; the Limitations "No ECI segment" bullet updated to reflect the new opt-in support and its bounded charset scope; Scope and Roadmap updated.
+- [x] Runnable example `examples/encode/eci/main.go` (explicit-UTF-8 and a Latin-1 payload).
+- [x] `CHANGELOG.md` `v0.9.0` entry plus compare/tag anchors written; left unstaged in the working tree for the maintainer to commit with the release (mirroring v0.6, v0.7, and v0.8).
+- [x] `go test -race ./...` clean, gofmt-clean.
 - [ ] Tag `v0.9.0` (left for the maintainer per the established git/release workflow; annotation recommended in the release conversation).
 
 ---
