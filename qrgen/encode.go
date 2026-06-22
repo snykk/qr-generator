@@ -119,6 +119,15 @@ func payloadBitLength(mode Mode, text string) int {
 // ErrCapacityExceeded if even V40 cannot hold the payload.
 // See docs/theory/17-optimal-segmentation.md.
 func selectVersion(text string, ec ECLevel) (Version, error) {
+	return selectVersionECI(text, ec, 0)
+}
+
+// selectVersionECI is selectVersion with an extra fixed bit cost prepended to
+// every candidate — the ECI header overhead (4 + designator bits) when an ECI
+// is declared, or 0 otherwise. The segmentation itself stays UTF-8-based, which
+// for a Latin-1 ECI overestimates the byte length (Latin-1 is never longer than
+// UTF-8), so the chosen version always has enough room and never overflows.
+func selectVersionECI(text string, ec ECLevel, eciOverhead int) (Version, error) {
 	// The optimal segmentation and its bit length depend on the version only
 	// through CharCountBits, which is constant within each version group
 	// (1-9, 10-26, 27-40). So recompute the segmentation only when the group
@@ -128,7 +137,7 @@ func selectVersion(text string, ec ECLevel) (Version, error) {
 	for v := MinVersion; v <= MaxVersion; v++ {
 		if g := versionGroup(v); g != group {
 			group = g
-			needed = segmentsBitLength(segmentText(text, v), v)
+			needed = segmentsBitLength(segmentText(text, v), v) + eciOverhead
 		}
 		if needed <= v.DataCodewords(ec)*8 {
 			return v, nil
@@ -207,7 +216,7 @@ func writeByte(bb *bitBuffer, text string) {
 // format-info codeword. The returned matrix is the final, scannable QR symbol;
 // callers only need to render it to pixels.
 func buildMatrix(text string, opts *options) (*matrix, int, error) {
-	data, v, err := encodeText(text, opts.ec, opts.version)
+	data, v, err := encodeTextECI(text, opts.ec, opts.version, opts.eci)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -243,8 +252,28 @@ func buildMatrix(text string, opts *options) (*matrix, int, error) {
 // See docs/theory/02-data-encoding.md, docs/theory/10-worked-example.md, and
 // docs/theory/17-optimal-segmentation.md.
 func encodeText(text string, ec ECLevel, forceVersion Version) (data []byte, v Version, err error) {
+	return encodeTextECI(text, ec, forceVersion, ECINone)
+}
+
+// encodeTextECI is encodeText with an optional ECI. When eci is not ECINone it
+// prepends an ECI header (mode indicator + designator) to the data and encodes
+// byte-mode payloads in the declared charset; numeric and alphanumeric segments
+// are charset-independent and unchanged. With eci == ECINone the output is
+// byte-for-byte identical to the pre-v0.9 encoder. The version-selection bit
+// count includes the ECI header overhead, and because the segmentation stays
+// UTF-8-based it never underestimates a Latin-1 payload, so capacity holds.
+// See docs/theory/20-eci-segments.md.
+func encodeTextECI(text string, ec ECLevel, forceVersion Version, eci ECI) (data []byte, v Version, err error) {
+	// Fail fast if the text cannot be represented in the requested charset.
+	if eci == ECILatin1 {
+		if _, err = transcodeTo(text, eci); err != nil {
+			return nil, 0, err
+		}
+	}
+	eciOverhead := eci.headerBits()
+
 	if forceVersion == 0 {
-		v, err = selectVersion(text, ec)
+		v, err = selectVersionECI(text, ec, eciOverhead)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -252,7 +281,7 @@ func encodeText(text string, ec ECLevel, forceVersion Version) (data []byte, v V
 		if !forceVersion.IsValid() {
 			return nil, 0, fmt.Errorf("qrgen: invalid version %d (want 1..40)", forceVersion)
 		}
-		needed := segmentsBitLength(segmentText(text, forceVersion), forceVersion)
+		needed := segmentsBitLength(segmentText(text, forceVersion), forceVersion) + eciOverhead
 		capacity := forceVersion.DataCodewords(ec) * 8
 		if needed > capacity {
 			return nil, 0, fmt.Errorf("qrgen: payload (%d bits) does not fit in V%d-%s (capacity %d bits)", needed, forceVersion, ec, capacity)
@@ -263,14 +292,32 @@ func encodeText(text string, ec ECLevel, forceVersion Version) (data []byte, v V
 	capacityBits := v.DataCodewords(ec) * 8
 
 	bb := &bitBuffer{}
+	// ECI header (mode indicator + designator), once, ahead of the data
+	// segments, when a non-default ECI is declared.
+	if eci != ECINone {
+		bb.appendBits(uint32(ModeECI.Indicator()), 4)
+		appendECIDesignator(bb, eci)
+	}
 	// Each segment: 4-bit mode indicator + character-count indicator + payload.
-	// len(s.text) is the correct count for every mode: numeric/alphanumeric
-	// segments hold only single-byte ASCII (so byte length == character
-	// count), and byte mode counts bytes by definition.
+	// Byte payloads are transcoded to the declared charset when an ECI is set
+	// (its count is the transcoded byte length); numeric/alphanumeric segments
+	// hold single-byte ASCII identical under every charset, so len(s.text) is
+	// their correct count.
 	for _, s := range segmentText(text, v) {
 		bb.appendBits(uint32(s.mode.Indicator()), 4)
-		bb.appendBits(uint32(len(s.text)), s.mode.CharCountBits(v))
-		writePayload(bb, s.mode, s.text)
+		if s.mode == ModeByte && eci != ECINone {
+			payload, terr := transcodeTo(s.text, eci)
+			if terr != nil {
+				return nil, 0, terr
+			}
+			bb.appendBits(uint32(len(payload)), s.mode.CharCountBits(v))
+			for _, c := range payload {
+				bb.appendBits(uint32(c), 8)
+			}
+		} else {
+			bb.appendBits(uint32(len(s.text)), s.mode.CharCountBits(v))
+			writePayload(bb, s.mode, s.text)
+		}
 	}
 
 	// Terminator: up to 4 zero bits, truncated if fewer remain before capacity.
