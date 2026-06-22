@@ -45,6 +45,10 @@ This folder contains the literature review and theoretical foundation for the `q
 
 19. [Terminal Rendering](19-terminal-rendering.md) — why a terminal renderer (immediacy, pipeable text, scannable from a screen), the cell aspect ratio that motivates half-block packing, the module-pair to glyph mapping, the ASCII fallback, the polarity problem and the invert switch, the quiet-zone and odd-row-tail handling, and why the renderer is a sibling function returning a string.
 
+### Encoding completeness (v0.9.0)
+
+20. [ECI Segments](20-eci-segments.md) — Extended Channel Interpretation: the ECI header (mode `0111` plus the 1/2/3-codeword designator), the shortest-form encode versus the non-minimal-accepting decode, the assignment numbers and the ISO-8859-1-versus-UTF-8 default-charset nuance, ECI scope, and the zero-dependency transcoding boundary (UTF-8 and Latin-1 only).
+
 ## Primary references
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* The normative source.
@@ -83,5 +87,6 @@ Additional references appear at the end of each document.
 | 17-optimal-segmentation.md          | `qrgen/segment.go` |
 | 18-payload-formats.md               | `qrgen/payload.go` (planned, P3) |
 | 19-terminal-rendering.md            | `qrgen/render_terminal.go` (planned, TR3) |
+| 20-eci-segments.md                  | `qrgen/eci.go` (planned, ECI3) |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.
