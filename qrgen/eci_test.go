@@ -152,3 +152,35 @@ func TestECIWithNumericFits(t *testing.T) {
 		t.Errorf("encodeTextECI numeric with ECI: %v", err)
 	}
 }
+
+// Full round-trip through the image pipeline: encode with an ECI, decode, and
+// confirm the exact text returns for both UTF-8 and Latin-1, including payloads
+// that mix a numeric run between byte segments.
+func TestECIRoundTrip(t *testing.T) {
+	cases := []struct {
+		name string
+		text string
+		eci  ECI
+	}{
+		{"utf8-cjk", "Héllo, 世界!", ECIUTF8},
+		{"utf8-emoji", "tea🍵42", ECIUTF8},
+		{"utf8-ascii", "plain ascii 123", ECIUTF8},
+		{"latin1-accents", "Café résumé £5", ECILatin1},
+		{"latin1-mixed", "Jürgen 1234567 Müller", ECILatin1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			data, err := Encode(c.text, WithECI(c.eci))
+			if err != nil {
+				t.Fatalf("Encode(%q, ECI %d): %v", c.text, c.eci, err)
+			}
+			got, err := DecodeBytes(data)
+			if err != nil {
+				t.Fatalf("DecodeBytes: %v", err)
+			}
+			if got != c.text {
+				t.Errorf("round-trip: got %q, want %q", got, c.text)
+			}
+		})
+	}
+}

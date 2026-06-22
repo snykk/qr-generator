@@ -63,6 +63,10 @@ func TestRoundTripWithThirdPartyDecoder(t *testing.T) {
 		{"payload vcard", VCardPayload(VCard{Name: "Ada Lovelace", Org: "Analytical Engine, Ltd", Phones: []string{"+15551234567"}}), []Option{WithECLevel(ECLevelQ)}},
 		{"payload mailto", MailtoPayload("ada@example.com", "Hello there", "Hi & bye"), nil},
 		{"payload geo", GeoPayload(37.422, -122.084), nil},
+		// ECI segments (v0.9): an explicit ECI header must read on an independent
+		// decoder, confirming the designator and charset handling are spec-conformant.
+		{"eci utf8", "Héllo 世界 ECI", []Option{WithECI(ECIUTF8)}},
+		{"eci latin1", "Café £5 ECI", []Option{WithECI(ECILatin1)}},
 	}
 
 	reader := qrcode.NewQRCodeReader()

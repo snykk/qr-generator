@@ -273,19 +273,19 @@ func decodeAlphanumeric(br *bitReader, count int) (string, error) {
 	return out.String(), nil
 }
 
-// decodeByteMode reads `count` raw 8-bit bytes from br and returns them as a
-// string. The bytes are assumed to be UTF-8 (the encoder's convention); we do
-// not validate UTF-8 here since the spec allows arbitrary 8-bit payloads.
-func decodeByteMode(br *bitReader, count int) (string, error) {
+// decodeByteModeRaw reads `count` raw 8-bit bytes from br. The caller maps them
+// to text through the active ECI charset (UTF-8 by default); no charset is
+// assumed here since the spec allows arbitrary 8-bit payloads.
+func decodeByteModeRaw(br *bitReader, count int) ([]byte, error) {
 	buf := make([]byte, count)
 	for i := range buf {
 		v, err := br.readBits(8)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		buf[i] = byte(v)
 	}
-	return string(buf), nil
+	return buf, nil
 }
 
 // decodeText parses the data codeword stream produced by D6 back into the
@@ -296,6 +296,7 @@ func decodeByteMode(br *bitReader, count int) (string, error) {
 func decodeText(data []byte, v Version) (string, error) {
 	br := newBitReader(data)
 	var out strings.Builder
+	activeECI := ECINone // byte mode is UTF-8 until an ECI header says otherwise
 
 	for br.bitsRemaining() >= 4 {
 		modeBits, err := br.readBits(4)
@@ -328,17 +329,27 @@ func decodeText(data []byte, v Version) (string, error) {
 				return "", err
 			}
 			out.WriteString(seg)
+		case 0b0111:
+			// ECI header: read the designator and switch the active charset for
+			// subsequent byte segments. An ECI with no transcoder (anything but
+			// 3 or 26) falls through to UTF-8 best-effort rather than failing a
+			// symbol that is otherwise readable. See docs/theory/20-eci-segments.md.
+			eci, err := readECIDesignator(br)
+			if err != nil {
+				return "", err
+			}
+			activeECI = eci
 		case 0b0100:
 			countWidth := ModeByte.CharCountBits(v)
 			count, err := br.readBits(countWidth)
 			if err != nil {
 				return "", err
 			}
-			seg, err := decodeByteMode(br, int(count))
+			raw, err := decodeByteModeRaw(br, int(count))
 			if err != nil {
 				return "", err
 			}
-			out.WriteString(seg)
+			out.WriteString(transcodeFrom(raw, activeECI))
 		default:
 			return "", fmt.Errorf("%w: unknown mode indicator 0b%04b", ErrCorruptedPayload, modeBits)
 		}
