@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-23
+
+This release adds **ECI (Extended Channel Interpretation) segments**, the spec's mechanism for declaring the character set of a byte-mode payload, closing the first listed limitation. It is opt-in via `WithECI` and byte-for-byte identical by default, so existing output and fixtures are unchanged.
+
+### Added
+
+- `WithECI(ECI) Option` plus the `ECI` type with `ECIUTF8` (26) and `ECILatin1` (3). `ECIUTF8` makes explicit the UTF-8 the encoder already emits; `ECILatin1` encodes the byte payload as ISO-8859-1 (and errors on any rune above U+00FF). The default, `ECINone`, emits no header.
+- Encoder: an ECI header (mode indicator `0111` plus the shortest 1/2/3-codeword designator) is prepended to the data, byte-mode payloads are transcoded to the declared charset, and the header overhead is folded into version selection. `qrgen/eci.go` holds the designator codec and the UTF-8/Latin-1 transcoders, with `ModeECI` added to `qrgen/mode.go`.
+- Decoder: `decodeText` parses the `0111` ECI header (accepting the non-minimal designator forms the spec permits), tracks the active charset, and decodes the following byte segments through it. An ECI with no transcoder falls through to UTF-8 best-effort rather than failing an otherwise-readable symbol.
+- New reference doc `docs/theory/20-eci-segments.md` (English plus Indonesian), plan doc `docs/plan-eci-segments.md` (plus Indonesian) with milestones ECI1..ECI5, and a runnable example `examples/encode/eci`.
+
+### Validated
+
+- `TestECIRoundTrip` encodes UTF-8 (CJK and emoji) and Latin-1 (including a numeric run between byte segments) payloads and confirms `DecodeBytes` recovers the exact text through the full image pipeline.
+- `TestRoundTripWithThirdPartyDecoder` gained ECI-26 and ECI-3 cases; the independent gozxing decoder reads both exactly. Designator boundaries (127/128, 16383/16384), non-minimal decode, the Latin-1 bijection and its above-U+00FF error, unsupported-ECI rejection, header emission, and a no-ECI byte-identical guard are covered. gofmt-clean, `go test -race ./...` clean.
+
+### Design note
+
+The spec's default byte-mode charset is ISO-8859-1, but the library keeps its UTF-8 assumption for no-ECI byte data — matching Go strings, real-world QR codes, and prior behaviour — so `ECIUTF8` makes that assumption explicit while `ECILatin1` selects genuine Latin-1. Only these two charsets are supported because they transcode with the standard library alone; arbitrary code pages such as Shift-JIS would require an external dependency and stay out of scope. The encoder emits the shortest designator form, but the decoder accepts the longer non-minimal forms the spec allows.
+
 ## [0.8.0] - 2026-06-16
 
 This release adds a **terminal / ASCII renderer**, a third output target alongside PNG and SVG. `EncodeTerminal` returns a multi-line `string` of block characters that prints straight to a terminal and scans from the screen; it runs the same encoding pipeline as `Encode` and `EncodeSVG` and differs only in the final render step.
@@ -238,7 +258,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/snykk/qr-generator/releases/tag/v0.9.0
 [0.8.0]: https://github.com/snykk/qr-generator/releases/tag/v0.8.0
 [0.7.0]: https://github.com/snykk/qr-generator/releases/tag/v0.7.0
 [0.6.0]: https://github.com/snykk/qr-generator/releases/tag/v0.6.0
