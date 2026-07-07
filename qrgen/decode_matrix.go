@@ -293,40 +293,55 @@ func decodeByteModeRaw(br *bitReader, count int) ([]byte, error) {
 // continues until a terminator or until fewer than 4 bits remain.
 //
 // See docs/theory/02-data-encoding.md and docs/theory/13-decoder-pipeline.md.
-func decodeText(data []byte, v Version) (string, error) {
+func decodeText(data []byte, v Version) (string, *saHeaderInfo, error) {
 	br := newBitReader(data)
 	var out strings.Builder
 	activeECI := ECINone // byte mode is UTF-8 until an ECI header says otherwise
+	var sa *saHeaderInfo // set if a structured-append header is present
 
 	for br.bitsRemaining() >= 4 {
 		modeBits, err := br.readBits(4)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 		switch modeBits {
 		case 0b0000:
 			// Terminator.
-			return out.String(), nil
+			return out.String(), sa, nil
+		case 0b0011:
+			// Structured-append header: 8-bit symbol sequence indicator + 8-bit
+			// parity. Records the set metadata; the chunk data follows in the
+			// remaining segments. See docs/theory/21-structured-append.md.
+			seq, err := br.readBits(8)
+			if err != nil {
+				return "", nil, err
+			}
+			par, err := br.readBits(8)
+			if err != nil {
+				return "", nil, err
+			}
+			position, total := saParseSequence(uint8(seq))
+			sa = &saHeaderInfo{position: position, total: total, parity: byte(par)}
 		case 0b0001:
 			countWidth := ModeNumeric.CharCountBits(v)
 			count, err := br.readBits(countWidth)
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
 			seg, err := decodeNumeric(br, int(count))
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
 			out.WriteString(seg)
 		case 0b0010:
 			countWidth := ModeAlphanumeric.CharCountBits(v)
 			count, err := br.readBits(countWidth)
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
 			seg, err := decodeAlphanumeric(br, int(count))
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
 			out.WriteString(seg)
 		case 0b0111:
@@ -336,25 +351,25 @@ func decodeText(data []byte, v Version) (string, error) {
 			// symbol that is otherwise readable. See docs/theory/20-eci-segments.md.
 			eci, err := readECIDesignator(br)
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
 			activeECI = eci
 		case 0b0100:
 			countWidth := ModeByte.CharCountBits(v)
 			count, err := br.readBits(countWidth)
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
 			raw, err := decodeByteModeRaw(br, int(count))
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
 			out.WriteString(transcodeFrom(raw, activeECI))
 		default:
-			return "", fmt.Errorf("%w: unknown mode indicator 0b%04b", ErrCorruptedPayload, modeBits)
+			return "", nil, fmt.Errorf("%w: unknown mode indicator 0b%04b", ErrCorruptedPayload, modeBits)
 		}
 	}
-	return out.String(), nil
+	return out.String(), sa, nil
 }
 
 // deinterleaveAndCorrect runs deinterleaveBlocks then rsDecode on every

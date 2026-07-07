@@ -10,10 +10,12 @@ package qrgen
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	_ "image/gif"  // register GIF decoder for DecodeBytes
 	_ "image/jpeg" // register JPEG decoder for DecodeBytes
 	_ "image/png"  // register PNG decoder for DecodeBytes
+	"strings"
 )
 
 // Decode reads a QR code from an image and returns the original text. The
@@ -67,18 +69,98 @@ func DecodeBytes(data []byte) (string, error) {
 // Image-based decoding (`Decode`) is planned for later milestones; for now
 // callers with a real image must produce the matrix themselves.
 func DecodeMatrix(grid [][]bool) (string, error) {
+	text, _, err := decodeMatrixSA(grid)
+	return text, err
+}
+
+// decodeMatrixSA is DecodeMatrix plus the structured-append metadata: it returns
+// the symbol's text and, when the symbol carries a structured-append header,
+// its position/total/parity (nil otherwise). DecodeMatrix discards the metadata;
+// DecodeStructuredAppend uses it to reassemble a set.
+func decodeMatrixSA(grid [][]bool) (string, *saHeaderInfo, error) {
 	m, err := matrixFromGrid(grid)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	ec, mask, err := readFormatInfo(m)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	stream := readCodewordStream(m, mask)
 	data, err := deinterleaveAndCorrect(stream, m.version, ec)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	return decodeText(data, m.version)
+}
+
+// DecodeStructuredAppend decodes a set of structured-append symbols (as PNG,
+// JPEG, or GIF bytes, in any order) and returns the reassembled original text.
+// It is the counterpart of [EncodeStructuredAppend]: each symbol is decoded, the
+// symbols are ordered by their position, their chunks are concatenated, and the
+// shared parity byte is verified against the reassembled text.
+//
+// It errors if a symbol is not part of a structured-append set, if the symbols
+// disagree on the total count or parity, if a position is missing or duplicated,
+// or if the parity check fails. The number of symbols supplied must equal the
+// set's total count.
+func DecodeStructuredAppend(symbols [][]byte) (string, error) {
+	if len(symbols) == 0 {
+		return "", fmt.Errorf("qrgen: DecodeStructuredAppend: no symbols provided")
+	}
+
+	type part struct {
+		text string
+		info *saHeaderInfo
+	}
+	decoded := make([]part, 0, len(symbols))
+	for i, data := range symbols {
+		img, _, err := image.Decode(bytes.NewReader(data))
+		if err != nil {
+			return "", fmt.Errorf("qrgen: symbol %d: %w", i+1, err)
+		}
+		grid, err := imageToGrid(img)
+		if err != nil {
+			return "", fmt.Errorf("qrgen: symbol %d: %w", i+1, err)
+		}
+		text, info, err := decodeMatrixSA(grid)
+		if err != nil {
+			return "", fmt.Errorf("qrgen: symbol %d: %w", i+1, err)
+		}
+		if info == nil {
+			return "", fmt.Errorf("qrgen: symbol %d is not a structured-append symbol", i+1)
+		}
+		decoded = append(decoded, part{text: text, info: info})
+	}
+
+	total := decoded[0].info.total
+	parity := decoded[0].info.parity
+	if len(symbols) != total {
+		return "", fmt.Errorf("qrgen: got %d symbols but the set declares %d", len(symbols), total)
+	}
+	ordered := make([]string, total)
+	seen := make([]bool, total)
+	for i, p := range decoded {
+		if p.info.total != total {
+			return "", fmt.Errorf("qrgen: symbol %d reports total %d, expected %d", i+1, p.info.total, total)
+		}
+		if p.info.parity != parity {
+			return "", fmt.Errorf("qrgen: symbol %d parity 0x%02X differs from the set parity 0x%02X", i+1, p.info.parity, parity)
+		}
+		pos := p.info.position
+		if pos < 0 || pos >= total {
+			return "", fmt.Errorf("qrgen: symbol %d position %d out of range for a set of %d", i+1, pos, total)
+		}
+		if seen[pos] {
+			return "", fmt.Errorf("qrgen: duplicate structured-append position %d", pos)
+		}
+		seen[pos] = true
+		ordered[pos] = p.text
+	}
+
+	result := strings.Join(ordered, "")
+	if got := saParity(result); got != parity {
+		return "", fmt.Errorf("qrgen: structured-append parity mismatch (reassembled 0x%02X, symbols report 0x%02X)", got, parity)
+	}
+	return result, nil
 }

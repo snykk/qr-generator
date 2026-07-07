@@ -51,6 +51,10 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 20. [ECI Segments](20-eci-segments.id.md) — Extended Channel Interpretation: ECI header (mode `0111` plus designator 1/2/3-codeword), encode bentuk-terpendek versus decode yang menerima non-minimal, nomor assignment dan nuansa default-charset ISO-8859-1-versus-UTF-8, scope ECI, serta batas transcoding zero-dependency (UTF-8 dan Latin-1 saja).
 
+### Structured append (v0.10.0)
+
+21. [Structured Append](21-structured-append.id.md) — memecah pesan ke maksimal 16 simbol tertaut dan menyatukannya: structured-append header (mode `0011` plus sequence indicator posisi/count dan parity byte bersama), cap 16-simbol, parity XOR atas pesan asli, penempatan header sebelum ECI, serta split batas-rune dengan reassembly terurut.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -90,5 +94,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 18-payload-formats.id.md               | `qrgen/payload.go` (direncanakan, P3) |
 | 19-terminal-rendering.id.md            | `qrgen/render_terminal.go` (direncanakan, TR3) |
 | 20-eci-segments.id.md                  | `qrgen/eci.go` (direncanakan, ECI3) |
+| 21-structured-append.id.md             | `qrgen/structured_append.go` (direncanakan, SA3) |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.

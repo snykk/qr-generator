@@ -69,6 +69,55 @@ func TestRoundTripWithThirdPartyDecoder(t *testing.T) {
 		{"eci latin1", "Café £5 ECI", []Option{WithECI(ECILatin1)}},
 	}
 
+	runThirdPartyRoundTrip(t, cases)
+}
+
+// TestStructuredAppendThirdPartyDecoder confirms an independent decoder reads
+// each symbol of a structured-append set. gozxing (like ZXing) returns each
+// symbol's own chunk from a single Decode, so concatenating the chunks in emit
+// order must reconstruct the original message — proving our structured-append
+// header (mode 0011 + sequence indicator) is spec-conformant and interoperable,
+// not merely self-consistent.
+func TestStructuredAppendThirdPartyDecoder(t *testing.T) {
+	const text = "structured append cross-check: the quick brown fox 1234567890 café"
+	const parts = 3
+	pages, err := EncodeStructuredAppend(text, parts)
+	if err != nil {
+		t.Fatalf("EncodeStructuredAppend: %v", err)
+	}
+	chunks := splitRunes(text, parts)
+
+	reader := qrcode.NewQRCodeReader()
+	var reassembled strings.Builder
+	for i, pngBytes := range pages {
+		img, err := png.Decode(bytes.NewReader(pngBytes))
+		if err != nil {
+			t.Fatalf("symbol %d png.Decode: %v", i+1, err)
+		}
+		bmp, err := gozxing.NewBinaryBitmapFromImage(img)
+		if err != nil {
+			t.Fatalf("symbol %d bitmap: %v", i+1, err)
+		}
+		result, err := reader.Decode(bmp, nil)
+		if err != nil {
+			t.Fatalf("symbol %d third-party decode: %v", i+1, err)
+		}
+		if got := result.GetText(); got != chunks[i] {
+			t.Errorf("symbol %d: gozxing read %q, want chunk %q", i+1, got, chunks[i])
+		}
+		reassembled.WriteString(result.GetText())
+	}
+	if got := reassembled.String(); got != text {
+		t.Errorf("reassembled gozxing chunks = %q, want %q", got, text)
+	}
+}
+
+func runThirdPartyRoundTrip(t *testing.T, cases []struct {
+	name string
+	text string
+	opts []Option
+}) {
+	t.Helper()
 	reader := qrcode.NewQRCodeReader()
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
