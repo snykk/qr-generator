@@ -702,6 +702,29 @@ func decodeImage(img image.Image) (string, error) {
 // on. Tests in the qrgen package use this to assert dispatch behaviour; the
 // state is never exposed to external callers.
 func decodeImageDebug(img image.Image) (string, binariserUsedState, error) {
+	grid, state, err := imageToGridDebug(img)
+	if err != nil {
+		return "", state, err
+	}
+	text, err := DecodeMatrix(grid)
+	return text, state, err
+}
+
+// imageToGrid runs the image stage only, returning the sampled boolean module
+// grid ready for the matrix decoder. It lets structured-append decoding reuse
+// the exact image pipeline and then read each symbol's metadata via
+// decodeMatrixSA rather than the text-only DecodeMatrix.
+func imageToGrid(img image.Image) ([][]bool, error) {
+	grid, _, err := imageToGridDebug(img)
+	return grid, err
+}
+
+// imageToGridDebug is the image stage extracted from decodeImageDebug: it
+// binarises (with the Otsu/Sauvola dispatch and fallback), locates and orders
+// the finder patterns, estimates the version, fits and refines the homography,
+// and samples the module grid. It also returns which binariser branch finder
+// detection succeeded on, which tests assert.
+func imageToGridDebug(img image.Image) ([][]bool, binariserUsedState, error) {
 	pixels, w, h := imageToGrayscale(img)
 	t, eta := otsuThreshold(pixels)
 
@@ -734,21 +757,20 @@ func decodeImageDebug(img image.Image) (string, binariserUsedState, error) {
 		tri, err = findFinders(bm)
 	}
 	if err != nil {
-		return "", state, err
+		return nil, state, err
 	}
 
 	v, err := estimateVersion(tri)
 	if err != nil {
-		return "", state, err
+		return nil, state, err
 	}
 	hg, err := homographyFromFinders(tri, v)
 	if err != nil {
-		return "", state, err
+		return nil, state, err
 	}
 	hg = refineHomography(bm, hg, tri, v)
 	grid := sampleMatrix(bm, hg, v.Size())
-	text, err := DecodeMatrix(grid)
-	return text, state, err
+	return grid, state, nil
 }
 
 // findFinders locates the three finder patterns in a binarised image and

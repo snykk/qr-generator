@@ -138,3 +138,87 @@ func TestEncodeStructuredAppendProducesPNGs(t *testing.T) {
 		}
 	}
 }
+
+// Full round-trip: split a message and reassemble it, in order and reversed.
+func TestStructuredAppendRoundTrip(t *testing.T) {
+	cases := []struct {
+		name  string
+		text  string
+		parts int
+	}{
+		{"ascii", "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.", 3},
+		{"multibyte", "Héllo 世界 — café, naïve, 日本語, and 😀 emoji, split across symbols.", 4},
+		{"numeric-heavy", "INV" + strings.Repeat("1234567890", 20), 2},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			pages, err := EncodeStructuredAppend(c.text, c.parts)
+			if err != nil {
+				t.Fatalf("encode: %v", err)
+			}
+			got, err := DecodeStructuredAppend(pages)
+			if err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			if got != c.text {
+				t.Errorf("round-trip: got %q, want %q", got, c.text)
+			}
+			// Reversed input must reassemble identically (ordering is by position).
+			rev := make([][]byte, len(pages))
+			for i := range pages {
+				rev[len(pages)-1-i] = pages[i]
+			}
+			got2, err := DecodeStructuredAppend(rev)
+			if err != nil {
+				t.Fatalf("decode reversed: %v", err)
+			}
+			if got2 != c.text {
+				t.Errorf("reversed round-trip: got %q, want %q", got2, c.text)
+			}
+		})
+	}
+}
+
+// DecodeBytes on a single symbol of a set returns that symbol's chunk (the
+// structured-append header is parsed and skipped, not an error).
+func TestStructuredAppendSingleSymbolDecodes(t *testing.T) {
+	const text = "one two three four five six seven eight"
+	const parts = 3
+	pages, err := EncodeStructuredAppend(text, parts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunks := splitRunes(text, parts)
+	for i, page := range pages {
+		got, err := DecodeBytes(page)
+		if err != nil {
+			t.Fatalf("DecodeBytes symbol %d: %v", i+1, err)
+		}
+		if got != chunks[i] {
+			t.Errorf("single-symbol decode %d: got %q, want chunk %q", i+1, got, chunks[i])
+		}
+	}
+}
+
+func TestDecodeStructuredAppendErrors(t *testing.T) {
+	// No symbols.
+	if _, err := DecodeStructuredAppend(nil); err == nil {
+		t.Error("no symbols: want error, got nil")
+	}
+	// A plain (non-structured-append) symbol is rejected.
+	plain, err := Encode("not part of a set")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeStructuredAppend([][]byte{plain, plain}); err == nil {
+		t.Error("non-SA symbols: want error, got nil")
+	}
+	// An incomplete set (a symbol short) is rejected.
+	pages, err := EncodeStructuredAppend("split this message into three parts total", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeStructuredAppend(pages[:2]); err == nil {
+		t.Error("incomplete set: want error, got nil")
+	}
+}

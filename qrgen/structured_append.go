@@ -16,6 +16,16 @@ const saHeaderBits = 4 + 8 + 8
 // maxStructuredAppendSymbols is the spec cap: the count nibble is 4 bits.
 const maxStructuredAppendSymbols = 16
 
+// saHeaderInfo carries the structured-append metadata a decoder recovers from a
+// symbol's header: its 0-based position, the total symbol count, and the parity
+// byte shared across the set. decodeText returns a nil *saHeaderInfo for a
+// symbol with no structured-append header.
+type saHeaderInfo struct {
+	position int
+	total    int
+	parity   byte
+}
+
 // saSequenceIndicator packs the 0-based symbol position and the total symbol
 // count into the 8-bit sequence indicator: high nibble = position, low nibble =
 // count minus one. Callers guarantee position and total-1 each fit 4 bits.
