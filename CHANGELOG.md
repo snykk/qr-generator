@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-07
+
+This release adds **structured append**, splitting a message across a set of 2..16 linked QR symbols and reassembling them, which lifts the single-symbol size ceiling. It is purely additive via new functions; the single-symbol path is untouched and its output is byte-for-byte unchanged.
+
+### Added
+
+- `EncodeStructuredAppend(text string, parts int, opts ...Option) ([][]byte, error)` — divides text into `parts` (2..16) contiguous rune-boundary chunks and returns one PNG per symbol, each prefixed with a structured-append header (mode `0011` + symbol sequence indicator + shared parity byte) and sized to one common version. Combining with `WithECI` is not supported in this version.
+- `DecodeStructuredAppend(symbols [][]byte) (string, error)` — decodes a set (in any order), orders the chunks by position, concatenates them, and verifies the shared parity and a complete, non-duplicated, consistently-counted set.
+- `decodeText` now parses the `0011` structured-append header, so a single symbol also decodes on its own with `DecodeBytes`/`DecodeMatrix`, returning that symbol's chunk instead of erroring. `ModeStructuredAppend` joins `qrgen/mode.go`; the header codec, parity, and rune-boundary split live in `qrgen/structured_append.go`.
+- New reference doc `docs/theory/21-structured-append.md` (English plus Indonesian), plan doc `docs/plan-structured-append.md` (plus Indonesian) with milestones SA1..SA5, and a runnable example `examples/encode/structured-append`.
+
+### Changed
+
+- Internal refactors shared by the single-symbol and structured-append encoders: `encode.go`'s terminator/padding tail is now `padToCapacity`, `buildMatrix`'s placement half is now `matrixFromData`, and the image decoder's image stage is now `imageToGrid`. No behaviour change; existing golden fixtures are unchanged.
+
+### Validated
+
+- `TestStructuredAppendRoundTrip` splits ASCII, multi-byte, and numeric-heavy payloads and confirms `DecodeStructuredAppend` recovers the exact original, including from reversed (out-of-order) input; error tests cover non-structured-append, incomplete, and empty sets.
+- `TestStructuredAppendThirdPartyDecoder` confirms the independent gozxing decoder reads each symbol's chunk so the ordered concatenation reconstructs the original, proving the header is interoperable and not merely self-consistent. Sequence-indicator boundaries, the parity XOR, and rune-boundary splitting are unit-tested. gofmt-clean, `go test -race ./...` clean.
+
 ## [0.9.0] - 2026-06-23
 
 This release adds **ECI (Extended Channel Interpretation) segments**, the spec's mechanism for declaring the character set of a byte-mode payload, closing the first listed limitation. It is opt-in via `WithECI` and byte-for-byte identical by default, so existing output and fixtures are unchanged.
@@ -258,7 +278,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/snykk/qr-generator/releases/tag/v0.10.0
 [0.9.0]: https://github.com/snykk/qr-generator/releases/tag/v0.9.0
 [0.8.0]: https://github.com/snykk/qr-generator/releases/tag/v0.8.0
 [0.7.0]: https://github.com/snykk/qr-generator/releases/tag/v0.7.0
