@@ -51,23 +51,23 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah SA3) memberi encoder yan
 
 ### SA1 — Plan Doc `(S)`
 
-- [ ] `docs/plan-structured-append.md` dan padanan Indonesianya, mencakup visi, prinsip, cakupan, milestone SA1..SA5, delta tata letak file, risiko, referensi, dan pertanyaan terbuka.
+- [x] `docs/plan-structured-append.md` dan padanan Indonesianya, mencakup visi, prinsip, cakupan, milestone SA1..SA5, delta tata letak file, risiko, referensi, dan pertanyaan terbuka.
 
 ### SA2 — Dokumen Referensi Structured Append `(S)`
 
 Tujuan: mendokumentasikan mekanisme sebelum kode apa pun mendarat.
 
-- [ ] `docs/theory/21-structured-append.md` — apa itu structured append dan limitation yang diangkatnya; layout header (mode `0011`, sequence indicator posisi/count, parity byte) dengan detail bit-level dan cap 16-simbol; bagaimana parity dihitung (XOR atas seluruh pesan asli) dan kenapa penting; di mana header duduk relatif terhadap ECI dan data segment; model pembagian pesan dan reassembly; serta contoh kerja. Ditutup dengan penunjuk implementasi.
-- [ ] Padanan Indonesia `docs/theory/21-structured-append.id.md`.
-- [ ] Memperbarui `docs/theory/README.md` dan `.id.md`: entri 21 plus baris pemetaan kode yang menunjuk ke `qrgen/structured_append.go`.
+- [x] `docs/theory/21-structured-append.md` — apa itu structured append dan limitation yang diangkatnya; layout header (mode `0011`, sequence indicator posisi/count, parity byte) dengan detail bit-level dan cap 16-simbol; bagaimana parity dihitung (XOR atas seluruh pesan asli) dan kenapa penting; di mana header duduk relatif terhadap ECI dan data segment; model pembagian pesan dan reassembly; serta contoh kerja. Ditutup dengan penunjuk implementasi.
+- [x] Padanan Indonesia `docs/theory/21-structured-append.id.md`.
+- [x] Memperbarui `docs/theory/README.md` dan `.id.md`: entri 21 plus baris pemetaan kode yang menunjuk ke `qrgen/structured_append.go`.
 
 ### SA3 — Encoder + Codec Header `(M)`
 
 Tujuan: sisi encoder, menghasilkan set yang valid.
 
-- [ ] `qrgen/structured_append.go` dengan codec header (sequence indicator + parity), logika pembagian pesan, dan `ModeStructuredAppend` (`0011`) ditambahkan ke `mode.go`.
-- [ ] `EncodeStructuredAppend` di `qrgen/api.go`: validasi `parts` (2..16), bagi teks, pilih satu version umum, lalu keluarkan header + chunk tiap simbol lewat pipeline yang ada.
-- [ ] Test: encoding sequence-indicator untuk posisi/count representatif; parity sama dengan XOR byte asli; `parts` di luar rentang error; tiap simbol membawa header dan parity yang sama; chunk yang terlalu besar untuk V40 error.
+- [x] `qrgen/structured_append.go` dengan codec header (sequence indicator + parity), logika pembagian pesan, dan `ModeStructuredAppend` (`0011`) ditambahkan ke `mode.go`.
+- [x] `EncodeStructuredAppend` di `qrgen/api.go`: validasi `parts` (2..16), bagi teks, pilih satu version umum, lalu keluarkan header + chunk tiap simbol lewat pipeline yang ada.
+- [x] Test: encoding sequence-indicator untuk posisi/count representatif; parity sama dengan XOR byte asli; `parts` di luar rentang error; tiap simbol membawa header dan parity yang sama; chunk yang terlalu besar untuk V40 error.
 
 ### Checkpoint A — encoder menghasilkan set structured-append yang valid-spec.
 
@@ -75,18 +75,18 @@ Tujuan: sisi encoder, menghasilkan set yang valid.
 
 Tujuan: mem-parse header, reassemble, dan membuktikan round-trip termasuk pada decoder independen.
 
-- [ ] `decodeText` mendapat `case 0b0011`: baca sequence indicator dan parity, catat, lalu decode segment sisanya sebagai chunk simbol (single-symbol decode mengembalikan chunk).
-- [ ] `DecodeStructuredAppend` di `qrgen/decode.go`: decode tiap simbol, urutkan berdasarkan posisi, gabungkan, dan verifikasi parity bersama serta total count; kembalikan typed error pada set yang tak cocok atau tak lengkap.
-- [ ] `TestStructuredAppendRoundTrip` memecah payload panjang menjadi beberapa simbol dan memastikan `DecodeStructuredAppend` memulihkan asli persis, termasuk input urutan-acak; `TestRoundTripWithThirdPartyDecoder` memastikan gozxing membaca chunk tiap simbol.
+- [x] `decodeText` mendapat `case 0b0011`: baca sequence indicator dan parity, catat, lalu decode segment sisanya sebagai chunk simbol (single-symbol decode mengembalikan chunk).
+- [x] `DecodeStructuredAppend` di `qrgen/decode.go`: decode tiap simbol, urutkan berdasarkan posisi, gabungkan, dan verifikasi parity bersama serta total count; kembalikan typed error pada set yang tak cocok atau tak lengkap.
+- [x] `TestStructuredAppendRoundTrip` memecah payload panjang menjadi beberapa simbol dan memastikan `DecodeStructuredAppend` memulihkan asli persis, termasuk input urutan-acak; `TestRoundTripWithThirdPartyDecoder` memastikan gozxing membaca chunk tiap simbol.
 
 ### SA5 — Polish & Rilis `(S)`
 
 Tujuan: memotong `v0.10.0`.
 
-- [ ] README: bagian penggunaan structured-append; baris `EncodeStructuredAppend`/`DecodeStructuredAppend` di ringkasan API; butir Limitations "No structured-append" diperbarui; Scope dan Roadmap diperbarui.
-- [ ] Contoh runnable `examples/encode/structured-append/main.go`.
-- [ ] Entri `v0.10.0` di `CHANGELOG.md` plus anchor compare/tag ditulis; dibiarkan unstaged di working tree agar maintainer yang commit bersama rilis (meniru v0.6 sampai v0.9).
-- [ ] `go test -race ./...` bersih, gofmt bersih.
+- [x] README: bagian penggunaan structured-append; baris `EncodeStructuredAppend`/`DecodeStructuredAppend` di ringkasan API; butir Limitations "No structured-append" diperbarui; Scope dan Roadmap diperbarui.
+- [x] Contoh runnable `examples/encode/structured-append/main.go`.
+- [x] Entri `v0.10.0` di `CHANGELOG.md` plus anchor compare/tag ditulis; dibiarkan unstaged di working tree agar maintainer yang commit bersama rilis (meniru v0.6 sampai v0.9).
+- [x] `go test -race ./...` bersih, gofmt bersih.
 - [ ] Tag `v0.10.0` (diserahkan ke maintainer sesuai alur git/rilis yang sudah mapan; anotasi direkomendasikan di percakapan rilis).
 
 ---

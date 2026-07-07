@@ -51,23 +51,23 @@ Milestones land sequentially. **Checkpoint A** (after SA3) gives an encoder that
 
 ### SA1 — Plan Doc `(S)`
 
-- [ ] `docs/plan-structured-append.md` and its Indonesian counterpart covering vision, principles, scope, milestones SA1..SA5, file-layout delta, risks, references, and open questions.
+- [x] `docs/plan-structured-append.md` and its Indonesian counterpart covering vision, principles, scope, milestones SA1..SA5, file-layout delta, risks, references, and open questions.
 
 ### SA2 — Structured Append Reference Doc `(S)`
 
 Goal: document the mechanism before any code lands.
 
-- [ ] `docs/theory/21-structured-append.md` — what structured append is and the limitation it lifts; the header layout (mode `0011`, the position/count sequence indicator, the parity byte) with bit-level detail and the 16-symbol cap; how parity is computed (XOR over the whole original message) and why it matters; where the header sits relative to ECI and the data segments; the message-division and reassembly model; and a worked example. Closes with implementation pointers.
-- [ ] Indonesian counterpart `docs/theory/21-structured-append.id.md`.
-- [ ] Updated `docs/theory/README.md` and `.id.md`: entry 21 plus a code-mapping row pointing at `qrgen/structured_append.go`.
+- [x] `docs/theory/21-structured-append.md` — what structured append is and the limitation it lifts; the header layout (mode `0011`, the position/count sequence indicator, the parity byte) with bit-level detail and the 16-symbol cap; how parity is computed (XOR over the whole original message) and why it matters; where the header sits relative to ECI and the data segments; the message-division and reassembly model; and a worked example. Closes with implementation pointers.
+- [x] Indonesian counterpart `docs/theory/21-structured-append.id.md`.
+- [x] Updated `docs/theory/README.md` and `.id.md`: entry 21 plus a code-mapping row pointing at `qrgen/structured_append.go`.
 
 ### SA3 — Encoder + Header Codec `(M)`
 
 Goal: the encoder side, producing a valid set.
 
-- [ ] `qrgen/structured_append.go` with the header codec (sequence indicator + parity), the message-division logic, and `ModeStructuredAppend` (`0011`) added to `mode.go`.
-- [ ] `EncodeStructuredAppend` in `qrgen/api.go`: validate `parts` (2..16), divide the text, pick a common version, and emit each symbol's header + chunk via the existing pipeline.
-- [ ] Tests: sequence-indicator encoding for representative positions/counts; parity equals the XOR of the original bytes; `parts` out of range errors; each symbol carries the header and the same parity; a chunk too large for V40 errors.
+- [x] `qrgen/structured_append.go` with the header codec (sequence indicator + parity), the message-division logic, and `ModeStructuredAppend` (`0011`) added to `mode.go`.
+- [x] `EncodeStructuredAppend` in `qrgen/api.go`: validate `parts` (2..16), divide the text, pick a common version, and emit each symbol's header + chunk via the existing pipeline.
+- [x] Tests: sequence-indicator encoding for representative positions/counts; parity equals the XOR of the original bytes; `parts` out of range errors; each symbol carries the header and the same parity; a chunk too large for V40 errors.
 
 ### Checkpoint A — the encoder produces a spec-valid structured-append set.
 
@@ -75,18 +75,18 @@ Goal: the encoder side, producing a valid set.
 
 Goal: parse the header, reassemble, and prove the round-trip including on an independent decoder.
 
-- [ ] `decodeText` gains `case 0b0011`: read the sequence indicator and parity, record them, and decode the remaining segments as the symbol's chunk (single-symbol decode returns the chunk).
-- [ ] `DecodeStructuredAppend` in `qrgen/decode.go`: decode each symbol, order by position, concatenate, and verify the shared parity and total count; return a typed error on a mismatched or incomplete set.
-- [ ] `TestStructuredAppendRoundTrip` splits a long payload into several symbols and confirms `DecodeStructuredAppend` recovers the exact original, including out-of-order input; `TestRoundTripWithThirdPartyDecoder` confirms gozxing reads each symbol's chunk.
+- [x] `decodeText` gains `case 0b0011`: read the sequence indicator and parity, record them, and decode the remaining segments as the symbol's chunk (single-symbol decode returns the chunk).
+- [x] `DecodeStructuredAppend` in `qrgen/decode.go`: decode each symbol, order by position, concatenate, and verify the shared parity and total count; return a typed error on a mismatched or incomplete set.
+- [x] `TestStructuredAppendRoundTrip` splits a long payload into several symbols and confirms `DecodeStructuredAppend` recovers the exact original, including out-of-order input; `TestRoundTripWithThirdPartyDecoder` confirms gozxing reads each symbol's chunk.
 
 ### SA5 — Polish & Release `(S)`
 
 Goal: cut `v0.10.0`.
 
-- [ ] README: a structured-append usage section; `EncodeStructuredAppend`/`DecodeStructuredAppend` rows in the API summary; the Limitations "No structured-append" bullet updated; Scope and Roadmap updated.
-- [ ] Runnable example `examples/encode/structured-append/main.go`.
-- [ ] `CHANGELOG.md` `v0.10.0` entry plus compare/tag anchors written; left unstaged in the working tree for the maintainer to commit with the release (mirroring v0.6 through v0.9).
-- [ ] `go test -race ./...` clean, gofmt-clean.
+- [x] README: a structured-append usage section; `EncodeStructuredAppend`/`DecodeStructuredAppend` rows in the API summary; the Limitations "No structured-append" bullet updated; Scope and Roadmap updated.
+- [x] Runnable example `examples/encode/structured-append/main.go`.
+- [x] `CHANGELOG.md` `v0.10.0` entry plus compare/tag anchors written; left unstaged in the working tree for the maintainer to commit with the release (mirroring v0.6 through v0.9).
+- [x] `go test -race ./...` clean, gofmt-clean.
 - [ ] Tag `v0.10.0` (left for the maintainer per the established git/release workflow; annotation recommended in the release conversation).
 
 ---
