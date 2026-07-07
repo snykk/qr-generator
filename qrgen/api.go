@@ -8,7 +8,10 @@
 
 package qrgen
 
-import "os"
+import (
+	"fmt"
+	"os"
+)
 
 // Encode encodes text as a QR code and returns the PNG bytes. The encoder
 // picks the smallest version that fits the payload at the chosen EC level
@@ -158,6 +161,83 @@ func Matrix(text string, opts ...Option) ([][]bool, error) {
 	out := make([][]bool, m.size)
 	for i := range out {
 		out[i] = append([]bool(nil), m.modules[i]...)
+	}
+	return out, nil
+}
+
+// EncodeStructuredAppend splits text across a structured-append set of parts
+// linked QR symbols (2..16) and returns one PNG per symbol. It carries a
+// message too large for a single symbol: a scanner that reads every symbol
+// reassembles the original text with [DecodeStructuredAppend], in any scan
+// order.
+//
+// The text is divided into parts contiguous chunks on rune boundaries, all
+// symbols are sized to one common version chosen to fit the largest chunk (or
+// the version pinned by [WithVersion]), and each symbol carries a header with
+// its position, the total count, and a parity byte shared across the set. The
+// other options ([WithECLevel], [WithModuleSize], [WithQuietZone],
+// [WithColors], [WithMask]) apply to every symbol. Combining structured append
+// with [WithECI] is not supported in this version. See
+// docs/theory/21-structured-append.md.
+//
+// Example:
+//
+//	pages, err := qrgen.EncodeStructuredAppend(longText, 3, qrgen.WithECLevel(qrgen.ECLevelM))
+//	if err != nil { log.Fatal(err) }
+//	for i, png := range pages {
+//	    os.WriteFile(fmt.Sprintf("part-%d.png", i+1), png, 0o644)
+//	}
+func EncodeStructuredAppend(text string, parts int, opts ...Option) ([][]byte, error) {
+	if parts < 2 || parts > maxStructuredAppendSymbols {
+		return nil, fmt.Errorf("qrgen: structured append needs 2..%d parts, got %d", maxStructuredAppendSymbols, parts)
+	}
+	o := resolveOptions(opts...)
+	if err := o.validate(); err != nil {
+		return nil, err
+	}
+	if o.eci != ECINone {
+		return nil, fmt.Errorf("qrgen: structured append does not support WithECI in this version")
+	}
+
+	chunks := splitRunes(text, parts)
+	parity := saParity(text)
+
+	v := o.version
+	if v == 0 {
+		var err error
+		if v, err = selectCommonVersion(chunks, o.ec); err != nil {
+			return nil, err
+		}
+	} else {
+		capBits := v.DataCodewords(o.ec) * 8
+		for i, chunk := range chunks {
+			needed := saHeaderBits + segmentsBitLength(segmentText(chunk, v), v)
+			if needed > capBits {
+				return nil, fmt.Errorf("qrgen: structured-append symbol %d (%d bits) does not fit in V%d-%s (capacity %d bits)", i+1, needed, v, o.ec, capBits)
+			}
+		}
+	}
+
+	out := make([][]byte, parts)
+	for i, chunk := range chunks {
+		data, err := encodeSASymbol(chunk, o.ec, v, i, parts, parity)
+		if err != nil {
+			return nil, err
+		}
+		m, _, err := matrixFromData(data, v, o)
+		if err != nil {
+			return nil, err
+		}
+		png, err := renderPNG(m, renderOptions{
+			moduleSize: o.moduleSize,
+			quietZone:  o.quietZone,
+			foreground: o.foreground,
+			background: o.background,
+		})
+		if err != nil {
+			return nil, err
+		}
+		out[i] = png
 	}
 	return out, nil
 }

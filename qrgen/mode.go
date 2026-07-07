@@ -19,6 +19,7 @@ const (
 	ModeAlphanumeric
 	ModeByte
 	ModeECI
+	ModeStructuredAppend
 )
 
 // String returns a short human-readable mode name.
@@ -32,6 +33,8 @@ func (m Mode) String() string {
 		return "Byte"
 	case ModeECI:
 		return "ECI"
+	case ModeStructuredAppend:
+		return "StructuredAppend"
 	}
 	return "Mode(?)"
 }
@@ -49,6 +52,8 @@ func (m Mode) Indicator() uint8 {
 		return 0b0100
 	case ModeECI:
 		return 0b0111
+	case ModeStructuredAppend:
+		return 0b0011
 	}
 	return 0
 }
