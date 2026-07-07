@@ -149,6 +149,23 @@ data, err = qrgen.Encode("Café résumé", qrgen.WithECI(qrgen.ECILatin1))
 
 Only the two charsets transcodable with the standard library are supported — `ECIUTF8` (a passthrough, since Go strings are UTF-8) and `ECILatin1` (one byte per rune, erroring if any rune is above U+00FF) — which keeps the zero-dependency rule. Other code pages such as Shift-JIS would need an external charset library and are out of scope. The default (no ECI) output is byte-for-byte unchanged. See [docs/theory/20-eci-segments.md](docs/theory/20-eci-segments.md) and the demo in [examples/encode/eci](examples/encode/eci/main.go).
 
+## Structured append
+
+A message too large for one symbol can be split across a linked set of up to 16 symbols. `EncodeStructuredAppend` returns one PNG per symbol; `DecodeStructuredAppend` reads a full set back — in any scan order — into the original text:
+
+```go
+pages, err := qrgen.EncodeStructuredAppend(longText, 3, qrgen.WithECLevel(qrgen.ECLevelM))
+if err != nil { log.Fatal(err) }
+for i, png := range pages {
+    os.WriteFile(fmt.Sprintf("part-%d.png", i+1), png, 0o644)
+}
+
+// ...later, from the scanned symbols (order does not matter):
+text, err := qrgen.DecodeStructuredAppend(pages)
+```
+
+The text is divided on rune boundaries, every symbol carries a header with its position, the total count, and a shared parity byte, and all symbols use one common version. A single symbol still decodes on its own with `DecodeBytes`, returning just that symbol's chunk. See [docs/theory/21-structured-append.md](docs/theory/21-structured-append.md) and the demo in [examples/encode/structured-append](examples/encode/structured-append/main.go).
+
 ## Decoding QR codes
 
 `qrgen.DecodeBytes` reads PNG, JPEG, or GIF bytes back into the original text:
@@ -221,6 +238,7 @@ Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: �
 | `EncodeSVG(text, opts...) ([]byte, error)` | Text → SVG document bytes. Same options as `Encode`. |
 | `EncodeSVGToFile(text, path, opts...) error` | Text → SVG file on disk. |
 | `EncodeTerminal(text, opts...) (string, error)` | Text → multi-line block-character string for printing to a terminal. |
+| `EncodeStructuredAppend(text, parts, opts...) ([][]byte, error)` | Text → a set of `parts` (2..16) linked PNG symbols. |
 | `Matrix(text, opts...) ([][]bool, error)` | Text → raw boolean module grid for custom rendering. |
 | `WithECLevel(ec)` | Error-correction level (`ECLevelL`, `ECLevelM`, `ECLevelQ`, `ECLevelH`). Default `M`. |
 | `WithVersion(v)` | Force QR version `1..40`. Default `0` (auto-select smallest fitting). |
@@ -250,6 +268,7 @@ Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: �
 | `Decode(img image.Image) (string, error)` | Image → text. Runs the full image pipeline. |
 | `DecodeBytes(data []byte) (string, error)` | PNG / JPEG / GIF bytes → text. Convenience wrapper around `Decode`. |
 | `DecodeMatrix(grid [][]bool) (string, error)` | Boolean module grid → text. Skips the image pipeline. |
+| `DecodeStructuredAppend(symbols [][]byte) (string, error)` | A set of structured-append symbols (any order) → reassembled text. |
 
 **Sentinel errors** (use `errors.Is`):
 
@@ -279,10 +298,11 @@ In scope as of v0.2.0:
 - PNG output (grayscale or RGBA, depending on colour options), SVG output (scalable vector, as of v0.5), and terminal output (Unicode half-block or ASCII text, as of v0.8).
 - Payload builders for Wi-Fi, vCard, mailto, tel, SMS, and geo (as of v0.7).
 - Optional ECI character-set declaration for byte mode (`ECIUTF8`, `ECILatin1`; as of v0.9).
+- Structured append: split a long message across up to 16 linked symbols and reassemble them (as of v0.10).
 - Image decoding (PNG / JPEG / GIF / `image.Image`) with binarisation, finder detection, perspective transform, and alignment refinement.
 - Matrix decoding from `[][]bool` for callers that already have a clean grid.
 
-Still out of scope (kept open as roadmap items): Kanji mode, Micro QR, structured-append, logo embedding, JPEG/PDF renderers, arbitrary-angle decoding in the 30..90 degree band.
+Still out of scope (kept open as roadmap items): Kanji mode, Micro QR, logo embedding, JPEG/PDF renderers, arbitrary-angle decoding in the 30..90 degree band.
 
 ## Limitations
 
@@ -291,7 +311,7 @@ The library covers the encoder and the decoder end-to-end as of v0.2.0; the foll
 - **ECI limited to UTF-8 and Latin-1.** `WithECI` (v0.9) declares a byte-mode character set with an explicit ECI header, but only `ECIUTF8` and `ECILatin1` are supported, since they are the only charsets transcodable with the standard library; other code pages such as Shift-JIS would need an external dependency. Without `WithECI` the encoder emits, and the decoder reads, byte mode as UTF-8 — a deliberate deviation from the spec's ISO-8859-1 default that matches real-world scanners.
 - **No Kanji mode.** Japanese strings fall through to byte mode on encode and decode, and pay roughly 4× the bits per character compared to native Kanji encoding.
 - **No Micro QR or rMQR.** Only the standard 40-version family is supported.
-- **No structured-append.** Long payloads must fit in a single symbol (V40 caps at ~2,953 bytes in byte mode at EC-L).
+- **Structured-append is opt-in and PNG-only.** `EncodeStructuredAppend` (v0.10) splits a long message across 2..16 linked symbols and `DecodeStructuredAppend` reassembles them, but the encoder returns PNG bytes only (no SVG or terminal variant yet), takes an explicit part count rather than auto-sizing, and does not combine with `WithECI`. A single `Encode` still caps at one symbol (V40 ~2,953 bytes in byte mode at EC-L).
 - **No logo embedding.** Centred logos with automatic EC compensation are a roadmap item.
 - **Limited arbitrary-angle decoding.** v0.4 added rotation handling for the axis-aligned cases (90 / 180 / 270 degrees) plus soft tilts up to about 30 degrees off-axis, but tilts in the 30..90 degree band defeat the 1:1:3:1:1 finder scanner's ±50% module-width tolerance and a wider scanner (contour-based or fan-of-orientations) is needed to close the remaining gap.
 - **Adaptive thresholding only on the quiet zone.** v0.3 added a Sauvola fallback that recovers QR codes whose quiet zone has been darkened by uneven lighting or soft shadows, but mutations that compress the QR's own ink-paper contrast (very dim photos, heavy gradient across the symbol itself) still defeat both Otsu and Sauvola at default parameters.
@@ -306,7 +326,7 @@ Candidates for future minor releases (post-v0.2.0):
 - **More payload builders:** calendar event (VEVENT), crypto/EPC payment, MeCard. (Wi-Fi, vCard, mailto, tel, SMS, and geo shipped in v0.7.)
 - **Logo embedding:** centred logo with automatic EC-level bump for the occluded area.
 - **Micro QR & rMQR:** smaller form factors for short payloads.
-- **Structured-append:** split long text across multiple linked QR symbols.
+- **Structured-append extensions:** auto part-count, SVG/terminal output, and ECI combination. (Core PNG structured-append shipped in v0.10.)
 - **Decoder robustness:** arbitrary-angle decoding for the 30..90 degree band via a contour-based or fan-of-orientations finder detector, tunable Sauvola parameters (k, window) plus morphological cleanup so heavier within-symbol contrast loss can also be recovered, multi-symbol detection.
 - **Performance:** reduce allocations on the hot encode and decode paths.
 

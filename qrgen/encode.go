@@ -220,6 +220,16 @@ func buildMatrix(text string, opts *options) (*matrix, int, error) {
 	if err != nil {
 		return nil, 0, err
 	}
+	return matrixFromData(data, v, opts)
+}
+
+// matrixFromData places pre-encoded data codewords into a finished, masked
+// matrix at version v: Reed–Solomon encoding, functional patterns, data
+// placement, version info (V7+), and the chosen or forced mask with its
+// format-info codeword. It is the second half of buildMatrix, split out so the
+// structured-append encoder can render its own per-symbol data codewords
+// through the identical pipeline.
+func matrixFromData(data []byte, v Version, opts *options) (*matrix, int, error) {
 	stream := rsEncode(data, v, opts.ec)
 	m := newMatrix(v)
 	m.placeFunctionalPatterns()
@@ -320,10 +330,22 @@ func encodeTextECI(text string, ec ECLevel, forceVersion Version, eci ECI) (data
 		}
 	}
 
-	// Terminator: up to 4 zero bits, truncated if fewer remain before capacity.
+	data, err = padToCapacity(bb, capacityBits)
+	if err != nil {
+		return nil, 0, err
+	}
+	return data, v, nil
+}
+
+// padToCapacity appends the terminator (up to 4 zero bits, truncated if fewer
+// remain), zero bit-padding to the next byte boundary, and alternating
+// 0xEC/0x11 pad bytes until bb fills capacityBits exactly, then returns the byte
+// stream. It errors if bb already exceeds capacity. Shared by the single-symbol
+// encoder and the structured-append symbol encoder.
+func padToCapacity(bb *bitBuffer, capacityBits int) ([]byte, error) {
 	remaining := capacityBits - bb.bits()
 	if remaining < 0 {
-		return nil, 0, fmt.Errorf("qrgen: internal error: encoded length exceeds capacity by %d bits", -remaining)
+		return nil, fmt.Errorf("qrgen: internal error: encoded length exceeds capacity by %d bits", -remaining)
 	}
 	termBits := 4
 	if remaining < termBits {
@@ -341,6 +363,5 @@ func encodeTextECI(text string, ec ECLevel, forceVersion Version, eci ECI) (data
 	for i := 0; bb.bits() < capacityBits; i++ {
 		bb.appendBits(padBytes[i%2], 8)
 	}
-
-	return bb.bytes(), v, nil
+	return bb.bytes(), nil
 }

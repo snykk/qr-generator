@@ -49,6 +49,10 @@ This folder contains the literature review and theoretical foundation for the `q
 
 20. [ECI Segments](20-eci-segments.md) — Extended Channel Interpretation: the ECI header (mode `0111` plus the 1/2/3-codeword designator), the shortest-form encode versus the non-minimal-accepting decode, the assignment numbers and the ISO-8859-1-versus-UTF-8 default-charset nuance, ECI scope, and the zero-dependency transcoding boundary (UTF-8 and Latin-1 only).
 
+### Structured append (v0.10.0)
+
+21. [Structured Append](21-structured-append.md) — splitting a message across up to 16 linked symbols and reassembling them: the structured-append header (mode `0011` plus the position/count sequence indicator and the shared parity byte), the 16-symbol cap, the XOR parity over the original message, header placement before ECI, and the rune-boundary split with ordered reassembly.
+
 ## Primary references
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* The normative source.
@@ -88,5 +92,6 @@ Additional references appear at the end of each document.
 | 18-payload-formats.md               | `qrgen/payload.go` (planned, P3) |
 | 19-terminal-rendering.md            | `qrgen/render_terminal.go` (planned, TR3) |
 | 20-eci-segments.md                  | `qrgen/eci.go` (planned, ECI3) |
+| 21-structured-append.md             | `qrgen/structured_append.go` (planned, SA3) |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.
