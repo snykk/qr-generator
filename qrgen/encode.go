@@ -107,6 +107,8 @@ func payloadBitLength(mode Mode, text string) int {
 		return bits
 	case ModeByte:
 		return len(text) * 8
+	case ModeKanji:
+		return len([]rune(text)) * 13
 	}
 	return 0
 }
@@ -207,6 +209,33 @@ func writeByte(bb *bitBuffer, text string) {
 	for i := 0; i < len(text); i++ {
 		bb.appendBits(uint32(text[i]), 8)
 	}
+}
+
+// writeKanji appends the 13-bit Kanji-mode value of each rune. The segmenter
+// only places Kanji-eligible runes in a Kanji segment, so kanjiValue always
+// succeeds here.
+func writeKanji(bb *bitBuffer, runes []rune) {
+	for _, r := range runes {
+		v, _ := kanjiValue(r)
+		bb.appendBits(uint32(v), 13)
+	}
+}
+
+// writeSegment emits one segment's mode indicator, character-count indicator,
+// and payload for the non-ECI modes (numeric, alphanumeric, byte, Kanji). Kanji
+// counts runes and emits 13 bits each; the others count and emit bytes. Shared
+// by the single-symbol and structured-append encoders. A byte segment under a
+// declared ECI is transcoded by the caller instead.
+func writeSegment(bb *bitBuffer, s segment, v Version) {
+	bb.appendBits(uint32(s.mode.Indicator()), 4)
+	if s.mode == ModeKanji {
+		runes := []rune(s.text)
+		bb.appendBits(uint32(len(runes)), s.mode.CharCountBits(v))
+		writeKanji(bb, runes)
+		return
+	}
+	bb.appendBits(uint32(len(s.text)), s.mode.CharCountBits(v))
+	writePayload(bb, s.mode, s.text)
 }
 
 // buildMatrix runs the M3..M6 pipeline end-to-end using the resolved options:
@@ -314,8 +343,10 @@ func encodeTextECI(text string, ec ECLevel, forceVersion Version, eci ECI) (data
 	// hold single-byte ASCII identical under every charset, so len(s.text) is
 	// their correct count.
 	for _, s := range segmentText(text, v) {
-		bb.appendBits(uint32(s.mode.Indicator()), 4)
+		// A byte segment under a declared ECI is transcoded to the charset; all
+		// other segments (including Kanji) go through the shared writeSegment.
 		if s.mode == ModeByte && eci != ECINone {
+			bb.appendBits(uint32(s.mode.Indicator()), 4)
 			payload, terr := transcodeTo(s.text, eci)
 			if terr != nil {
 				return nil, 0, terr
@@ -324,10 +355,9 @@ func encodeTextECI(text string, ec ECLevel, forceVersion Version, eci ECI) (data
 			for _, c := range payload {
 				bb.appendBits(uint32(c), 8)
 			}
-		} else {
-			bb.appendBits(uint32(len(s.text)), s.mode.CharCountBits(v))
-			writePayload(bb, s.mode, s.text)
+			continue
 		}
+		writeSegment(bb, s, v)
 	}
 
 	data, err = padToCapacity(bb, capacityBits)

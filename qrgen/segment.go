@@ -80,17 +80,22 @@ func segmentText(text string, v Version) []segment {
 	// length of runes[0:i].
 	nonNumeric := make([]int, n+1)
 	nonAlpha := make([]int, n+1)
+	nonKanji := make([]int, n+1)
 	byteLen := make([]int, n+1)
 	for i, r := range runes {
-		nn, na := 0, 0
+		nn, na, nk := 0, 0, 0
 		if r < '0' || r > '9' {
 			nn = 1
 		}
 		if alphanumericValue(r) < 0 {
 			na = 1
 		}
+		if !kanjiEligible(r) {
+			nk = 1
+		}
 		nonNumeric[i+1] = nonNumeric[i] + nn
 		nonAlpha[i+1] = nonAlpha[i] + na
+		nonKanji[i+1] = nonKanji[i] + nk
 		byteLen[i+1] = byteLen[i] + utf8.RuneLen(r)
 	}
 
@@ -103,7 +108,7 @@ func segmentText(text string, v Version) []segment {
 	}
 	dp[0] = 0
 
-	modes := [...]Mode{ModeNumeric, ModeAlphanumeric, ModeByte}
+	modes := [...]Mode{ModeNumeric, ModeAlphanumeric, ModeByte, ModeKanji}
 	for i := 1; i <= n; i++ {
 		for _, m := range modes {
 			for j := i - 1; j >= 0; j-- {
@@ -119,6 +124,10 @@ func segmentText(text string, v Version) []segment {
 					if nonAlpha[i]-nonAlpha[j] != 0 {
 						goto doneMode
 					}
+				case ModeKanji:
+					if nonKanji[i]-nonKanji[j] != 0 {
+						goto doneMode
+					}
 				}
 				if dp[j] == inf {
 					continue
@@ -129,6 +138,8 @@ func segmentText(text string, v Version) []segment {
 					payload = numericPayloadBits(i - j)
 				case ModeAlphanumeric:
 					payload = alphanumericPayloadBits(i - j)
+				case ModeKanji:
+					payload = (i - j) * 13
 				default: // ModeByte
 					payload = (byteLen[i] - byteLen[j]) * 8
 				}

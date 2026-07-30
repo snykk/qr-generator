@@ -67,6 +67,10 @@ func TestRoundTripWithThirdPartyDecoder(t *testing.T) {
 		// decoder, confirming the designator and charset handling are spec-conformant.
 		{"eci utf8", "Héllo 世界 ECI", []Option{WithECI(ECIUTF8)}},
 		{"eci latin1", "Café £5 ECI", []Option{WithECI(ECILatin1)}},
+		// Kanji mode (v0.11): an independent decoder must read the JIS X 0208
+		// characters our 13-bit encoding produces, mixed with ASCII/numeric.
+		{"kanji", "日本語のテスト", []Option{WithECLevel(ECLevelM)}},
+		{"kanji mixed", "QRコード 2026 世界", nil},
 	}
 
 	runThirdPartyRoundTrip(t, cases)

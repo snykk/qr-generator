@@ -8,10 +8,12 @@
 
 package qrgen
 
-// Mode identifies an encoding mode. The encoder supports Numeric,
-// Alphanumeric, and Byte; ModeECI marks the ECI header (v0.9) which declares a
-// character set rather than carrying data. Kanji is out of scope.
-// See docs/theory/02-data-encoding.md and docs/theory/20-eci-segments.md.
+// Mode identifies an encoding mode. The data modes are Numeric, Alphanumeric,
+// Byte, and Kanji (v0.11); ModeECI marks the ECI header (v0.9) and
+// ModeStructuredAppend the structured-append header (v0.10), which declare
+// interpretation rather than carrying data.
+// See docs/theory/02-data-encoding.md, docs/theory/20-eci-segments.md, and
+// docs/theory/22-kanji-mode.md.
 type Mode int
 
 const (
@@ -20,6 +22,7 @@ const (
 	ModeByte
 	ModeECI
 	ModeStructuredAppend
+	ModeKanji
 )
 
 // String returns a short human-readable mode name.
@@ -35,6 +38,8 @@ func (m Mode) String() string {
 		return "ECI"
 	case ModeStructuredAppend:
 		return "StructuredAppend"
+	case ModeKanji:
+		return "Kanji"
 	}
 	return "Mode(?)"
 }
@@ -54,6 +59,8 @@ func (m Mode) Indicator() uint8 {
 		return 0b0111
 	case ModeStructuredAppend:
 		return 0b0011
+	case ModeKanji:
+		return 0b1000
 	}
 	return 0
 }
@@ -66,8 +73,19 @@ func (m Mode) CharCountBits(v Version) int {
 	if !v.IsValid() {
 		return 0
 	}
-	// Only the three data modes have a character-count indicator; ModeECI (and
-	// any future non-data mode) is not in the table and has no count.
+	// Kanji has its own count widths (8/10/12), narrower than any other mode.
+	if m == ModeKanji {
+		switch {
+		case v <= 9:
+			return 8
+		case v <= 26:
+			return 10
+		default:
+			return 12
+		}
+	}
+	// Numeric, Alphanumeric, and Byte are the table's three rows; the header
+	// modes (ECI, structured append) are not in the table and have no count.
 	if int(m) < 0 || int(m) >= len(charCountBitsTable) {
 		return 0
 	}

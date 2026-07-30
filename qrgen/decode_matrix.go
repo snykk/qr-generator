@@ -288,6 +288,24 @@ func decodeByteModeRaw(br *bitReader, count int) ([]byte, error) {
 	return buf, nil
 }
 
+// decodeKanji reads `count` Kanji characters, each a 13-bit value mapped back
+// to its rune via the JIS X 0208 table. See docs/theory/22-kanji-mode.md.
+func decodeKanji(br *bitReader, count int) (string, error) {
+	var out strings.Builder
+	for i := 0; i < count; i++ {
+		v, err := br.readBits(13)
+		if err != nil {
+			return "", err
+		}
+		r, ok := kanjiRune(uint16(v))
+		if !ok {
+			return "", fmt.Errorf("%w: unassigned Kanji value 0x%X", ErrCorruptedPayload, v)
+		}
+		out.WriteRune(r)
+	}
+	return out.String(), nil
+}
+
 // decodeText parses the data codeword stream produced by D6 back into the
 // original text. Multiple segments are supported (in theory): the loop
 // continues until a terminator or until fewer than 4 bits remain.
@@ -365,6 +383,17 @@ func decodeText(data []byte, v Version) (string, *saHeaderInfo, error) {
 				return "", nil, err
 			}
 			out.WriteString(transcodeFrom(raw, activeECI))
+		case 0b1000:
+			countWidth := ModeKanji.CharCountBits(v)
+			count, err := br.readBits(countWidth)
+			if err != nil {
+				return "", nil, err
+			}
+			seg, err := decodeKanji(br, int(count))
+			if err != nil {
+				return "", nil, err
+			}
+			out.WriteString(seg)
 		default:
 			return "", nil, fmt.Errorf("%w: unknown mode indicator 0b%04b", ErrCorruptedPayload, modeBits)
 		}
