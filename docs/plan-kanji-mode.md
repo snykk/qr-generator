@@ -60,30 +60,30 @@ Milestones land sequentially. **Checkpoint A** (after K4) gives an encoder that 
 
 ### K1 — Plan Doc `(S)`
 
-- [ ] `docs/plan-kanji-mode.md` and its Indonesian counterpart covering vision, principles, the encoding reference, scope, milestones K1..K6, file-layout delta, risks, references, and open questions.
+- [x] `docs/plan-kanji-mode.md` and its Indonesian counterpart covering vision, principles, the encoding reference, scope, milestones K1..K6, file-layout delta, risks, references, and open questions.
 
 ### K2 — Kanji Reference Doc `(S)`
 
 Goal: document the mode and the table strategy before any code lands.
 
-- [ ] `docs/theory/22-kanji-mode.md` — the `1000` mode indicator and 8/10/12 count widths; the Shift-JIS two-byte-to-13-bit derivation with a worked example; JIS X 0208 scope; the accurate density figure versus byte mode; and the generated-table strategy (why a committed table keeps runtime zero-dependency). Closes with implementation pointers.
-- [ ] Indonesian counterpart `docs/theory/22-kanji-mode.id.md`.
-- [ ] Updated `docs/theory/README.md` and `.id.md`: entry 22 plus a code-mapping row pointing at `qrgen/kanji.go`.
+- [x] `docs/theory/22-kanji-mode.md` — the `1000` mode indicator and 8/10/12 count widths; the Shift-JIS two-byte-to-13-bit derivation with a worked example; JIS X 0208 scope; the accurate density figure versus byte mode; and the generated-table strategy (why a committed table keeps runtime zero-dependency). Closes with implementation pointers.
+- [x] Indonesian counterpart `docs/theory/22-kanji-mode.id.md`.
+- [x] Updated `docs/theory/README.md` and `.id.md`: entry 22 plus a code-mapping row pointing at `qrgen/kanji.go`.
 
 ### K3 — Shift-JIS Table + Codec `(M)`
 
 Goal: the mapping table and the standalone codec, fully covered.
 
-- [ ] `gen_kanji_table.go` (`//go:build ignore`) generating `kanji_table.go` from `x/text/encoding/japanese.ShiftJIS`, with a `//go:generate` directive; the committed table is pure Go with no imports.
-- [ ] `qrgen/kanji.go`: `kanjiEligible(rune) bool`, `kanjiValue(rune) (uint16, bool)` (rune -> 13-bit), and `kanjiRune(uint16) (rune, bool)` (13-bit -> rune).
-- [ ] Tests: the offset arithmetic at both Shift-JIS ranges' boundaries; a full table round-trip (every mapped rune encodes and decodes back); a non-Kanji rune reports ineligible.
+- [x] `gen_kanji_table.go` (`//go:build ignore`) generating `kanji_table.go` from `x/text/encoding/japanese.ShiftJIS`, with a `//go:generate` directive; the committed table is pure Go with no imports.
+- [x] `qrgen/kanji.go`: `kanjiEligible(rune) bool`, `kanjiValue(rune) (uint16, bool)` (rune -> 13-bit), and `kanjiRune(uint16) (rune, bool)` (13-bit -> rune).
+- [x] Tests: the offset arithmetic at both Shift-JIS ranges' boundaries; a full table round-trip (every mapped rune encodes and decodes back); a non-Kanji rune reports ineligible.
 
 ### K4 — Encoder Integration `(M)`
 
 Goal: Kanji in the segmenter and the writer, default path unchanged.
 
-- [ ] `ModeKanji` added to the DP segmenter's mode set with 13-bit per-character cost and a Kanji-eligibility prefix; `writeKanji` emits the 13-bit values; character-count handling extended for Kanji's 8/10/12 widths; version selection accounts for Kanji segments.
-- [ ] Tests: a pure-Kanji string encodes in Kanji mode at the expected bit length; a mixed Japanese/ASCII string segments across Kanji and byte/alphanumeric optimally; a guard test asserting non-Kanji inputs are byte-for-byte identical to the pre-change encoder.
+- [x] `ModeKanji` added to the DP segmenter's mode set with 13-bit per-character cost and a Kanji-eligibility prefix; `writeKanji` emits the 13-bit values; character-count handling extended for Kanji's 8/10/12 widths; version selection accounts for Kanji segments.
+- [x] Tests: a pure-Kanji string encodes in Kanji mode at the expected bit length; a mixed Japanese/ASCII string segments across Kanji and byte/alphanumeric optimally; a guard test asserting non-Kanji inputs are byte-for-byte identical to the pre-change encoder.
 
 ### Checkpoint A — the encoder emits spec-correct Kanji segments; non-Kanji output is byte-identical.
 
@@ -91,16 +91,16 @@ Goal: Kanji in the segmenter and the writer, default path unchanged.
 
 Goal: decode Kanji and prove the round-trip, including on an independent decoder.
 
-- [ ] `decodeText` gains `case 0b1000`: read the Kanji character count, then each 13-bit value back to a rune via the table.
-- [ ] `TestKanjiRoundTrip` encodes pure-Kanji and mixed Japanese/ASCII payloads and confirms `DecodeBytes` recovers the exact text; `TestRoundTripWithThirdPartyDecoder` gains a Kanji case; gozxing reads it identically.
+- [x] `decodeText` gains `case 0b1000`: read the Kanji character count, then each 13-bit value back to a rune via the table.
+- [x] `TestKanjiRoundTrip` encodes pure-Kanji and mixed Japanese/ASCII payloads and confirms `DecodeBytes` recovers the exact text; `TestRoundTripWithThirdPartyDecoder` gains a Kanji case; gozxing reads it identically.
 
 ### K6 — Polish & Release `(S)`
 
 Goal: cut `v0.11.0`.
 
-- [ ] README: a Kanji usage note; the Limitations "No Kanji mode" bullet replaced (and its inaccurate "4x" density figure corrected); Scope and Roadmap updated; a runnable example `examples/encode/kanji`.
-- [ ] `CHANGELOG.md` `v0.11.0` entry plus compare/tag anchors written; left unstaged in the working tree for the maintainer (mirroring v0.6 through v0.10).
-- [ ] `go test -race ./...` clean, gofmt-clean, and `go generate` reproduces the committed table byte-for-byte.
+- [x] README: a Kanji usage note; the Limitations "No Kanji mode" bullet replaced (and its inaccurate "4x" density figure corrected); Scope and Roadmap updated; a runnable example `examples/encode/kanji`.
+- [x] `CHANGELOG.md` `v0.11.0` entry plus compare/tag anchors written; left unstaged in the working tree for the maintainer (mirroring v0.6 through v0.10).
+- [x] `go test -race ./...` clean, gofmt-clean, and `go generate` reproduces the committed table byte-for-byte.
 - [ ] Tag `v0.11.0` (left for the maintainer per the established git/release workflow; annotation recommended in the release conversation).
 
 ---

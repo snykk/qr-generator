@@ -60,30 +60,30 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah K4) memberi encoder yang
 
 ### K1 — Plan Doc `(S)`
 
-- [ ] `docs/plan-kanji-mode.md` dan padanan Indonesianya, mencakup visi, prinsip, referensi encoding, cakupan, milestone K1..K6, delta tata letak file, risiko, referensi, dan pertanyaan terbuka.
+- [x] `docs/plan-kanji-mode.md` dan padanan Indonesianya, mencakup visi, prinsip, referensi encoding, cakupan, milestone K1..K6, delta tata letak file, risiko, referensi, dan pertanyaan terbuka.
 
 ### K2 — Dokumen Referensi Kanji `(S)`
 
 Tujuan: mendokumentasikan mode dan strategi tabel sebelum kode apa pun mendarat.
 
-- [ ] `docs/theory/22-kanji-mode.md` — mode indicator `1000` dan lebar count 8/10/12; derivasi dua-byte-Shift-JIS-ke-13-bit dengan contoh kerja; cakupan JIS X 0208; angka densitas akurat versus byte mode; dan strategi tabel-di-generate (kenapa tabel yang di-commit menjaga runtime zero-dependency). Ditutup dengan penunjuk implementasi.
-- [ ] Padanan Indonesia `docs/theory/22-kanji-mode.id.md`.
-- [ ] Memperbarui `docs/theory/README.md` dan `.id.md`: entri 22 plus baris pemetaan kode yang menunjuk ke `qrgen/kanji.go`.
+- [x] `docs/theory/22-kanji-mode.md` — mode indicator `1000` dan lebar count 8/10/12; derivasi dua-byte-Shift-JIS-ke-13-bit dengan contoh kerja; cakupan JIS X 0208; angka densitas akurat versus byte mode; dan strategi tabel-di-generate (kenapa tabel yang di-commit menjaga runtime zero-dependency). Ditutup dengan penunjuk implementasi.
+- [x] Padanan Indonesia `docs/theory/22-kanji-mode.id.md`.
+- [x] Memperbarui `docs/theory/README.md` dan `.id.md`: entri 22 plus baris pemetaan kode yang menunjuk ke `qrgen/kanji.go`.
 
 ### K3 — Tabel Shift-JIS + Codec `(M)`
 
 Tujuan: tabel pemetaan dan codec standalone, tercakup penuh.
 
-- [ ] `gen_kanji_table.go` (`//go:build ignore`) yang men-generate `kanji_table.go` dari `x/text/encoding/japanese.ShiftJIS`, dengan direktif `//go:generate`; tabel yang di-commit adalah Go murni tanpa import.
-- [ ] `qrgen/kanji.go`: `kanjiEligible(rune) bool`, `kanjiValue(rune) (uint16, bool)` (rune -> 13-bit), dan `kanjiRune(uint16) (rune, bool)` (13-bit -> rune).
-- [ ] Test: aritmetika offset di batas kedua range Shift-JIS; round-trip tabel penuh (tiap rune terpetakan encode dan decode kembali); sebuah rune non-Kanji melaporkan tak-eligible.
+- [x] `gen_kanji_table.go` (`//go:build ignore`) yang men-generate `kanji_table.go` dari `x/text/encoding/japanese.ShiftJIS`, dengan direktif `//go:generate`; tabel yang di-commit adalah Go murni tanpa import.
+- [x] `qrgen/kanji.go`: `kanjiEligible(rune) bool`, `kanjiValue(rune) (uint16, bool)` (rune -> 13-bit), dan `kanjiRune(uint16) (rune, bool)` (13-bit -> rune).
+- [x] Test: aritmetika offset di batas kedua range Shift-JIS; round-trip tabel penuh (tiap rune terpetakan encode dan decode kembali); sebuah rune non-Kanji melaporkan tak-eligible.
 
 ### K4 — Integrasi Encoder `(M)`
 
 Tujuan: Kanji di segmenter dan writer, jalur default tak berubah.
 
-- [ ] `ModeKanji` ditambahkan ke himpunan mode DP segmenter dengan cost per-karakter 13-bit dan prefix Kanji-eligibility; `writeKanji` mengeluarkan nilai 13-bit; penanganan character-count diperluas untuk lebar 8/10/12 Kanji; version selection memperhitungkan Kanji segment.
-- [ ] Test: string pure-Kanji ter-encode di Kanji mode pada panjang bit yang diharapkan; string campuran Jepang/ASCII tersegmen antar Kanji dan byte/alphanumeric secara optimal; guard test yang memastikan input non-Kanji byte-for-byte identik dengan encoder pra-perubahan.
+- [x] `ModeKanji` ditambahkan ke himpunan mode DP segmenter dengan cost per-karakter 13-bit dan prefix Kanji-eligibility; `writeKanji` mengeluarkan nilai 13-bit; penanganan character-count diperluas untuk lebar 8/10/12 Kanji; version selection memperhitungkan Kanji segment.
+- [x] Test: string pure-Kanji ter-encode di Kanji mode pada panjang bit yang diharapkan; string campuran Jepang/ASCII tersegmen antar Kanji dan byte/alphanumeric secara optimal; guard test yang memastikan input non-Kanji byte-for-byte identik dengan encoder pra-perubahan.
 
 ### Checkpoint A — encoder mengeluarkan Kanji segment setia-spec; output non-Kanji byte-identical.
 
@@ -91,16 +91,16 @@ Tujuan: Kanji di segmenter dan writer, jalur default tak berubah.
 
 Tujuan: men-decode Kanji dan membuktikan round-trip, termasuk pada decoder independen.
 
-- [ ] `decodeText` mendapat `case 0b1000`: baca character count Kanji, lalu tiap nilai 13-bit kembali ke rune via tabel.
-- [ ] `TestKanjiRoundTrip` meng-encode payload pure-Kanji dan campuran Jepang/ASCII dan memastikan `DecodeBytes` memulihkan teks persisnya; `TestRoundTripWithThirdPartyDecoder` mendapat satu kasus Kanji; gozxing membacanya secara identik.
+- [x] `decodeText` mendapat `case 0b1000`: baca character count Kanji, lalu tiap nilai 13-bit kembali ke rune via tabel.
+- [x] `TestKanjiRoundTrip` meng-encode payload pure-Kanji dan campuran Jepang/ASCII dan memastikan `DecodeBytes` memulihkan teks persisnya; `TestRoundTripWithThirdPartyDecoder` mendapat satu kasus Kanji; gozxing membacanya secara identik.
 
 ### K6 — Polish & Rilis `(S)`
 
 Tujuan: memotong `v0.11.0`.
 
-- [ ] README: catatan penggunaan Kanji; butir Limitations "No Kanji mode" diganti (dan angka densitas "4x"-nya yang keliru dikoreksi); Scope dan Roadmap diperbarui; contoh runnable `examples/encode/kanji`.
-- [ ] Entri `v0.11.0` di `CHANGELOG.md` plus anchor compare/tag ditulis; dibiarkan unstaged di working tree untuk maintainer (meniru v0.6 sampai v0.10).
-- [ ] `go test -race ./...` bersih, gofmt bersih, dan `go generate` mereproduksi tabel yang di-commit byte-for-byte.
+- [x] README: catatan penggunaan Kanji; butir Limitations "No Kanji mode" diganti (dan angka densitas "4x"-nya yang keliru dikoreksi); Scope dan Roadmap diperbarui; contoh runnable `examples/encode/kanji`.
+- [x] Entri `v0.11.0` di `CHANGELOG.md` plus anchor compare/tag ditulis; dibiarkan unstaged di working tree untuk maintainer (meniru v0.6 sampai v0.10).
+- [x] `go test -race ./...` bersih, gofmt bersih, dan `go generate` mereproduksi tabel yang di-commit byte-for-byte.
 - [ ] Tag `v0.11.0` (diserahkan ke maintainer sesuai alur git/rilis yang sudah mapan; anotasi direkomendasikan di percakapan rilis).
 
 ---
