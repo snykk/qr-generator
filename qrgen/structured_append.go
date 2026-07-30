@@ -109,9 +109,7 @@ func encodeSASymbol(chunk string, ec ECLevel, v Version, position, total int, pa
 	bb.appendBits(uint32(parity), 8)
 	// The chunk's own mixed-mode segments (default UTF-8; no ECI in v0.10).
 	for _, s := range segmentText(chunk, v) {
-		bb.appendBits(uint32(s.mode.Indicator()), 4)
-		bb.appendBits(uint32(len(s.text)), s.mode.CharCountBits(v))
-		writePayload(bb, s.mode, s.text)
+		writeSegment(bb, s, v)
 	}
 	return padToCapacity(bb, capacityBits)
 }

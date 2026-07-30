@@ -166,6 +166,16 @@ text, err := qrgen.DecodeStructuredAppend(pages)
 
 The text is divided on rune boundaries, every symbol carries a header with its position, the total count, and a shared parity byte, and all symbols use one common version. A single symbol still decodes on its own with `DecodeBytes`, returning just that symbol's chunk. See [docs/theory/21-structured-append.md](docs/theory/21-structured-append.md) and the demo in [examples/encode/structured-append](examples/encode/structured-append/main.go).
 
+## Japanese text (Kanji mode)
+
+Japanese characters are encoded automatically. When a payload contains JIS X 0208 characters, the segmenter uses **Kanji mode** — 13 bits per character rather than the 24 a BMP kanji costs in UTF-8 byte mode, about 1.8x denser — for the runs where it is cheaper, mixing freely with numeric, alphanumeric, and byte segments for the rest. There is no option to set; `Encode`, `EncodeSVG`, `EncodeTerminal`, and the decoder all handle it:
+
+```go
+data, err := qrgen.Encode("日本語のテスト 2026")
+```
+
+Only JIS X 0208 is covered (the character set QR Kanji mode targets); characters outside it, such as many emoji, stay in byte mode. The Unicode-to-Shift-JIS mapping is generated and committed, so the runtime keeps its zero dependencies. See [docs/theory/22-kanji-mode.md](docs/theory/22-kanji-mode.md) and the demo in [examples/encode/kanji](examples/encode/kanji/main.go).
+
 ## Decoding QR codes
 
 `qrgen.DecodeBytes` reads PNG, JPEG, or GIF bytes back into the original text:
@@ -292,7 +302,7 @@ Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: �
 
 In scope as of v0.2.0:
 
-- Encoding modes: numeric, alphanumeric, byte (UTF-8 passthrough), with DP-optimal mixed-mode segmentation (as of v0.6) that splits a payload across modes to minimise symbol size.
+- Encoding modes: numeric, alphanumeric, byte (UTF-8 passthrough), and Kanji (JIS X 0208, as of v0.11), with DP-optimal mixed-mode segmentation (as of v0.6) that splits a payload across modes to minimise symbol size.
 - Versions: 1–40.
 - Error-correction levels: L, M, Q, H.
 - PNG output (grayscale or RGBA, depending on colour options), SVG output (scalable vector, as of v0.5), and terminal output (Unicode half-block or ASCII text, as of v0.8).
@@ -302,14 +312,14 @@ In scope as of v0.2.0:
 - Image decoding (PNG / JPEG / GIF / `image.Image`) with binarisation, finder detection, perspective transform, and alignment refinement.
 - Matrix decoding from `[][]bool` for callers that already have a clean grid.
 
-Still out of scope (kept open as roadmap items): Kanji mode, Micro QR, logo embedding, JPEG/PDF renderers, arbitrary-angle decoding in the 30..90 degree band.
+Still out of scope (kept open as roadmap items): Micro QR, logo embedding, JPEG/PDF renderers, arbitrary-angle decoding in the 30..90 degree band.
 
 ## Limitations
 
 The library covers the encoder and the decoder end-to-end as of v0.2.0; the following are known not-yet-supported behaviours and intentional non-goals:
 
 - **ECI limited to UTF-8 and Latin-1.** `WithECI` (v0.9) declares a byte-mode character set with an explicit ECI header, but only `ECIUTF8` and `ECILatin1` are supported, since they are the only charsets transcodable with the standard library; other code pages such as Shift-JIS would need an external dependency. Without `WithECI` the encoder emits, and the decoder reads, byte mode as UTF-8 — a deliberate deviation from the spec's ISO-8859-1 default that matches real-world scanners.
-- **No Kanji mode.** Japanese strings fall through to byte mode on encode and decode, and pay roughly 4× the bits per character compared to native Kanji encoding.
+- **Kanji is JIS X 0208 only.** Kanji mode (v0.11) encodes the JIS X 0208 character set at 13 bits per character, automatically and mixed with the other modes; characters outside JIS X 0208 (JIS X 0212, most emoji) stay in byte mode. The density gain over UTF-8 byte mode is about 1.8x (13 versus 24 bits per BMP kanji), not the 4x an earlier version of this note claimed.
 - **No Micro QR or rMQR.** Only the standard 40-version family is supported.
 - **Structured-append is opt-in and PNG-only.** `EncodeStructuredAppend` (v0.10) splits a long message across 2..16 linked symbols and `DecodeStructuredAppend` reassembles them, but the encoder returns PNG bytes only (no SVG or terminal variant yet), takes an explicit part count rather than auto-sizing, and does not combine with `WithECI`. A single `Encode` still caps at one symbol (V40 ~2,953 bytes in byte mode at EC-L).
 - **No logo embedding.** Centred logos with automatic EC compensation are a roadmap item.
@@ -322,7 +332,7 @@ The library covers the encoder and the decoder end-to-end as of v0.2.0; the foll
 Candidates for future minor releases (post-v0.2.0):
 
 - **Additional renderers:** JPEG, PDF. (SVG shipped in v0.5; terminal/ASCII in v0.8.)
-- **Encoding completeness:** Kanji mode. (DP-optimal mixed-mode segmentation shipped in v0.6; ECI segments in v0.9.)
+- **Encoding completeness:** complete — the numeric, alphanumeric, byte, and Kanji data modes plus ECI. (Mixed-mode segmentation shipped in v0.6, ECI in v0.9, Kanji in v0.11.)
 - **More payload builders:** calendar event (VEVENT), crypto/EPC payment, MeCard. (Wi-Fi, vCard, mailto, tel, SMS, and geo shipped in v0.7.)
 - **Logo embedding:** centred logo with automatic EC-level bump for the occluded area.
 - **Micro QR & rMQR:** smaller form factors for short payloads.

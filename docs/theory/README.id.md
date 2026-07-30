@@ -55,6 +55,10 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 21. [Structured Append](21-structured-append.id.md) — memecah pesan ke maksimal 16 simbol tertaut dan menyatukannya: structured-append header (mode `0011` plus sequence indicator posisi/count dan parity byte bersama), cap 16-simbol, parity XOR atas pesan asli, penempatan header sebelum ECI, serta split batas-rune dengan reassembly terurut.
 
+### Kelengkapan encoding (v0.11.0)
+
+22. [Kanji Mode](22-kanji-mode.id.md) — mode data keempat: meng-encode karakter JIS X 0208 sebagai nilai 13-bit di bawah mode indicator `1000` (lebar count 8/10/12), derivasi Shift-JIS, tabel yang di-generate + di-commit yang menjaga runtime zero-dependency, bagaimana Kanji bergabung ke DP segmenter, dan densitas jujur ~1,8x versus byte mode.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -95,5 +99,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 19-terminal-rendering.id.md            | `qrgen/render_terminal.go` (direncanakan, TR3) |
 | 20-eci-segments.id.md                  | `qrgen/eci.go` (direncanakan, ECI3) |
 | 21-structured-append.id.md             | `qrgen/structured_append.go` (direncanakan, SA3) |
+| 22-kanji-mode.id.md                    | `qrgen/kanji.go` (direncanakan, K3) |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.

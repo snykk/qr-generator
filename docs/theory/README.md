@@ -53,6 +53,10 @@ This folder contains the literature review and theoretical foundation for the `q
 
 21. [Structured Append](21-structured-append.md) — splitting a message across up to 16 linked symbols and reassembling them: the structured-append header (mode `0011` plus the position/count sequence indicator and the shared parity byte), the 16-symbol cap, the XOR parity over the original message, header placement before ECI, and the rune-boundary split with ordered reassembly.
 
+### Encoding completeness (v0.11.0)
+
+22. [Kanji Mode](22-kanji-mode.md) — the fourth data mode: encoding JIS X 0208 characters as 13-bit values under mode indicator `1000` (8/10/12 count widths), the Shift-JIS derivation, the generated committed table that keeps the runtime zero-dependency, how Kanji joins the DP segmenter, and the honest ~1.8x density versus byte mode.
+
 ## Primary references
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* The normative source.
@@ -93,5 +97,6 @@ Additional references appear at the end of each document.
 | 19-terminal-rendering.md            | `qrgen/render_terminal.go` (planned, TR3) |
 | 20-eci-segments.md                  | `qrgen/eci.go` (planned, ECI3) |
 | 21-structured-append.md             | `qrgen/structured_append.go` (planned, SA3) |
+| 22-kanji-mode.md                    | `qrgen/kanji.go` (planned, K3) |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.
