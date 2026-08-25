@@ -1,0 +1,82 @@
+# Release automation. When a vX.Y.Z tag is pushed, this workflow titles the
+# GitHub Release with the annotated tag's subject line (e.g. "QR Kanji mode
+# release") and fills the body from the matching CHANGELOG.md section, so a
+# plain `git push --follow-tags` is enough to publish a release. It can also be
+# run manually (workflow_dispatch) for an existing tag, e.g. to backfill a
+# release for a tag created before this workflow existed.
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish a release for (e.g. v0.11.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: create GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: prepare release metadata
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ inputs.tag }}"
+          else
+            tag="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+          # Title: the annotated tag's subject line, matching how this repo's
+          # releases are named (not the bare version). Falls back to the tag
+          # name for a lightweight tag with no message.
+          title="$(git for-each-ref "refs/tags/${tag}" --format='%(contents:subject)')"
+          [ -z "$title" ] && title="$tag"
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+
+          # Body: the CHANGELOG.md block for this version. Headers are
+          # "## [X.Y.Z] - date" with no leading v, so strip the v; stop at the
+          # next "## " header.
+          version="${tag#v}"
+          awk -v ver="$version" '
+            BEGIN { inside = 0 }
+            /^## / {
+              if (inside) exit
+              if ($0 ~ ("^## \\[?" ver "\\]")) { inside = 1; next }
+            }
+            inside { print }
+          ' CHANGELOG.md > release-body.md
+
+          if [ ! -s release-body.md ]; then
+            echo "::warning::no CHANGELOG.md section for $version; falling back to a git-log body"
+            git log --format='- %s' \
+              "$(git describe --tags --abbrev=0 "${tag}^" 2>/dev/null)".."${tag}" \
+              > release-body.md 2>/dev/null || true
+          fi
+
+          echo "----- release title -----"
+          echo "$title"
+          echo "----- release body preview -----"
+          head -40 release-body.md
+          echo "---------------------------------"
+
+      - name: create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.title }}
+          body_path: release-body.md
+          draft: false
+          prerelease: ${{ contains(steps.meta.outputs.tag, '-') }}
