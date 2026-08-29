@@ -10,6 +10,7 @@ package qrgen
 
 import (
 	"bytes"
+	"image/color"
 	"image/png"
 	"strings"
 	"testing"
@@ -71,6 +72,9 @@ func TestRoundTripWithThirdPartyDecoder(t *testing.T) {
 		// characters our 13-bit encoding produces, mixed with ASCII/numeric.
 		{"kanji", "日本語のテスト", []Option{WithECLevel(ECLevelM)}},
 		{"kanji mixed", "QRコード 2026 世界", nil},
+		// Logo embedding (v0.12): a centred logo occludes modules that error
+		// correction must recover; an independent decoder must still read it.
+		{"logo", "https://github.com/snykk/qr-generator", []Option{WithLogo(Logo{Image: solidLogo(96, color.RGBA{0xC0, 0x10, 0x10, 0xFF})})}},
 	}
 
 	runThirdPartyRoundTrip(t, cases)

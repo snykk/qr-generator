@@ -9,10 +9,48 @@
 package qrgen
 
 import (
+	"bytes"
+	"encoding/base64"
 	"image"
 	"image/color"
 	"image/draw"
+	"image/png"
 )
+
+// logoScaleFit returns the logo's width, height, and background-pad margin, all
+// in the same unit as box (the logo bounding-box side = reference width times
+// the scale), fitting the logo inside a box-by-box square while preserving its
+// aspect ratio. Shared by the PNG and SVG paths so both lay the logo out the
+// same way.
+func logoScaleFit(lg *Logo, box float64) (lw, lh, pad float64) {
+	sb := lg.Image.Bounds()
+	sw, sh := float64(sb.Dx()), float64(sb.Dy())
+	lw, lh = box, box
+	switch {
+	case sw > sh:
+		lh = box * sh / sw
+	case sh > sw:
+		lw = box * sw / sh
+	}
+	padFrac := lg.Padding
+	if padFrac == 0 {
+		padFrac = defaultLogoPadding
+	}
+	if padFrac < 0 {
+		padFrac = 0
+	}
+	return lw, lh, box * padFrac
+}
+
+// logoDataURI encodes the logo as a base64 PNG data URI for embedding in an SVG
+// <image>, keeping the document a single self-contained file.
+func logoDataURI(img image.Image) (string, error) {
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return "", err
+	}
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+}
 
 // Logo configures a centred logo overlaid on the rendered symbol via [WithLogo].
 // Only Image is required; the zero value of each other field selects a safe
@@ -43,39 +81,22 @@ func drawLogo(dst *image.RGBA, lg *Logo, side int) {
 	if scale <= 0 {
 		scale = defaultLogoScale
 	}
-	box := int(float64(side) * scale)
+	box := float64(side) * scale
 	if box < 1 {
 		return
 	}
-	sb := lg.Image.Bounds()
-	sw, sh := sb.Dx(), sb.Dy()
-	if sw <= 0 || sh <= 0 {
+	if b := lg.Image.Bounds(); b.Dx() <= 0 || b.Dy() <= 0 {
 		return
 	}
 
-	// Fit the logo inside a box-by-box square, preserving aspect ratio.
-	lw, lh := box, box
-	switch {
-	case sw > sh:
-		lh = box * sh / sw
-	case sh > sw:
-		lw = box * sw / sh
-	}
+	lwF, lhF, padF := logoScaleFit(lg, box)
+	lw, lh, pad := int(lwF), int(lhF), int(padF)
 	if lw < 1 {
 		lw = 1
 	}
 	if lh < 1 {
 		lh = 1
 	}
-
-	padFrac := lg.Padding
-	if padFrac == 0 {
-		padFrac = defaultLogoPadding
-	}
-	if padFrac < 0 {
-		padFrac = 0
-	}
-	pad := int(float64(box) * padFrac)
 
 	bg := lg.Background
 	if bg == nil {

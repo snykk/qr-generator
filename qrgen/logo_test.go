@@ -10,9 +10,11 @@ package qrgen
 
 import (
 	"bytes"
+	"encoding/xml"
 	"image"
 	"image/color"
 	"image/draw"
+	"strings"
 	"testing"
 )
 
@@ -103,5 +105,23 @@ func TestLogoChangesOutput(t *testing.T) {
 	}
 	if got, err := DecodeBytes(plain); err != nil || got != text {
 		t.Errorf("plain round-trip: got %q, err %v", got, err)
+	}
+}
+
+// EncodeSVG embeds the logo as a self-contained base64 data-URI <image> and
+// stays well-formed XML.
+func TestLogoSVG(t *testing.T) {
+	data, err := EncodeSVG("hello logo", WithLogo(Logo{Image: solidLogo(64, color.RGBA{0, 0x80, 0, 0xFF})}))
+	if err != nil {
+		t.Fatalf("EncodeSVG with logo: %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "<image") || !strings.Contains(s, "data:image/png;base64,") {
+		t.Error("SVG is missing the logo <image> data URI")
+	}
+	if err := xml.Unmarshal(data, new(struct {
+		XMLName xml.Name `xml:"svg"`
+	})); err != nil {
+		t.Errorf("SVG is not well-formed: %v", err)
 	}
 }
