@@ -40,9 +40,17 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
           # Title: the annotated tag's subject line, matching how this repo's
-          # releases are named (not the bare version). Falls back to the tag
-          # name for a lightweight tag with no message.
-          title="$(git for-each-ref "refs/tags/${tag}" --format='%(contents:subject)')"
+          # releases are named (not the bare version). The tag ref that
+          # actions/checkout leaves behind can be peeled to its commit, which
+          # would read the merge commit's subject instead, so re-fetch the
+          # annotated tag object and read its subject only when the ref really is
+          # an annotated tag; otherwise fall back to the tag name (never a commit
+          # subject).
+          git fetch --force origin "refs/tags/${tag}:refs/tags/${tag}" >/dev/null 2>&1 || true
+          title=""
+          if [ "$(git cat-file -t "${tag}" 2>/dev/null)" = "tag" ]; then
+            title="$(git for-each-ref "refs/tags/${tag}" --format='%(contents:subject)')"
+          fi
           [ -z "$title" ] && title="$tag"
           echo "title=$title" >> "$GITHUB_OUTPUT"
 
