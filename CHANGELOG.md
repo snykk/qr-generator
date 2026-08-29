@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-08-29
+
+This release adds **logo embedding**, overlaying a centred logo on a QR symbol while keeping it scannable. It is the first output-styling feature after the encoder's mode set was completed in v0.11; the encoding and the decoder are untouched, and the symbol still reads because error correction recovers the modules the logo covers.
+
+### Added
+
+- `WithLogo(Logo) Option` and the `Logo` config (`Image`, `Scale`, `Padding`, `Background`). It applies to `Encode` (PNG) and `EncodeSVG`; `EncodeTerminal` and `Matrix` ignore it. The default logo covers 20% of the symbol width on a white background pad.
+- Requesting a logo raises the error-correction level to at least H (order-independently, in `resolveOptions`), so Reed-Solomon recovers the occluded modules. The default 20%-width logo occludes about 4% of the modules, well inside the H budget.
+- PNG: the logo is composited onto the rendered image (`qrgen/logo.go`) over a background pad, scaled with an in-tree box-filter resampler so the runtime keeps zero dependencies (the standard library has no image scaler and `golang.org/x/image` is avoided).
+- SVG: the logo is embedded as a centred base64 data-URI `<image>` over a background rect, keeping the document self-contained; the PNG and SVG share the `logoScaleFit` layout.
+- New reference doc `docs/theory/23-logo-embedding.md` (English plus Indonesian), plan doc `docs/plan-logo-embedding.md` (plus Indonesian) with milestones L1..L5, and a runnable example `examples/encode/logo`.
+
+### Validated
+
+- `TestLogoRoundTrip` encodes text with a default logo and confirms `DecodeBytes` still returns the original, and `TestRoundTripWithThirdPartyDecoder` gained a logo case that gozxing reads exactly — proving the occlusion is recoverable on an independent decoder, not just ours.
+- `TestLogoAutoECBump` checks the order-independent EC-H bump, `TestResample` the scaler, and `TestLogoSVG` that the SVG is well-formed XML carrying the data URI. A guard test plus the intact golden fixtures keep the no-logo output byte-for-byte unchanged. gofmt-clean, `go test -race ./...` clean.
+
 ## [0.11.0] - 2026-07-07
 
 This release adds **Kanji mode**, the fourth and last data mode defined by ISO/IEC 18004, completing the encoder's mode set. Japanese (JIS X 0208) characters that used to fall through to byte mode are now encoded at the spec's native 13 bits each. It is automatic: the segmenter chooses Kanji mode wherever it is cheaper, and no existing non-Japanese output changes.
@@ -298,7 +315,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/snykk/qr-generator/releases/tag/v0.12.0
 [0.11.0]: https://github.com/snykk/qr-generator/releases/tag/v0.11.0
 [0.10.0]: https://github.com/snykk/qr-generator/releases/tag/v0.10.0
 [0.9.0]: https://github.com/snykk/qr-generator/releases/tag/v0.9.0
