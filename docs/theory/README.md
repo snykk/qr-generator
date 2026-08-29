@@ -57,6 +57,10 @@ This folder contains the literature review and theoretical foundation for the `q
 
 22. [Kanji Mode](22-kanji-mode.md) — the fourth data mode: encoding JIS X 0208 characters as 13-bit values under mode indicator `1000` (8/10/12 count widths), the Shift-JIS derivation, the generated committed table that keeps the runtime zero-dependency, how Kanji joins the DP segmenter, and the honest ~1.8x density versus byte mode.
 
+### Output styling (v0.12.0)
+
+23. [Logo Embedding](23-logo-embedding.md) — overlaying a centred logo while staying scannable: why Reed–Solomon recovery and block interleaving absorb the occlusion, the safe default size, the automatic EC-H bump, the background pad, PNG compositing versus SVG data-URI embedding, and the zero-dependency resampler.
+
 ## Primary references
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* The normative source.
@@ -98,5 +102,6 @@ Additional references appear at the end of each document.
 | 20-eci-segments.md                  | `qrgen/eci.go` (planned, ECI3) |
 | 21-structured-append.md             | `qrgen/structured_append.go` (planned, SA3) |
 | 22-kanji-mode.md                    | `qrgen/kanji.go` (planned, K3) |
+| 23-logo-embedding.md                | `qrgen/logo.go` (planned, L3) |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.
