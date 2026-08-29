@@ -87,8 +87,61 @@ func renderSVG(m *matrix, opts renderOptions) ([]byte, error) {
 		b.WriteString("/>\n")
 	}
 
+	if opts.logo != nil && opts.logo.Image != nil {
+		if err := writeSVGLogo(&b, opts.logo, dim); err != nil {
+			return nil, fmt.Errorf("qrgen: renderSVG: logo: %w", err)
+		}
+	}
+
 	b.WriteString("</svg>\n")
 	return []byte(b.String()), nil
+}
+
+// writeSVGLogo appends the logo's background pad and a base64 data-URI <image>,
+// centred in the dim-by-dim module-unit viewBox. The layout mirrors the PNG
+// path (docs/theory/23-logo-embedding.md) via the shared logoScaleFit.
+func writeSVGLogo(b *strings.Builder, lg *Logo, dim int) error {
+	scale := lg.Scale
+	if scale <= 0 {
+		scale = defaultLogoScale
+	}
+	box := float64(dim) * scale
+	if box <= 0 {
+		return nil
+	}
+	if bnd := lg.Image.Bounds(); bnd.Dx() <= 0 || bnd.Dy() <= 0 {
+		return nil
+	}
+	lw, lh, pad := logoScaleFit(lg, box)
+	c := float64(dim) / 2
+	lx, ly := c-lw/2, c-lh/2
+
+	bg := lg.Background
+	if bg == nil {
+		bg = color.White
+	}
+	bgHex, bgOpacity := colorToHex(bg)
+
+	uri, err := logoDataURI(lg.Image)
+	if err != nil {
+		return err
+	}
+
+	// Background pad, hugging the logo plus its margin.
+	fmt.Fprintf(b, `  <rect x="%s" y="%s" width="%s" height="%s" fill="%s"`,
+		svgNum(lx-pad), svgNum(ly-pad), svgNum(lw+2*pad), svgNum(lh+2*pad), bgHex)
+	writeOpacity(b, "fill-opacity", bgOpacity)
+	b.WriteString("/>\n")
+
+	// The logo image, already sized to its aspect ratio.
+	fmt.Fprintf(b, `  <image x="%s" y="%s" width="%s" height="%s" preserveAspectRatio="none" href="%s"/>`+"\n",
+		svgNum(lx), svgNum(ly), svgNum(lw), svgNum(lh), uri)
+	return nil
+}
+
+// svgNum formats a coordinate as the shortest decimal without an exponent.
+func svgNum(f float64) string {
+	return strconv.FormatFloat(f, 'f', -1, 64)
 }
 
 // writeOpacity emits ` name="value"` only when opacity is below full (1.0), so

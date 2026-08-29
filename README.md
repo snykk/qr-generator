@@ -176,6 +176,17 @@ data, err := qrgen.Encode("日本語のテスト 2026")
 
 Only JIS X 0208 is covered (the character set QR Kanji mode targets); characters outside it, such as many emoji, stay in byte mode. The Unicode-to-Shift-JIS mapping is generated and committed, so the runtime keeps its zero dependencies. See [docs/theory/22-kanji-mode.md](docs/theory/22-kanji-mode.md) and the demo in [examples/encode/kanji](examples/encode/kanji/main.go).
 
+## Logo
+
+Overlay a centred logo with `WithLogo`, on both the PNG and SVG outputs. Requesting a logo raises the error-correction level to at least H, so the modules the logo covers are recovered by error correction and the code still scans:
+
+```go
+data, err := qrgen.Encode("https://example.com", qrgen.WithLogo(qrgen.Logo{Image: logo}))
+svg, err := qrgen.EncodeSVG("https://example.com", qrgen.WithLogo(qrgen.Logo{Image: logo}))
+```
+
+The logo is centred, clear of the corner finder patterns, scaled to a fraction of the symbol width (`Logo.Scale`, default 0.2), and drawn on a background pad (`Logo.Background`, `Logo.Padding`). Keep it modest — much past a quarter of the width and even EC-H cannot recover it. The PNG bakes the logo into the raster (with an in-tree resampler, so still zero dependencies); the SVG embeds it as a self-contained base64 data URI. See [docs/theory/23-logo-embedding.md](docs/theory/23-logo-embedding.md) and the demo in [examples/encode/logo](examples/encode/logo/main.go).
+
 ## Decoding QR codes
 
 `qrgen.DecodeBytes` reads PNG, JPEG, or GIF bytes back into the original text:
@@ -259,6 +270,7 @@ Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: �
 | `WithTerminalInvert(bool)` | Invert `EncodeTerminal` polarity for dark-background terminals. |
 | `WithTerminalASCII(bool)` | Render `EncodeTerminal` with a double-width ASCII fallback instead of half-block glyphs. |
 | `WithECI(eci)` | Declare a byte-mode character set via an ECI header. `ECIUTF8` (26), `ECILatin1` (3); default none (implicit UTF-8). |
+| `WithLogo(logo)` | Overlay a centred logo on the PNG and SVG output. `Logo{Image, Scale, Padding, Background}`; forces EC ≥ H. |
 
 **Payload builders** (return a `string` to pass to `Encode`/`EncodeSVG`/`Matrix`):
 
@@ -309,10 +321,11 @@ In scope as of v0.2.0:
 - Payload builders for Wi-Fi, vCard, mailto, tel, SMS, and geo (as of v0.7).
 - Optional ECI character-set declaration for byte mode (`ECIUTF8`, `ECILatin1`; as of v0.9).
 - Structured append: split a long message across up to 16 linked symbols and reassemble them (as of v0.10).
+- Centred logo overlay on PNG and SVG with an automatic EC-H bump (as of v0.12).
 - Image decoding (PNG / JPEG / GIF / `image.Image`) with binarisation, finder detection, perspective transform, and alignment refinement.
 - Matrix decoding from `[][]bool` for callers that already have a clean grid.
 
-Still out of scope (kept open as roadmap items): Micro QR, logo embedding, JPEG/PDF renderers, arbitrary-angle decoding in the 30..90 degree band.
+Still out of scope (kept open as roadmap items): Micro QR, JPEG/PDF renderers, arbitrary-angle decoding in the 30..90 degree band.
 
 ## Limitations
 
@@ -322,7 +335,7 @@ The library covers the encoder and the decoder end-to-end as of v0.2.0; the foll
 - **Kanji is JIS X 0208 only.** Kanji mode (v0.11) encodes the JIS X 0208 character set at 13 bits per character, automatically and mixed with the other modes; characters outside JIS X 0208 (JIS X 0212, most emoji) stay in byte mode. The density gain over UTF-8 byte mode is about 1.8x (13 versus 24 bits per BMP kanji), not the 4x an earlier version of this note claimed.
 - **No Micro QR or rMQR.** Only the standard 40-version family is supported.
 - **Structured-append is opt-in and PNG-only.** `EncodeStructuredAppend` (v0.10) splits a long message across 2..16 linked symbols and `DecodeStructuredAppend` reassembles them, but the encoder returns PNG bytes only (no SVG or terminal variant yet), takes an explicit part count rather than auto-sizing, and does not combine with `WithECI`. A single `Encode` still caps at one symbol (V40 ~2,953 bytes in byte mode at EC-L).
-- **No logo embedding.** Centred logos with automatic EC compensation are a roadmap item.
+- **Logo size is the caller's responsibility.** `WithLogo` (v0.12) forces EC-H and defaults to a safe ~20%-width logo, but it does not stop an oversized logo from exceeding the recovery budget; keep the logo modest and clear of the corner finder patterns.
 - **Limited arbitrary-angle decoding.** v0.4 added rotation handling for the axis-aligned cases (90 / 180 / 270 degrees) plus soft tilts up to about 30 degrees off-axis, but tilts in the 30..90 degree band defeat the 1:1:3:1:1 finder scanner's ±50% module-width tolerance and a wider scanner (contour-based or fan-of-orientations) is needed to close the remaining gap.
 - **Adaptive thresholding only on the quiet zone.** v0.3 added a Sauvola fallback that recovers QR codes whose quiet zone has been darkened by uneven lighting or soft shadows, but mutations that compress the QR's own ink-paper contrast (very dim photos, heavy gradient across the symbol itself) still defeat both Otsu and Sauvola at default parameters.
 - **Rule-4 mask penalty.** The dark-ratio bucket boundary uses the Thonky-style floor formula; other implementations use a ceiling-style formula and may pick a different mask for the same input. Output remains spec-compliant either way.
@@ -334,7 +347,7 @@ Candidates for future minor releases (post-v0.2.0):
 - **Additional renderers:** JPEG, PDF. (SVG shipped in v0.5; terminal/ASCII in v0.8.)
 - **Encoding completeness:** complete — the numeric, alphanumeric, byte, and Kanji data modes plus ECI. (Mixed-mode segmentation shipped in v0.6, ECI in v0.9, Kanji in v0.11.)
 - **More payload builders:** calendar event (VEVENT), crypto/EPC payment, MeCard. (Wi-Fi, vCard, mailto, tel, SMS, and geo shipped in v0.7.)
-- **Logo embedding:** centred logo with automatic EC-level bump for the occluded area.
+- **Logo embedding:** shipped in v0.12 — a centred logo with an automatic EC-H bump on PNG and SVG.
 - **Micro QR & rMQR:** smaller form factors for short payloads.
 - **Structured-append extensions:** auto part-count, SVG/terminal output, and ECI combination. (Core PNG structured-append shipped in v0.10.)
 - **Decoder robustness:** arbitrary-angle decoding for the 30..90 degree band via a contour-based or fan-of-orientations finder detector, tunable Sauvola parameters (k, window) plus morphological cleanup so heavier within-symbol contrast loss can also be recovered, multi-symbol detection.
