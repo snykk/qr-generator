@@ -15,7 +15,7 @@ Dua fakta struktural membuatnya bekerja lebih baik dari sekadar persentase menta
 
 ## 2. Ukuran dan bump EC-H otomatis
 
-Ukuran aman adalah pertukaran antara tampil bagus dan tetap di dalam budget recovery. Default di sini menutupi sekitar **20% lebar simbol** (kira-kira 4% luasnya secara kuadrat, tetapi bounding box logo menutup lebih dekat ke 20% modul di sepanjang pita tengah), yang nyaman di dalam EC-H.
+Ukuran aman adalah pertukaran antara tampil bagus dan tetap di dalam budget recovery. Default di sini menutupi sekitar **20% lebar simbol**, jadi kira-kira 4% modul secara luas (kuadrat `0,2 x 0,2`) — margin lebar bahkan di dalam EC level terendah. Default-nya sengaja konservatif: EC-H toh dipaksa, jadi background pad, logo dunia-nyata yang lebih ramai, dan pemindaian yang tak sempurna semua tetap nyaman di dalam budget.
 
 Karena budget itu hanya ada di EC level tinggi, meminta logo **memaksa error-correction level setidaknya H**. Ini terjadi di resolusi option, setelah semua option diterapkan, jadi order-independent dan pemanggil yang eksplisit meminta H (atau sudah di sana) tak terpengaruh. Pemanggil tetap bisa membuat logo terlalu besar — lewat sekitar seperempat lebar, simbol mulai gagal — jadi plafon ukuran didokumentasikan alih-alih dipaksa diam-diam; default-nya sengaja konservatif.
 

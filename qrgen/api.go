@@ -41,6 +41,7 @@ func Encode(text string, opts ...Option) ([]byte, error) {
 		quietZone:  o.quietZone,
 		foreground: o.foreground,
 		background: o.background,
+		logo:       o.logo,
 	})
 }
 

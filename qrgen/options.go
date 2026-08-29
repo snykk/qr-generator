@@ -33,6 +33,8 @@ type options struct {
 	terminalASCII  bool // EncodeTerminal: ASCII double-width fallback instead of half-block
 
 	eci ECI // ECINone = no ECI header (byte mode treated as UTF-8)
+
+	logo *Logo // nil = no logo overlay
 }
 
 // defaultOptions returns the spec-conformant defaults.
@@ -56,6 +58,12 @@ func resolveOptions(opts ...Option) *options {
 		if opt != nil {
 			opt(&o)
 		}
+	}
+	// A logo occludes modules the decoder recovers through error correction, so
+	// force at least EC-H (the ~30% recovery level) when one is present. Applied
+	// after all options so it is order-independent.
+	if o.logo != nil && o.ec < ECLevelH {
+		o.ec = ECLevelH
 	}
 	return &o
 }
@@ -172,4 +180,14 @@ func WithTerminalASCII(ascii bool) Option {
 // docs/theory/20-eci-segments.md.
 func WithECI(eci ECI) Option {
 	return func(o *options) { o.eci = eci }
+}
+
+// WithLogo overlays a centred logo on the rendered symbol. It applies to
+// [Encode] (PNG) and [EncodeSVG]; [EncodeTerminal] and [Matrix] ignore it.
+// Requesting a logo raises the error-correction level to at least H so
+// Reed-Solomon recovers the modules the logo covers. Keep the logo modest
+// (the default covers 20% of the symbol width) and clear of the corners so the
+// finder patterns stay intact. See docs/theory/23-logo-embedding.md.
+func WithLogo(logo Logo) Option {
+	return func(o *options) { o.logo = &logo }
 }

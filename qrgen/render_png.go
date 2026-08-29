@@ -29,6 +29,7 @@ type renderOptions struct {
 	quietZone  int         // modules of background around the symbol
 	foreground color.Color // dark module colour (nil = black)
 	background color.Color // light module colour (nil = white)
+	logo       *Logo       // nil = no centred logo overlay (PNG and SVG)
 }
 
 // defaultRenderOptions returns the spec-conformant defaults: 8 px modules, a
@@ -87,10 +88,16 @@ func renderPNG(m *matrix, opts renderOptions) ([]byte, error) {
 	}
 
 	var img image.Image
-	if opts.isMonochromeDefault() {
+	if opts.logo == nil && opts.isMonochromeDefault() {
 		img = renderGray(m, opts, side)
 	} else {
-		img = renderRGBA(m, opts, side)
+		// A logo needs an RGBA canvas to composite onto, even for the otherwise
+		// monochrome default.
+		rgba := renderRGBA(m, opts, side)
+		if opts.logo != nil {
+			drawLogo(rgba, opts.logo, side)
+		}
+		img = rgba
 	}
 
 	var buf bytes.Buffer

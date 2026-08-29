@@ -15,7 +15,7 @@ Two structural facts make it work better than the raw percentage suggests:
 
 ## 2. Size and the automatic EC-H bump
 
-The safe size is a trade between looking good and staying inside the recovery budget. The default here covers about **20% of the symbol's width** (roughly 4% of its area by the square, but the logo's bounding box occludes closer to 20% of the modules along the centre band), which is comfortably inside EC-H.
+The safe size is a trade between looking good and staying inside the recovery budget. The default here covers about **20% of the symbol's width**, so roughly 4% of the modules by area (a `0.2 x 0.2` square) — a wide margin inside even the lowest EC level. The default is deliberately conservative: EC-H is forced anyway, so the background pad, a busier real-world logo, and imperfect scans all stay comfortably within budget.
 
 Because the budget only exists at a high EC level, requesting a logo **forces the error-correction level to at least H**. This happens in option resolution, after all options are applied, so it is order-independent and a caller who explicitly asks for H (or is already there) is unaffected. A caller can still make the logo too large — past roughly a quarter of the width the symbol starts to fail — so the size ceiling is documented rather than silently enforced; the default is deliberately conservative.
 
