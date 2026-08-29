@@ -51,23 +51,23 @@ Milestones land sequentially. **Checkpoint A** (after L3) gives a scannable logo
 
 ### L1 — Plan Doc `(S)`
 
-- [ ] `docs/plan-logo-embedding.md` and its Indonesian counterpart covering vision, principles, scope, milestones L1..L5, file-layout delta, risks, references, and open questions.
+- [x] `docs/plan-logo-embedding.md` and its Indonesian counterpart covering vision, principles, scope, milestones L1..L5, file-layout delta, risks, references, and open questions.
 
 ### L2 — Logo Embedding Reference Doc `(S)`
 
 Goal: document the recovery-budget reasoning and the compositing approach before code.
 
-- [ ] `docs/theory/23-logo-embedding.md` — why a centred logo scans (Reed–Solomon recovery, the ~30% budget at EC-H, why the centre avoids the finder and timing patterns); the safe default size and why; the automatic EC-H bump; the background pad; PNG compositing versus SVG data-URI embedding; and the zero-dependency resampling choice. Closes with implementation pointers.
-- [ ] Indonesian counterpart `docs/theory/23-logo-embedding.id.md`.
-- [ ] Updated `docs/theory/README.md` and `.id.md`: entry 23 plus a code-mapping row pointing at `qrgen/logo.go`.
+- [x] `docs/theory/23-logo-embedding.md` — why a centred logo scans (Reed–Solomon recovery, the ~30% budget at EC-H, why the centre avoids the finder and timing patterns); the safe default size and why; the automatic EC-H bump; the background pad; PNG compositing versus SVG data-URI embedding; and the zero-dependency resampling choice. Closes with implementation pointers.
+- [x] Indonesian counterpart `docs/theory/23-logo-embedding.id.md`.
+- [x] Updated `docs/theory/README.md` and `.id.md`: entry 23 plus a code-mapping row pointing at `qrgen/logo.go`.
 
 ### L3 — WithLogo + PNG Compositing `(M)`
 
 Goal: a scannable logo on the PNG output.
 
-- [ ] `qrgen/logo.go` with the `Logo` struct, `WithLogo`, the resampler, and the PNG compositing (background pad + scaled logo over the image). `renderOptions` gains a `logo` field; `Encode` passes it through.
-- [ ] `resolveOptions` raises EC to H when a logo is present and the level is lower.
-- [ ] Tests: the decode-still-works round-trip through our decoder at the default size; a too-large logo still decodes at a documented smaller default or is flagged; the resampler downscales and upscales correctly; a no-logo encode is byte-for-byte unchanged.
+- [x] `qrgen/logo.go` with the `Logo` struct, `WithLogo`, the resampler, and the PNG compositing (background pad + scaled logo over the image). `renderOptions` gains a `logo` field; `Encode` passes it through.
+- [x] `resolveOptions` raises EC to H when a logo is present and the level is lower.
+- [x] Tests: the decode-still-works round-trip through our decoder at the default size; a too-large logo still decodes at a documented smaller default or is flagged; the resampler downscales and upscales correctly; a no-logo encode is byte-for-byte unchanged.
 
 ### Checkpoint A — a default-size logo composites onto the PNG and the symbol still decodes.
 
@@ -75,17 +75,17 @@ Goal: a scannable logo on the PNG output.
 
 Goal: the SVG path and independent validation.
 
-- [ ] `EncodeSVG` embeds the logo as a centred `<image>` (base64 data URI) over a background rect; the SVG stays self-contained and well-formed.
-- [ ] `TestRoundTripWithThirdPartyDecoder` gains a with-logo case (PNG); gozxing reads it, confirming the logo does not defeat an independent decoder.
-- [ ] Runnable example `examples/encode/logo/main.go` writing a logo QR to PNG and SVG.
+- [x] `EncodeSVG` embeds the logo as a centred `<image>` (base64 data URI) over a background rect; the SVG stays self-contained and well-formed.
+- [x] `TestRoundTripWithThirdPartyDecoder` gains a with-logo case (PNG); gozxing reads it, confirming the logo does not defeat an independent decoder.
+- [x] Runnable example `examples/encode/logo/main.go` writing a logo QR to PNG and SVG.
 
 ### L5 — Polish & Release `(S)`
 
 Goal: cut `v0.12.0`.
 
-- [ ] README: a logo usage section; a `WithLogo` row and the `Logo` type in the API summary; the Roadmap "Logo embedding" item marked done; Scope updated.
-- [ ] `CHANGELOG.md` `v0.12.0` entry plus compare/tag anchors written; left unstaged in the working tree for the maintainer (mirroring v0.6 through v0.11).
-- [ ] `go test -race ./...` clean, gofmt-clean.
+- [x] README: a logo usage section; a `WithLogo` row and the `Logo` type in the API summary; the Roadmap "Logo embedding" item marked done; Scope updated.
+- [x] `CHANGELOG.md` `v0.12.0` entry plus compare/tag anchors written; left unstaged in the working tree for the maintainer (mirroring v0.6 through v0.11).
+- [x] `go test -race ./...` clean, gofmt-clean.
 - [ ] Tag `v0.12.0` (left for the maintainer per the established git/release workflow; annotation recommended in the release conversation).
 
 ---

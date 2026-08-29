@@ -51,23 +51,23 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah L3) memberi logo yang bi
 
 ### L1 — Plan Doc `(S)`
 
-- [ ] `docs/plan-logo-embedding.md` dan padanan Indonesianya, mencakup visi, prinsip, cakupan, milestone L1..L5, delta tata letak file, risiko, referensi, dan pertanyaan terbuka.
+- [x] `docs/plan-logo-embedding.md` dan padanan Indonesianya, mencakup visi, prinsip, cakupan, milestone L1..L5, delta tata letak file, risiko, referensi, dan pertanyaan terbuka.
 
 ### L2 — Dokumen Referensi Logo Embedding `(S)`
 
 Tujuan: mendokumentasikan penalaran recovery-budget dan pendekatan compositing sebelum kode.
 
-- [ ] `docs/theory/23-logo-embedding.md` — kenapa logo di tengah terpindai (recovery Reed–Solomon, budget ~30% di EC-H, kenapa bagian tengah menghindari finder dan timing pattern); ukuran default aman dan alasannya; bump EC-H otomatis; background pad; compositing PNG versus penyisipan data-URI SVG; dan pilihan resampling zero-dependency. Ditutup dengan penunjuk implementasi.
-- [ ] Padanan Indonesia `docs/theory/23-logo-embedding.id.md`.
-- [ ] Memperbarui `docs/theory/README.md` dan `.id.md`: entri 23 plus baris pemetaan kode yang menunjuk ke `qrgen/logo.go`.
+- [x] `docs/theory/23-logo-embedding.md` — kenapa logo di tengah terpindai (recovery Reed–Solomon, budget ~30% di EC-H, kenapa bagian tengah menghindari finder dan timing pattern); ukuran default aman dan alasannya; bump EC-H otomatis; background pad; compositing PNG versus penyisipan data-URI SVG; dan pilihan resampling zero-dependency. Ditutup dengan penunjuk implementasi.
+- [x] Padanan Indonesia `docs/theory/23-logo-embedding.id.md`.
+- [x] Memperbarui `docs/theory/README.md` dan `.id.md`: entri 23 plus baris pemetaan kode yang menunjuk ke `qrgen/logo.go`.
 
 ### L3 — WithLogo + Compositing PNG `(M)`
 
 Tujuan: logo yang bisa dipindai di output PNG.
 
-- [ ] `qrgen/logo.go` dengan struct `Logo`, `WithLogo`, resampler, dan compositing PNG (background pad + logo diskala di atas image). `renderOptions` mendapat field `logo`; `Encode` mengalirkannya.
-- [ ] `resolveOptions` menaikkan EC ke H saat ada logo dan level-nya lebih rendah.
-- [ ] Test: round-trip decode-tetap-jalan lewat decoder kita pada ukuran default; logo terlalu besar tetap decode pada default lebih kecil yang didokumentasikan atau ditandai; resampler downscale dan upscale dengan benar; encode tanpa-logo byte-for-byte tak berubah.
+- [x] `qrgen/logo.go` dengan struct `Logo`, `WithLogo`, resampler, dan compositing PNG (background pad + logo diskala di atas image). `renderOptions` mendapat field `logo`; `Encode` mengalirkannya.
+- [x] `resolveOptions` menaikkan EC ke H saat ada logo dan level-nya lebih rendah.
+- [x] Test: round-trip decode-tetap-jalan lewat decoder kita pada ukuran default; logo terlalu besar tetap decode pada default lebih kecil yang didokumentasikan atau ditandai; resampler downscale dan upscale dengan benar; encode tanpa-logo byte-for-byte tak berubah.
 
 ### Checkpoint A — logo ukuran default terkomposit ke PNG dan simbol tetap decode.
 
@@ -75,17 +75,17 @@ Tujuan: logo yang bisa dipindai di output PNG.
 
 Tujuan: jalur SVG dan validasi independen.
 
-- [ ] `EncodeSVG` menyisipkan logo sebagai `<image>` di tengah (data URI base64) di atas rect background; SVG tetap self-contained dan well-formed.
-- [ ] `TestRoundTripWithThirdPartyDecoder` mendapat satu kasus with-logo (PNG); gozxing membacanya, mengonfirmasi logo tak mengalahkan decoder independen.
-- [ ] Contoh runnable `examples/encode/logo/main.go` yang menulis QR ber-logo ke PNG dan SVG.
+- [x] `EncodeSVG` menyisipkan logo sebagai `<image>` di tengah (data URI base64) di atas rect background; SVG tetap self-contained dan well-formed.
+- [x] `TestRoundTripWithThirdPartyDecoder` mendapat satu kasus with-logo (PNG); gozxing membacanya, mengonfirmasi logo tak mengalahkan decoder independen.
+- [x] Contoh runnable `examples/encode/logo/main.go` yang menulis QR ber-logo ke PNG dan SVG.
 
 ### L5 — Polish & Rilis `(S)`
 
 Tujuan: memotong `v0.12.0`.
 
-- [ ] README: bagian penggunaan logo; baris `WithLogo` dan tipe `Logo` di ringkasan API; butir Roadmap "Logo embedding" ditandai selesai; Scope diperbarui.
-- [ ] Entri `v0.12.0` di `CHANGELOG.md` plus anchor compare/tag ditulis; dibiarkan unstaged di working tree untuk maintainer (meniru v0.6 sampai v0.11).
-- [ ] `go test -race ./...` bersih, gofmt bersih.
+- [x] README: bagian penggunaan logo; baris `WithLogo` dan tipe `Logo` di ringkasan API; butir Roadmap "Logo embedding" ditandai selesai; Scope diperbarui.
+- [x] Entri `v0.12.0` di `CHANGELOG.md` plus anchor compare/tag ditulis; dibiarkan unstaged di working tree untuk maintainer (meniru v0.6 sampai v0.11).
+- [x] `go test -race ./...` bersih, gofmt bersih.
 - [ ] Tag `v0.12.0` (diserahkan ke maintainer sesuai alur git/rilis yang sudah mapan; anotasi direkomendasikan di percakapan rilis).
 
 ---
