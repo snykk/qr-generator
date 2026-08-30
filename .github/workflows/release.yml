@@ -31,6 +31,8 @@ jobs:
 
       - name: prepare release metadata
         id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             tag="${{ inputs.tag }}"
@@ -39,17 +41,24 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-          # Title: the annotated tag's subject line, matching how this repo's
-          # releases are named (not the bare version). The tag ref that
-          # actions/checkout leaves behind can be peeled to its commit, which
-          # would read the merge commit's subject instead, so re-fetch the
-          # annotated tag object and read its subject only when the ref really is
-          # an annotated tag; otherwise fall back to the tag name (never a commit
-          # subject).
-          git fetch --force origin "refs/tags/${tag}:refs/tags/${tag}" >/dev/null 2>&1 || true
+          # Title: the annotated tag's subject line (for example
+          # "QR logo embedding release") — never the bare version, and never the
+          # merge commit's subject. actions/checkout leaves the tag ref peeled to
+          # its commit, so git's %(contents:subject) reads the merge commit's
+          # message; read the annotated tag object from the GitHub API instead,
+          # which is immune to the local ref state. Fall back to git (annotated
+          # only), then to the tag name -- never a commit subject.
           title=""
-          if [ "$(git cat-file -t "${tag}" 2>/dev/null)" = "tag" ]; then
-            title="$(git for-each-ref "refs/tags/${tag}" --format='%(contents:subject)')"
+          ref_json="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" 2>/dev/null || true)"
+          if [ "$(printf '%s' "$ref_json" | jq -r '.object.type // ""' 2>/dev/null)" = "tag" ]; then
+            tag_sha="$(printf '%s' "$ref_json" | jq -r '.object.sha')"
+            title="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_sha}" --jq '.message' 2>/dev/null | head -n1)"
+          fi
+          if [ -z "$title" ]; then
+            git fetch --force origin "refs/tags/${tag}:refs/tags/${tag}" >/dev/null 2>&1 || true
+            if [ "$(git cat-file -t "${tag}" 2>/dev/null)" = "tag" ]; then
+              title="$(git for-each-ref "refs/tags/${tag}" --format='%(contents:subject)')"
+            fi
           fi
           [ -z "$title" ] && title="$tag"
           echo "title=$title" >> "$GITHUB_OUTPUT"
