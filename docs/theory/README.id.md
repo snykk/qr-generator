@@ -63,6 +63,10 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 23. [Logo Embedding](23-logo-embedding.id.md) — menaruh logo di tengah sambil tetap bisa dipindai: kenapa recovery Reed–Solomon dan interleaving block menyerap okusi, ukuran default aman, bump EC-H otomatis, background pad, compositing PNG versus penyisipan data-URI SVG, dan resampler zero-dependency.
 
+### Ketangguhan decoder (v0.13.0)
+
+24. [Deteksi Finder pada Sudut Sembarang](24-arbitrary-angle-detection.id.md) — mendekode simbol yang miring melewati pita ~30 derajat yang ditangani pemindai baris 1:1:3:1:1: kenapa rotasi tidak masalah tetapi foreshortening perspektif merusak rasio, wawasan penyarangan topologis yang bertahan pada homografi apa pun, connected-component labelling, tanda tangan finder konsentris gelap→terang→gelap 7:5:3, strategi fallback yang menjaga jalur cepat, dan validasi tilt sintetis dengan batas cakupan yang jujur.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -105,5 +109,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 21-structured-append.id.md             | `qrgen/structured_append.go` (direncanakan, SA3) |
 | 22-kanji-mode.id.md                    | `qrgen/kanji.go` (direncanakan, K3) |
 | 23-logo-embedding.id.md                | `qrgen/logo.go` (direncanakan, L3) |
+| 24-arbitrary-angle-detection.id.md     | `qrgen/decode_finder_cc.go` (direncanakan, DR3) |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.
