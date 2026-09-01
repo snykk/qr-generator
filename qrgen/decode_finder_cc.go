@@ -93,9 +93,11 @@ func (u *unionFind) union(a, b int) {
 }
 
 // labelComponents performs two-pass connected-component labelling over the
-// binarised bitmap with 4-connectivity, grouping maximal same-colour regions
-// and returning one ccStats per component. See theory doc 24 section 3.
-func labelComponents(bm *bitmap) []ccStats {
+// binarised bitmap with 4-connectivity, grouping maximal same-colour regions.
+// It returns one ccStats per component and labelOf, a per-pixel slice giving
+// each pixel's component index into that stats slice (used to collect a
+// finder ring's pixels for corner extraction). See theory doc 24 section 3.
+func labelComponents(bm *bitmap) (stats []ccStats, labelOf []int) {
 	w, h := bm.width, bm.height
 	labels := make([]int, w*h)
 	uf := unionFind{parent: []int{0}} // index 0 stands for "no label"
@@ -134,9 +136,10 @@ func labelComponents(bm *bitmap) []ccStats {
 	}
 
 	// Second pass: resolve each provisional label to its set root, compact the
-	// roots into consecutive indices, and accumulate per-component stats.
+	// roots into consecutive indices, record each pixel's component index, and
+	// accumulate per-component stats.
+	labelOf = make([]int, w*h)
 	compact := make([]int, next) // root label -> stats index + 1 (0 = unseen)
-	var stats []ccStats
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			root := uf.find(labels[y*w+x])
@@ -149,6 +152,7 @@ func labelComponents(bm *bitmap) []ccStats {
 					dark: bm.get(x, y),
 				})
 			}
+			labelOf[y*w+x] = si
 			s := &stats[si]
 			s.area++
 			s.sumX += x
@@ -167,7 +171,7 @@ func labelComponents(bm *bitmap) []ccStats {
 			}
 		}
 	}
-	return stats
+	return stats, labelOf
 }
 
 // nestedIn finds, among the components in pool, the one whose bounding box sits
@@ -201,12 +205,19 @@ func nestedIn(stats []ccStats, pool []int, parent ccStats, wantRatio float64) in
 	return best
 }
 
-// finderCandidatesCC returns the centres of finder-like nested triples found by
-// connected-component analysis. Each accepted candidate is a hollow, roughly
-// square dark ring enclosing a concentric light ring enclosing a concentric
-// dark centre, with bounding-box sides in the finder's 7:5:3 proportion.
-func finderCandidatesCC(bm *bitmap) []finderCandidate {
-	stats := labelComponents(bm)
+// ccCandidate is a matched finder nesting: its centre estimate plus the stats
+// index of the outer dark ring, kept so corner extraction can revisit the
+// ring's pixels.
+type ccCandidate struct {
+	center finderCandidate
+	outer  int
+}
+
+// finderNestings scans the labelled components for finder-like nested triples
+// (a hollow, roughly square dark ring enclosing a concentric light ring
+// enclosing a concentric dark centre, with bounding-box sides in the 7:5:3
+// proportion) and returns one ccCandidate per match, deduplicated by centre.
+func finderNestings(stats []ccStats) []ccCandidate {
 	var darks, lights []int
 	for i := range stats {
 		if stats[i].dark {
@@ -216,7 +227,7 @@ func finderCandidatesCC(bm *bitmap) []finderCandidate {
 		}
 	}
 
-	var out []finderCandidate
+	var out []ccCandidate
 	for _, di := range darks {
 		outer := stats[di]
 		side := outer.side()
@@ -236,23 +247,39 @@ func finderCandidatesCC(bm *bitmap) []finderCandidate {
 			continue
 		}
 		centre := stats[ci]
-		out = append(out, finderCandidate{
-			x:          (outer.cx() + light.cx() + centre.cx()) / 3,
-			y:          (outer.cy() + light.cy() + centre.cy()) / 3,
-			moduleSize: side / 7.0,
+		out = append(out, ccCandidate{
+			center: finderCandidate{
+				x:          (outer.cx() + light.cx() + centre.cx()) / 3,
+				y:          (outer.cy() + light.cy() + centre.cy()) / 3,
+				moduleSize: side / 7.0,
+			},
+			outer: di,
 		})
 	}
-	return dedupeCCCandidates(out)
+	return dedupeCCNestings(out)
 }
 
-// dedupeCCCandidates drops candidates whose centres coincide within half a
-// module of an already-kept candidate.
-func dedupeCCCandidates(cands []finderCandidate) []finderCandidate {
-	var out []finderCandidate
+// finderCandidatesCC returns the centres of finder-like nested triples found by
+// connected-component analysis, discarding the outer-ring provenance.
+func finderCandidatesCC(bm *bitmap) []finderCandidate {
+	stats, _ := labelComponents(bm)
+	nests := finderNestings(stats)
+	out := make([]finderCandidate, len(nests))
+	for i, c := range nests {
+		out[i] = c.center
+	}
+	return out
+}
+
+// dedupeCCNestings drops matches whose centres coincide within half a module of
+// an already-kept match.
+func dedupeCCNestings(cands []ccCandidate) []ccCandidate {
+	var out []ccCandidate
 	for _, c := range cands {
 		dup := false
 		for i := range out {
-			if math.Hypot(out[i].x-c.x, out[i].y-c.y) < 0.5*(out[i].moduleSize+c.moduleSize) {
+			if math.Hypot(out[i].center.x-c.center.x, out[i].center.y-c.center.y) <
+				0.5*(out[i].center.moduleSize+c.center.moduleSize) {
 				dup = true
 				break
 			}
@@ -290,14 +317,24 @@ func findFindersCC(bm *bitmap) (finderTriple, error) {
 // geometry: three finders sharing a module size whose centres form a right
 // isosceles triangle. It minimises finderTripleCost over all triples.
 func bestFinderTriple(c []finderCandidate) ([3]finderCandidate, bool) {
+	idx, ok := bestFinderTripleIdx(c)
+	if !ok {
+		return [3]finderCandidate{}, false
+	}
+	return [3]finderCandidate{c[idx[0]], c[idx[1]], c[idx[2]]}, true
+}
+
+// bestFinderTripleIdx returns the indices of the lowest-cost triple, so callers
+// that carry extra per-candidate data (finder quads) can recover it.
+func bestFinderTripleIdx(c []finderCandidate) ([3]int, bool) {
 	n := len(c)
-	best := [3]finderCandidate{}
+	var best [3]int
 	bestCost, ok := math.Inf(1), false
 	for i := 0; i < n; i++ {
 		for j := i + 1; j < n; j++ {
 			for k := j + 1; k < n; k++ {
 				if cost := finderTripleCost(c[i], c[j], c[k]); cost < bestCost {
-					bestCost, best, ok = cost, [3]finderCandidate{c[i], c[j], c[k]}, true
+					bestCost, best, ok = cost, [3]int{i, j, k}, true
 				}
 			}
 		}
@@ -337,4 +374,130 @@ func twoSmallest(x, y, z float64) (float64, float64) {
 	s := []float64{x, y, z}
 	sort.Float64s(s)
 	return s[0], s[1]
+}
+
+// finderQuad is a detected finder pattern with its centre estimate and the four
+// outer corners of its dark ring, in image-pixel coordinates and arbitrary
+// order. The corners are the correspondences a projective homography needs to
+// undo perspective, which the finder centres alone (an affine map) cannot.
+type finderQuad struct {
+	center  finderCandidate
+	corners [4][2]float64
+}
+
+// finderTripleQuad groups three finder quads in reading order (top-left,
+// top-right, bottom-left), the quad counterpart of finderTriple.
+type finderTripleQuad struct {
+	tl, tr, bl finderQuad
+}
+
+// detectFinderQuads locates finder patterns by connected-component analysis and
+// returns each as a quad: its centre plus the four outer corners of its dark
+// ring. Corners come from the ring's own pixels, so they carry the perspective
+// distortion the projective homography then inverts.
+func detectFinderQuads(bm *bitmap) ([]finderQuad, error) {
+	stats, labelOf := labelComponents(bm)
+	nests := finderNestings(stats)
+	if len(nests) < 3 {
+		return nil, ErrFinderNotFound
+	}
+	quads := make([]finderQuad, 0, len(nests))
+	for _, c := range nests {
+		corners := extractQuadCorners(labelOf, bm.width, stats[c.outer], c.outer)
+		quads = append(quads, finderQuad{center: c.center, corners: corners})
+	}
+	return quads, nil
+}
+
+// findFinderQuadTriple detects finder quads, selects the three whose centres
+// best fit a square symbol's right-isosceles geometry, and orders them
+// (top-left, top-right, bottom-left) via the rotation-invariant finder ordering
+// while keeping each quad's corners.
+func findFinderQuadTriple(bm *bitmap) (finderTripleQuad, error) {
+	quads, err := detectFinderQuads(bm)
+	if err != nil {
+		return finderTripleQuad{}, err
+	}
+	if len(quads) > maxCCCandidates {
+		sort.Slice(quads, func(i, j int) bool {
+			return quads[i].center.moduleSize > quads[j].center.moduleSize
+		})
+		quads = quads[:maxCCCandidates]
+	}
+	centres := make([]finderCandidate, len(quads))
+	for i := range quads {
+		centres[i] = quads[i].center
+	}
+	idx, ok := bestFinderTripleIdx(centres)
+	if !ok {
+		return finderTripleQuad{}, ErrFinderNotFound
+	}
+	tri, err := orderFinderTriple(quads[idx[0]].center, quads[idx[1]].center, quads[idx[2]].center)
+	if err != nil {
+		return finderTripleQuad{}, err
+	}
+	pick := func(c finderCandidate) finderQuad {
+		for _, q := range quads {
+			if q.center.x == c.x && q.center.y == c.y {
+				return q
+			}
+		}
+		return finderQuad{center: c}
+	}
+	return finderTripleQuad{tl: pick(tri.topLeft), tr: pick(tri.topRight), bl: pick(tri.bottomLeft)}, nil
+}
+
+// extractQuadCorners collects the pixels of the outer-ring component and returns
+// its four corner points. Corners are the extreme vertices of the (convex)
+// ring: the point farthest from the centroid, the point farthest from that, and
+// the two points farthest to either side of the line joining them. This is
+// rotation-agnostic, unlike axis-aligned min/max-of-(x±y).
+func extractQuadCorners(labelOf []int, width int, outer ccStats, outerIdx int) [4][2]float64 {
+	var pts [][2]float64
+	for y := outer.minY; y <= outer.maxY; y++ {
+		base := y * width
+		for x := outer.minX; x <= outer.maxX; x++ {
+			if labelOf[base+x] == outerIdx {
+				pts = append(pts, [2]float64{float64(x), float64(y)})
+			}
+		}
+	}
+	if len(pts) == 0 {
+		c := [2]float64{outer.cx(), outer.cy()}
+		return [4][2]float64{c, c, c, c}
+	}
+	p0 := farthestFrom(pts, outer.cx(), outer.cy())
+	p2 := farthestFrom(pts, p0[0], p0[1])
+	p1, p3 := farthestAcross(pts, p0, p2)
+	return [4][2]float64{p0, p1, p2, p3}
+}
+
+// farthestFrom returns the point in pts with the greatest distance from (cx,cy).
+func farthestFrom(pts [][2]float64, cx, cy float64) [2]float64 {
+	best, bestD := pts[0], math.Inf(-1)
+	for _, p := range pts {
+		if d := (p[0]-cx)*(p[0]-cx) + (p[1]-cy)*(p[1]-cy); d > bestD {
+			best, bestD = p, d
+		}
+	}
+	return best
+}
+
+// farthestAcross returns the two points lying farthest to either side of the
+// directed line a->b, measured by signed perpendicular distance.
+func farthestAcross(pts [][2]float64, a, b [2]float64) ([2]float64, [2]float64) {
+	dx, dy := b[0]-a[0], b[1]-a[1]
+	posP, negP := a, a
+	maxPos, maxNeg := 0.0, 0.0
+	for _, p := range pts {
+		// Cross product of (b-a) with (p-a): positive on one side, negative on
+		// the other. Magnitude is proportional to perpendicular distance.
+		s := dx*(p[1]-a[1]) - dy*(p[0]-a[0])
+		if s > maxPos {
+			maxPos, posP = s, p
+		} else if s < maxNeg {
+			maxNeg, negP = s, p
+		}
+	}
+	return posP, negP
 }

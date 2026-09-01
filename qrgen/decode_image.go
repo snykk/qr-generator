@@ -144,7 +144,6 @@ func binarise(img image.Image) *bitmap {
 	return otsuBinariseFromGray(pixels, w, h, t)
 }
 
-
 // finderCandidate is the (x, y) centre and estimated module pitch of a
 // detected 1:1:3:1:1 finder-pattern signature.
 type finderCandidate struct {
@@ -450,6 +449,81 @@ func computeHomography(srcMod, dstPx [4][2]float64) (homography, error) {
 	return homography{h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], 1}, nil
 }
 
+// computeHomographyLS solves for the homography sending src module coordinates
+// to dst pixel coordinates from four or more correspondences in the total
+// least-squares sense, via the normal equations (A^T A) h = A^T b with the
+// h22 = 1 normalisation. Used with the twelve finder-corner correspondences so
+// the transform is a genuine projective fit rather than an exact four-point
+// solve, absorbing per-corner extraction noise. Returns an error on fewer than
+// four correspondences or a degenerate (near-singular) system.
+func computeHomographyLS(src, dst [][2]float64) (homography, error) {
+	if len(src) < 4 || len(src) != len(dst) {
+		return homography{}, fmt.Errorf("qrgen: computeHomographyLS: need >=4 matched correspondences, got %d/%d", len(src), len(dst))
+	}
+	var ata [8][8]float64
+	var atb [8]float64
+	acc := func(row [8]float64, rhs float64) {
+		for j := range 8 {
+			atb[j] += row[j] * rhs
+			for k := range 8 {
+				ata[j][k] += row[j] * row[k]
+			}
+		}
+	}
+	for i := range src {
+		X, Y := src[i][0], src[i][1]
+		x, y := dst[i][0], dst[i][1]
+		acc([8]float64{X, Y, 1, 0, 0, 0, -x * X, -x * Y}, x)
+		acc([8]float64{0, 0, 0, X, Y, 1, -y * X, -y * Y}, y)
+	}
+	h, err := solveLinear8(ata, atb)
+	if err != nil {
+		return homography{}, err
+	}
+	return homography{h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], 1}, nil
+}
+
+// homographyFromFinderQuads builds a projective homography from the four outer
+// corners of each of the three finder patterns -- twelve correspondences that
+// over-determine the transform and, unlike the three finder centres, pin down
+// the perspective foreshortening a tilted symbol suffers. Each corner is
+// assigned its module coordinate by projecting the corner's offset from its
+// finder centre onto the symbol's own axes (top-left to top-right, top-left to
+// bottom-left): the signs place it at one of the finder's four outer corners,
+// 3.5 modules from the finder centre on each axis.
+//
+// See docs/theory/24-arbitrary-angle-detection.md.
+func homographyFromFinderQuads(tq finderTripleQuad, v Version) (homography, error) {
+	if !v.IsValid() {
+		return homography{}, ErrInvalidVersion
+	}
+	n := v.Size()
+	ux, uy := tq.tr.center.x-tq.tl.center.x, tq.tr.center.y-tq.tl.center.y
+	vx, vy := tq.bl.center.x-tq.tl.center.x, tq.bl.center.y-tq.tl.center.y
+	ul, vl := math.Hypot(ux, uy), math.Hypot(vx, vy)
+	if ul == 0 || vl == 0 {
+		return homography{}, ErrFinderNotFound
+	}
+	ux, uy = ux/ul, uy/ul
+	vx, vy = vx/vl, vy/vl
+
+	var src, dst [][2]float64
+	add := func(q finderQuad, mcCol, mcRow float64) {
+		for _, c := range q.corners {
+			dx, dy := c[0]-q.center.x, c[1]-q.center.y
+			su := dx*ux + dy*uy
+			sv := dx*vx + dy*vy
+			src = append(src, [2]float64{mcCol + math.Copysign(3.5, su), mcRow + math.Copysign(3.5, sv)})
+			dst = append(dst, [2]float64{c[0], c[1]})
+		}
+	}
+	far := float64(n - 4)
+	add(tq.tl, 3, 3)
+	add(tq.tr, far, 3)
+	add(tq.bl, 3, far)
+	return computeHomographyLS(src, dst)
+}
+
 // solveLinear8 solves A · x = b for an 8×8 system using Gaussian elimination
 // with partial pivoting. Returns an error if the system is too close to
 // singular (smallest pivot magnitude below 1e-10).
@@ -687,14 +761,50 @@ func sampleMatrix(bm *bitmap, h homography, n int) [][]bool {
 	return grid
 }
 
-// decodeImage runs the full image-side pipeline (D8..D12) and dispatches the
-// binarisation stage between Otsu (fast path) and Sauvola (adaptive
-// fallback) per docs/theory/14-adaptive-thresholding.md §6. The production
-// entry point discards which branch ran; decodeImageDebug exposes it for
-// package-internal tests.
+// decodeImage runs the full image-side pipeline (D8..D12) and returns the
+// decoded text. It makes two attempts. First the affine pipeline: the fast
+// 1:1:3:1:1 line scanner and the three-finder-centre homography, which is
+// optimal for upright and rotated symbols and unchanged from before. If that
+// fails to produce a decodable grid -- the signature of perspective tilt, whose
+// foreshortening an affine map cannot undo -- it falls back to the projective
+// pipeline, which locates the finders by connected components and fits a
+// homography from their corners. The affine attempt's error is preferred on
+// total failure so existing error messages are unchanged.
+//
+// See docs/theory/24-arbitrary-angle-detection.md.
 func decodeImage(img image.Image) (string, error) {
-	text, _, err := decodeImageDebug(img)
-	return text, err
+	grid, err := imageToGrid(img)
+	if err == nil {
+		if text, derr := DecodeMatrix(grid); derr == nil {
+			return text, nil
+		} else {
+			err = derr
+		}
+	}
+	// Attempt 2: the projective connected-component pipeline for tilted symbols.
+	if text, perr := decodeImageProjective(img); perr == nil {
+		return text, nil
+	}
+	return "", err
+}
+
+// decodeImageWhich mirrors decodeImage but also reports which pipeline decoded
+// the symbol: "affine" (the line-scan fast path) or "projective" (the tilt
+// fallback). Package-internal, used by the arbitrary-angle tests to assert the
+// projective path is what carries steeply tilted symbols.
+func decodeImageWhich(img image.Image) (text, path string, err error) {
+	grid, aerr := imageToGrid(img)
+	if aerr == nil {
+		if t, derr := DecodeMatrix(grid); derr == nil {
+			return t, "affine", nil
+		} else {
+			aerr = derr
+		}
+	}
+	if t, perr := decodeImageProjective(img); perr == nil {
+		return t, "projective", nil
+	}
+	return "", "", aerr
 }
 
 // decodeImageDebug is the package-internal sibling of decodeImage that also
@@ -717,6 +827,106 @@ func decodeImageDebug(img image.Image) (string, binariserUsedState, error) {
 func imageToGrid(img image.Image) ([][]bool, error) {
 	grid, _, err := imageToGridDebug(img)
 	return grid, err
+}
+
+// decodeImageProjective is the tilt-tolerant decode: it binarises, locates the
+// finder patterns by connected-component analysis, fits a projective homography
+// from their twelve outer corners, and decodes. It is the fallback decodeImage
+// reaches when the affine pipeline cannot decode a perspective-distorted
+// symbol. Binarisation reuses the Otsu/Sauvola dispatch, with a reactive
+// Sauvola retry if the first binarisation yields no decode.
+//
+// See docs/theory/24-arbitrary-angle-detection.md.
+func decodeImageProjective(img image.Image) (string, error) {
+	pixels, w, h := imageToGrayscale(img)
+	t, eta := otsuThreshold(pixels)
+
+	if eta < etaMin {
+		return decodeProjectiveFromBitmap(sauvolaBinariseFromGray(pixels, w, h))
+	}
+	if text, err := decodeProjectiveFromBitmap(otsuBinariseFromGray(pixels, w, h, t)); err == nil {
+		return text, nil
+	}
+	return decodeProjectiveFromBitmap(sauvolaBinariseFromGray(pixels, w, h)) // reactive Sauvola
+}
+
+// decodeProjectiveFromBitmap runs the projective geometry and decode on a
+// binarised bitmap: locate and order the finder quads, then, because the
+// version cannot be read reliably from a foreshortened symbol, trial candidate
+// versions in order of proximity to a corner-based estimate. For each it fits
+// the corner homography, samples the grid, and attempts a decode; Reed-Solomon
+// validation makes the first successful decode the right version. Returns the
+// first decoded text, or the last decode error.
+func decodeProjectiveFromBitmap(bm *bitmap) (string, error) {
+	tq, err := findFinderQuadTriple(bm)
+	if err != nil {
+		return "", err
+	}
+	lastErr := error(ErrInvalidVersion)
+	for _, v := range candidateVersions(estimateVersionQuad(tq)) {
+		hg, herr := homographyFromFinderQuads(tq, v)
+		if herr != nil {
+			continue
+		}
+		grid := sampleMatrix(bm, hg, v.Size())
+		text, derr := DecodeMatrix(grid)
+		if derr == nil {
+			return text, nil
+		}
+		lastErr = derr
+	}
+	return "", lastErr
+}
+
+// candidateVersions orders all valid versions by increasing distance from the
+// estimate, so the trial decode reaches the right version quickly while still
+// covering the whole range if the estimate is far off under strong perspective.
+func candidateVersions(estimate int) []Version {
+	if estimate < int(MinVersion) {
+		estimate = int(MinVersion)
+	}
+	if estimate > int(MaxVersion) {
+		estimate = int(MaxVersion)
+	}
+	out := make([]Version, 0, MaxVersion)
+	for d := 0; d <= int(MaxVersion); d++ {
+		for _, vv := range [2]int{estimate - d, estimate + d} {
+			if vv >= int(MinVersion) && vv <= int(MaxVersion) {
+				out = append(out, Version(vv))
+			}
+			if d == 0 {
+				break // estimate-d == estimate+d, add once
+			}
+		}
+	}
+	return out
+}
+
+// estimateVersionQuad estimates the symbol version from the finder quads. Module
+// pitch comes from each finder's outer-edge length (7 modules), which unlike the
+// axis-aligned bounding box is not inflated by rotation, giving a usable seed
+// for candidateVersions even under tilt.
+func estimateVersionQuad(tq finderTripleQuad) int {
+	ms := (quadModuleSize(tq.tl) + quadModuleSize(tq.tr) + quadModuleSize(tq.bl)) / 3
+	if ms <= 0 {
+		return int(MinVersion)
+	}
+	d := math.Hypot(tq.tr.center.x-tq.tl.center.x, tq.tr.center.y-tq.tl.center.y)
+	modulesBetween := d / ms
+	// The TL and TR finder centres are 4 modules from their edges, so their
+	// spacing is (n - 7) modules where n = 21 + 4*(v - 1).
+	return int(math.Round((modulesBetween-14)/4 + 1))
+}
+
+// quadModuleSize returns a finder quad's module pitch: the mean of its four
+// outer-edge lengths divided by seven.
+func quadModuleSize(q finderQuad) float64 {
+	perim := 0.0
+	for i := range 4 {
+		a, b := q.corners[i], q.corners[(i+1)%4]
+		perim += math.Hypot(b[0]-a[0], b[1]-a[1])
+	}
+	return perim / 4 / 7
 }
 
 // imageToGridDebug is the image stage extracted from decodeImageDebug: it

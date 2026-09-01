@@ -10,7 +10,6 @@ package qrgen
 
 import (
 	"bytes"
-	"errors"
 	"image"
 	"image/color"
 	"image/png"
@@ -161,26 +160,30 @@ func TestRotationSoftTilt30(t *testing.T) {
 	assertRotationRecovery(t, rotated, "HELLO")
 }
 
-// TestRotationSoftTiltOutOfBand documents the v0.4 boundary inside the test
-// suite itself: at 45 degrees the 1:1:3:1:1 scanner's ±50% tolerance is no
-// longer enough to keep the pipeline reliable, so decoding must fail.
-// Empirically the failure mode at exactly 45 degrees is ErrInvalidVersion
-// rather than ErrFinderNotFound — the scanner squeaks past its tolerance
-// band and the version estimate from the finder spacing falls outside
-// 1..40 — but either failure is correct evidence that v0.4 stops here.
-// When a future minor release widens the scanner, this test should switch
-// from asserting failure to asserting recovery.
-func TestRotationSoftTiltOutOfBand(t *testing.T) {
+// TestRotationSoftTilt45 was the v0.4 scope boundary: at 45 degrees the
+// 1:1:3:1:1 line scanner's ±50% tolerance stopped keeping the affine pipeline
+// reliable, and decoding failed. v0.13 widened detection with the
+// connected-component finder detector and a projective homography, so a 45
+// degree rotation now decodes -- through the projective fallback, since the
+// affine line-scan path still cannot resolve the finders at this angle.
+//
+// See docs/theory/24-arbitrary-angle-detection.md.
+func TestRotationSoftTilt45(t *testing.T) {
 	rotated := rotateImage(cleanRotationSource(t), 45)
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, rotated); err != nil {
 		t.Fatalf("png.Encode: %v", err)
 	}
-	_, err := DecodeBytes(buf.Bytes())
-	if err == nil {
-		t.Fatal("DecodeBytes unexpectedly succeeded at 45 degrees; the v0.4 scope boundary needs updating")
+	text, err := DecodeBytes(buf.Bytes())
+	if err != nil {
+		t.Fatalf("DecodeBytes at 45 degrees: %v", err)
 	}
-	if !errors.Is(err, ErrFinderNotFound) && !errors.Is(err, ErrInvalidVersion) {
-		t.Errorf("err = %v, want ErrFinderNotFound or ErrInvalidVersion", err)
+	if text != "HELLO" {
+		t.Errorf("text = %q, want %q", text, "HELLO")
+	}
+	if _, path, werr := decodeImageWhich(rotated); werr != nil {
+		t.Errorf("decodeImageWhich: %v", werr)
+	} else if path != "projective" {
+		t.Errorf("45 degree rotation decoded via %s, want the projective fallback", path)
 	}
 }
