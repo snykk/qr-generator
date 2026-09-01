@@ -1,66 +1,67 @@
-# Arbitrary-Angle Finder Detection
+# Arbitrary-Angle Decoding
 
-The v0.13 decoder locates a QR symbol tilted or rotated well past the ~30-degree band the row-scanning finder detector handles. It does this by fixing the single stage that fails at steep angles — finding the three finder patterns — with a connected-component detector that is invariant to any projective transform, and hands the finder centres to the existing homography pipeline unchanged. This document records why the line scanner fails, why a topological approach survives, how the component detector works, and — honestly — how far it actually reaches.
+The v0.13 decoder reads a QR symbol photographed at a steep angle -- the tilt band where the previous pipeline failed. Getting there meant finding the stage that actually breaks under perspective, and it was not the one the roadmap assumed. This document records the real diagnosis, the projective fix built on it, and -- honestly -- how far it reaches.
 
 > Indonesian version: [24-arbitrary-angle-detection.id.md](24-arbitrary-angle-detection.id.md).
 
-## 1. Rotation is fine; perspective is the problem
+## 1. What actually breaks under tilt
 
-The existing detector scans image rows for five runs of dark/light/dark/light/dark whose lengths match the **1:1:3:1:1** ratio, then cross-checks the column (docs 12, 15). A finder pattern is concentric squares, so a straight line through its centre crosses that ratio at any *in-plane rotation* — which is exactly why v0.4 already decodes symbols rotated up to ~30 degrees off-axis without special handling.
+The intuition going in was that finder detection fails first: the 1:1:3:1:1 line scanner (docs 12, 15) measures a one-dimensional run ratio, and perspective foreshortening should distort that ratio past its tolerance. Measured against synthetic tilt fixtures, that intuition was wrong in two ways.
 
-What defeats it is not rotation but **perspective foreshortening**. When the symbol is photographed at a slant, the projection compresses distances unevenly across the finder: the far side of the 7-module square is imaged smaller than the near side, so the five crossing lengths no longer read 1:1:3:1:1. Past roughly 30 degrees of tilt the measured ratio drifts outside `fitsFinderRatio`'s +-50%-per-module tolerance and no run of five qualifies. Widening the tolerance is not a fix: it would accept ordinary dark-light-dark texture as finders and flood the detector with false positives.
+First, the line scanner is more robust than expected. Its per-module tolerance is +-50%, loose enough that it keeps finding all three finders up to roughly 55 degrees of tilt. So finder detection was never the first thing to fail.
 
-## 2. The topological insight
+Second, and decisively: **even when the finders are found, the decode fails from about 20 degrees up.** The reason is the geometry stage. [homographyFromFinders](../../qrgen/decode_image.go) builds the image-to-module transform from the three finder centres plus a parallelogram-completed fourth corner -- an **affine** map. Affine maps preserve parallelism, so they cannot represent the keystoning a slanted plane produces: the far edge of the symbol is imaged smaller than the near edge, and an affine transform has no term for that. The alignment-pattern refinement (v0.4) is supposed to supply a true fourth point, but under tilt the affine prediction of the alignment centre lands outside the small search window, so the refinement quietly falls back to the affine estimate. And there is a subtler cap: a finder's **centroid** is not a projective invariant -- a projective map sends the centre of a square to a point that is not the centroid of the imaged quad -- so even the three centre correspondences carry error that grows with the angle.
 
-A projective transform can stretch, shear, and foreshorten a shape, but it cannot change what is *inside* what. The finder pattern is three nested regions — a solid dark centre, inside a light ring, inside a dark ring — and that nesting is preserved under any camera angle. So instead of measuring a one-dimensional ratio, detect the **structure**:
+A control experiment settles it. Sampling the exact same tilted fixtures with the *ground-truth* projective homography decodes cleanly all the way to 70 degrees. The symbol is perfectly readable at a steep angle; the only thing missing was a transform that could undo perspective. That is the whole milestone.
 
-- a dark region,
-- enclosing a light region,
-- enclosing a dark region,
-- with the three centres roughly coincident, and
-- with areas in roughly the `3x3 : 5x5 : 7x7` proportion the finder's modules define.
+## 2. The fix: a projective homography from finder corners
 
-Nesting and concentricity are topological and affine-ish invariants; they hold at 10 degrees and at 80. Detecting them requires segmenting the image into regions, which is what connected-component labelling does.
+A projective homography (a full 3x3 with a non-trivial bottom row) is exactly the transform between a plane and its perspective image, so it can undo the keystoning. It has eight degrees of freedom and needs at least four point correspondences that are not projective-degenerate.
 
-## 3. Connected-component labelling
+The three finder centres give only three points -- and imperfect ones, per section 1. But each finder is a **square**, and a square has four corners. Three finders give twelve corner correspondences, spread across the whole symbol, which over-determine the homography and pin down the perspective. This is the standard basis real decoders (ZXing, OpenCV) use. So the milestone's job is to find the finders, extract their corners, and solve.
 
-The detector runs a standard **two-pass union-find** labelling over the binarised bitmap:
+## 3. Finding the finders: connected components
 
-1. **First pass**, scanning in reading order: give each pixel a provisional label from its already-labelled up and left neighbours of the same colour (dark or light), and when those two neighbours carry different labels, union them in a disjoint-set structure.
-2. **Second pass**: replace each provisional label with its set's representative, so every maximal same-colour region has one label.
+Corners come from the finder regions, so the first step is to segment them. The connected-component detector labels the binarised image with two-pass union-find (4-connectivity) and matches the finder's topological nesting -- a hollow, roughly square dark ring enclosing a concentric light ring enclosing a dark centre, with bounding-box sides in the 7:5:3 proportion. Nesting and concentricity survive any homography, so this locates finders at the same tilts the line scanner reaches (empirically ~55 degrees; beyond that both fail and nothing downstream can help). The labelling also returns a per-pixel component map, so the outer ring's own pixels can be revisited for corner extraction.
 
-For each labelled component the detector accumulates a bounding box, a pixel area, and a centroid. This is O(pixels) with near-linear union-find, run only on the fallback path (section 5), so it does not slow the common case.
+## 4. Extracting the four corners
 
-## 4. The finder signature
+For each finder's outer-ring component, its corners are the extreme vertices of a convex quad. A rotation-agnostic way to find them: take the point farthest from the ring's centroid (one corner), then the point farthest from *that* (the opposite corner), then the two points lying farthest to either side of the line joining them. This works at any orientation, unlike taking the axis-aligned extremes of `x+y` and `x-y`, which degrade toward 45 degrees of rotation.
 
-With components in hand, the detector looks for the nested triple. A finder's outer dark ring is a dark component; the light ring it encloses is a light component whose centroid sits at the same place; the dark centre is a dark component inside that. The detector accepts a candidate when:
+## 5. Assigning module coordinates to corners
 
-- the three centroids coincide within a small fraction of the outer box (concentricity), and
-- the nested areas descend in roughly the finder's `49 : 25 : 9` module-area proportion, within tolerance (the ratio need not be exact — perspective changes absolute areas but the *ordering* and rough proportion survive), and
-- the outer box is roughly square-ish (a strongly elongated blob is not a finder even under tilt, within reason).
+The homography solver needs each corner paired with its position in the symbol's module grid. The four corners come out in arbitrary order, so each is classified by projecting its offset from the finder centre onto the symbol's own axes: the top-left-to-top-right direction and the top-left-to-bottom-left direction, taken from the ordered finder triple. The signs of the two projections place the corner at one of the finder's four outer corners, which sit 3.5 modules from the finder centre on each axis. The top-left finder's corners map to module coordinates around (3, 3); the top-right's around (n-4, 3); the bottom-left's around (3, n-4).
 
-Each surviving candidate contributes its centre. Three mutually-consistent centres then flow into the unchanged `orderFinderTriple` (rotation-invariant via the cross-product handedness test, doc 15), `estimateVersion`, `homographyFromFinders`, and `refineHomography`, which fit a full 3x3 projective transform — so once the three centres are found at a steep angle, the rest of the decode simply works. A stray non-finder candidate is filtered here: it will not form a geometrically consistent triple with two real finders.
+## 6. Solving: least squares over twelve points
 
-## 5. A fallback, not a replacement
+With more than four correspondences the system is over-determined, so it is solved in the total-least-squares sense via the normal equations `(A^T A) h = A^T b` with the h22 = 1 normalisation, reusing the existing 8x8 Gaussian solver. Averaging over twelve corners absorbs the per-corner extraction noise that any single four-point solve would inherit.
 
-The component pass costs a full O(pixels) segmentation, more than a handful of row scans, so it runs **only when the line scanner fails to return three finders** — the same shape as the Otsu -> Sauvola fallback (doc 14). Upright and mildly-tilted symbols are found by the fast scanner and never pay for the component pass; steeply-tilted ones fall through to it. This keeps the common case at its current speed and guarantees no regression: if the line scanner still succeeds, its result is used exactly as before.
+## 7. Version under perspective, and the trial decode
 
-## 6. Validation, and honest limits
+One problem remains: the grid size. The homography's far corners are placed at module (n-4, ...), so the transform itself needs the version n, and the module grid sampled from it is n by n. But version is read from the finder spacing in modules, and under tilt that spacing foreshortens while the module-pitch estimate from a rotated finder's bounding box inflates -- so the usual estimate lands out of range.
 
-There is no spec table to check a CV detector against, so it is validated empirically. A test-only **tilt warp** renders a QR upright and projects it through a chosen rotation-plus-tilt homography (each destination pixel inverse-mapped and sampled from the source), producing synthetic photos at 30, 45, 60, and steeper degrees. The round-trip test decodes each and records the band that passes; the README and this doc state the band that was actually cleared, not an aspiration.
+The fix has two parts. A better *seed*: estimate the module pitch from a finder quad's outer-edge lengths (each edge is 7 modules) rather than its axis-aligned bounding box, which rotation does not inflate. And a *trial*: because the seed can still be off by a few versions under strong perspective, the decoder tries candidate versions in order of proximity to the seed, fitting the homography and attempting a decode for each. Reed-Solomon and format-information validation make a wrong version fail fast and a right version decode, so the first success is the answer. The correct version is normally the seed or one of its immediate neighbours, so the trial ends quickly.
 
-The honest expectation: this widens the reliable band substantially beyond ~30 degrees, but it is best-effort computer vision. Near-90-degree grazing angles (where the symbol is almost edge-on and finders collapse to slivers), heavy blur, or glare that breaks a finder's nesting can still fail. Because the detector is a fallback, none of that regresses the upright and mildly-tilted cases; it only ever adds decodes that previously failed outright.
+## 8. A fallback, so nothing regresses
 
-## 7. Implementation pointers
+The projective pipeline is strictly the second attempt. `decodeImage` first runs the unchanged affine pipeline -- the fast line scanner and the centre-based homography -- which is optimal for upright and rotated symbols and carries every case the previous decoder handled. Only when that fails to produce a decodable grid, the signature of perspective tilt, does it fall back to the connected-component projective pipeline. Upright symbols never pay for the component pass or the version trial, existing decodes are byte-for-byte unchanged, and the affine attempt's error is the one surfaced on total failure so error messages are stable.
 
-- `qrgen/decode_finder_cc.go` hosts the two-pass union-find labelling, the per-component accumulation, and the nesting/concentricity/area-ratio matcher that emits `finderCandidate` centres.
-- `decodeImageDebug` in `qrgen/decode_image.go` calls it as a fallback after the line scanner returns no triple, then proceeds through the unchanged geometry pipeline; the debug state records which detector succeeded, which the tests assert.
-- The tilt warp and the arbitrary-angle round-trip live in `qrgen/decode_tilt_test.go`; the warp is test-only scaffolding, never part of the library.
+## 9. Validation, and honest limits
+
+There is no spec table to check a projective decoder against, so it is validated empirically. A test-only tilt warp renders a symbol upright and projects it through a chosen rotation-plus-tilt homography (each destination pixel inverse-mapped and bilinearly sampled), producing synthetic photos at a range of angles. The round-trip test decodes them and asserts the band that holds.
+
+The honest result: across orientations the decoder reliably reads tilts to roughly 35 to 40 degrees, and up to about 55 degrees at favourable in-plane rotations; the exact ceiling depends on orientation because corner extraction and the bounding-box seed degrade as the finder squares foreshorten. Beyond ~55 to 60 degrees the finders themselves stop being detectable and no downstream stage can recover. Heavy blur, glare that breaks a finder's nesting, folds, and near-grazing angles still fail. Because the whole path is a fallback, none of that regresses the upright and rotated cases; it only adds decodes that previously failed outright.
+
+## 10. Implementation pointers
+
+- `qrgen/decode_finder_cc.go`: two-pass union-find labelling, the nesting matcher, corner extraction (`extractQuadCorners`, `farthestFrom`, `farthestAcross`), and `findFinderQuadTriple`, which orders the finder quads via the existing rotation-invariant `orderFinderTriple`.
+- `qrgen/decode_image.go`: `homographyFromFinderQuads` (corner module-coordinate assignment) and `computeHomographyLS` (the least-squares solve); `decodeImageProjective` and `decodeProjectiveFromBitmap` (the version trial); and `decodeImage`, which sequences the affine and projective attempts.
+- `qrgen/decode_tilt_test.go`: the test-only tilt warp and the arbitrary-angle round-trip, plus the upright-uses-affine regression guard.
 
 ## References
 
-- ISO/IEC 18004:2015 — the finder pattern's concentric 7x7 / 5x5 / 3x3 module structure and the quiet zone that separates it from the data.
-- `docs/theory/12-image-processing.md` — the binarisation and the existing row/column finder scan this milestone falls back from.
-- `docs/theory/14-adaptive-thresholding.md` — the try-then-fallback dispatch pattern reused here.
-- `docs/theory/15-rotation-handling.md` — the rotation-invariant finder ordering and the ~30-degree scope boundary this milestone extends.
-- Connected-component labelling (two-pass, union-find) — the standard image-segmentation algorithm, implemented in pure Go; ZXing and OpenCV QR detectors use component/contour analysis as conceptual prior art.
+- ISO/IEC 18004:2015 -- the finder pattern's concentric 7x7 / 5x5 / 3x3 module structure and the quiet zone that isolates it.
+- `docs/theory/12-image-processing.md` -- binarisation and the affine finder pipeline this milestone falls back from.
+- `docs/theory/14-adaptive-thresholding.md` -- the try-then-fallback dispatch pattern reused here.
+- `docs/theory/15-rotation-handling.md` -- the rotation-invariant finder ordering, reused unchanged for the quad triple.
+- The Direct Linear Transform for homography estimation, and connected-component / contour analysis for finder location, are standard computer vision; ZXing and OpenCV QR detectors use the same corner-plus-homography basis as conceptual prior art (not a dependency).

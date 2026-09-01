@@ -1,66 +1,67 @@
-# Deteksi Finder pada Sudut Sembarang
+# Decoding pada Sudut Sembarang
 
-Decoder v0.13 menemukan simbol QR yang miring atau berputar jauh melewati pita ~30 derajat yang mampu ditangani detektor finder berbasis pemindaian baris. Caranya adalah memperbaiki satu-satunya tahap yang gagal pada sudut curam — menemukan ketiga pola finder — dengan detektor connected-component yang invarian terhadap transformasi projektif apa pun, lalu menyerahkan pusat finder ke pipeline homografi yang sudah ada tanpa perubahan. Dokumen ini mencatat mengapa pemindai baris gagal, mengapa pendekatan topologis bertahan, bagaimana detektor komponen bekerja, dan — secara jujur — sejauh mana ia benar-benar menjangkau.
+Decoder v0.13 membaca simbol QR yang difoto dari sudut curam -- pita kemiringan tempat pipeline sebelumnya gagal. Untuk sampai ke sana, kuncinya adalah menemukan tahap yang benar-benar rusak di bawah perspektif, dan ternyata bukan tahap yang diasumsikan roadmap. Dokumen ini mencatat diagnosis yang sebenarnya, solusi projektif yang dibangun di atasnya, dan -- secara jujur -- sejauh mana ia menjangkau.
 
 > Versi bahasa Inggris: [24-arbitrary-angle-detection.md](24-arbitrary-angle-detection.md).
 
-## 1. Rotasi tidak masalah; perspektif itulah masalahnya
+## 1. Apa yang sebenarnya rusak saat miring
 
-Detektor yang ada memindai baris citra untuk mencari lima run gelap/terang/gelap/terang/gelap yang panjangnya cocok dengan rasio **1:1:3:1:1**, lalu memeriksa silang kolomnya (dokumen 12, 15). Pola finder adalah kotak-kotak konsentris, jadi garis lurus yang melewati pusatnya menyeberangi rasio itu pada *rotasi in-plane* berapa pun — persis alasan v0.4 sudah bisa mendekode simbol yang berputar hingga ~30 derajat dari sumbu tanpa penanganan khusus.
+Dugaan awal adalah deteksi finder yang gagal lebih dulu: line scanner 1:1:3:1:1 (dokumen 12, 15) mengukur rasio run satu dimensi, dan foreshortening perspektif semestinya mendistorsi rasio itu melewati toleransinya. Diuji terhadap fixture kemiringan sintetis, dugaan itu keliru dalam dua hal.
 
-Yang mengalahkannya bukan rotasi melainkan **pemendekan perspektif (foreshortening)**. Ketika simbol difoto dari kemiringan, proyeksi memampatkan jarak secara tidak merata di sepanjang finder: sisi jauh dari kotak 7-modul tercitra lebih kecil daripada sisi dekatnya, sehingga kelima panjang penyeberangan tidak lagi terbaca 1:1:3:1:1. Melewati kira-kira 30 derajat kemiringan, rasio terukur bergeser keluar dari toleransi `fitsFinderRatio` sebesar +-50% per modul dan tidak ada run lima yang lolos. Melebarkan toleransi bukan solusi: itu akan menerima tekstur gelap-terang-gelap biasa sebagai finder dan membanjiri detektor dengan false positive.
+Pertama, line scanner lebih tangguh dari perkiraan. Toleransi per-modulnya +-50%, cukup longgar sehingga ia tetap menemukan ketiga finder hingga sekitar 55 derajat kemiringan. Jadi deteksi finder tak pernah menjadi yang pertama gagal.
 
-## 2. Wawasan topologis
+Kedua, dan menentukan: **bahkan ketika finder sudah ditemukan, decode gagal mulai sekitar 20 derajat.** Penyebabnya tahap geometri. [homographyFromFinders](../../qrgen/decode_image.go) membangun transformasi image-ke-modul dari tiga pusat finder plus sudut keempat hasil melengkapi parallelogram -- sebuah map **afin**. Map afin mempertahankan keparalelan, jadi ia tak bisa merepresentasikan keystoning yang dihasilkan bidang miring: sisi jauh simbol tercitra lebih kecil daripada sisi dekat, dan transformasi afin tidak punya suku untuk itu. Refinement alignment pattern (v0.4) semestinya memasok titik keempat yang sejati, tetapi di bawah kemiringan prediksi afin atas pusat alignment jatuh di luar window pencarian yang kecil, sehingga refinement diam-diam kembali ke estimasi afin. Dan ada batas yang lebih halus: **centroid** sebuah finder bukan invarian projektif -- map projektif mengirim pusat sebuah persegi ke titik yang bukan centroid dari quad tercitra -- sehingga bahkan tiga korespondensi pusat pun membawa error yang tumbuh seiring sudut.
 
-Transformasi projektif dapat merentang, menggeser (shear), dan memendekkan sebuah bentuk, tetapi ia tidak dapat mengubah apa yang berada *di dalam* apa. Pola finder adalah tiga region bersarang — pusat gelap padat, di dalam cincin terang, di dalam cincin gelap — dan penyarangan itu terjaga pada sudut kamera berapa pun. Jadi alih-alih mengukur rasio satu dimensi, deteksilah **strukturnya**:
+Sebuah eksperimen kontrol menyelesaikannya. Menyampel fixture miring yang sama persis dengan homografi projektif *ground-truth* mendekode bersih sampai 70 derajat. Simbolnya sepenuhnya terbaca pada sudut curam; yang kurang hanyalah transformasi yang bisa membalik perspektif. Itulah inti keseluruhan milestone ini.
 
-- sebuah region gelap,
-- membungkus region terang,
-- membungkus region gelap,
-- dengan ketiga pusat kira-kira berhimpit, dan
-- dengan luas dalam proporsi kira-kira `3x3 : 5x5 : 7x7` yang ditentukan modul-modul finder.
+## 2. Solusinya: homografi projektif dari sudut finder
 
-Penyarangan dan konsentrisitas adalah invarian topologis dan semi-afin; keduanya berlaku pada 10 derajat maupun 80. Mendeteksinya menuntut segmentasi citra menjadi region-region, yang persis dilakukan connected-component labelling.
+Homografi projektif (3x3 penuh dengan baris bawah non-trivial) persis merupakan transformasi antara sebuah bidang dan citra perspektifnya, jadi ia bisa membalik keystoning. Ia punya delapan derajat kebebasan dan butuh minimal empat korespondensi titik yang tidak projektif-degenerate.
 
-## 3. Connected-component labelling
+Tiga pusat finder hanya memberi tiga titik -- dan tak sempurna, sesuai bagian 1. Tetapi tiap finder adalah **persegi**, dan persegi punya empat sudut. Tiga finder memberi dua belas korespondensi sudut, tersebar di seluruh simbol, yang over-determine homografi dan mengunci perspektifnya. Ini basis standar yang dipakai decoder sungguhan (ZXing, OpenCV). Jadi tugas milestone ini adalah menemukan finder, mengekstrak sudutnya, lalu menyelesaikannya.
 
-Detektor menjalankan labelling **dua-lintasan union-find** standar atas bitmap terbinarisasi:
+## 3. Menemukan finder: connected component
 
-1. **Lintasan pertama**, memindai dalam urutan baca: beri setiap piksel label sementara dari tetangga atas dan kirinya yang sudah berlabel dan sewarna (gelap atau terang), dan ketika kedua tetangga itu membawa label berbeda, union-kan keduanya dalam struktur disjoint-set.
-2. **Lintasan kedua**: ganti setiap label sementara dengan representatif himpunannya, sehingga setiap region sewarna maksimal punya satu label.
+Sudut berasal dari region finder, jadi langkah pertama adalah menyegmentasinya. Detektor connected-component melabeli citra terbinarisasi dengan two-pass union-find (4-konektivitas) dan mencocokkan penyarangan topologis finder -- cincin gelap berongga yang kira-kira persegi, membungkus cincin terang konsentris, membungkus pusat gelap, dengan sisi bounding box dalam proporsi 7:5:3. Penyarangan dan konsentrisitas bertahan pada homografi apa pun, jadi ini menemukan finder pada kemiringan yang sama seperti yang dijangkau line scanner (secara empiris ~55 derajat; di luar itu keduanya gagal dan tak ada tahap berikutnya yang bisa menolong). Labelling juga mengembalikan peta komponen per-piksel, sehingga piksel-piksel cincin luar bisa dikunjungi ulang untuk ekstraksi sudut.
 
-Untuk tiap komponen berlabel, detektor mengumpulkan bounding box, luas piksel, dan sentroid. Ini O(piksel) dengan union-find nyaris linear, dijalankan hanya pada jalur fallback (bagian 5), jadi tidak memperlambat kasus umum.
+## 4. Mengekstrak empat sudut
 
-## 4. Tanda tangan finder
+Untuk komponen cincin-luar tiap finder, sudut-sudutnya adalah vertex ekstrem dari sebuah quad cembung. Cara yang agnostik terhadap rotasi untuk menemukannya: ambil titik terjauh dari centroid cincin (satu sudut), lalu titik terjauh dari *titik itu* (sudut seberang), lalu dua titik yang terletak paling jauh ke masing-masing sisi garis yang menghubungkan keduanya. Ini bekerja pada orientasi apa pun, tak seperti mengambil ekstrem sejajar-sumbu dari `x+y` dan `x-y`, yang menurun kualitasnya menjelang 45 derajat rotasi.
 
-Dengan komponen di tangan, detektor mencari triple bersarang. Cincin gelap luar finder adalah komponen gelap; cincin terang yang dibungkusnya adalah komponen terang yang sentroidnya duduk di tempat yang sama; pusat gelap adalah komponen gelap di dalamnya. Detektor menerima sebuah kandidat ketika:
+## 5. Menetapkan koordinat modul untuk tiap sudut
 
-- ketiga sentroid berhimpit dalam fraksi kecil dari box luar (konsentrisitas), dan
-- luas bersarang menurun dalam proporsi luas-modul finder kira-kira `49 : 25 : 9`, dalam toleransi (rasio tak perlu tepat — perspektif mengubah luas absolut tetapi *urutan* dan proporsi kasarnya bertahan), dan
-- box luar kira-kira mendekati persegi (blob yang sangat memanjang bukan finder bahkan di bawah kemiringan, dalam batas wajar).
+Solver homografi butuh tiap sudut dipasangkan dengan posisinya di grid modul simbol. Keempat sudut keluar dalam urutan sembarang, jadi masing-masing diklasifikasikan dengan memproyeksikan offset-nya dari pusat finder ke sumbu-sumbu simbol sendiri: arah top-left ke top-right dan arah top-left ke bottom-left, diambil dari triple finder yang sudah terurut. Tanda kedua proyeksi menempatkan sudut itu pada salah satu dari empat sudut luar finder, yang berada 3,5 modul dari pusat finder pada tiap sumbu. Sudut finder top-left memetakan ke koordinat modul sekitar (3, 3); top-right sekitar (n-4, 3); bottom-left sekitar (3, n-4).
 
-Tiap kandidat yang lolos menyumbang pusatnya. Tiga pusat yang saling konsisten kemudian mengalir ke `orderFinderTriple` (invarian rotasi lewat uji handedness cross-product, dokumen 15), `estimateVersion`, `homographyFromFinders`, dan `refineHomography` yang tidak diubah, yang memasang transformasi projektif 3x3 penuh — jadi begitu ketiga pusat ditemukan pada sudut curam, sisa proses dekode langsung jalan. Kandidat bukan-finder yang nyasar tersaring di sini: ia tak akan membentuk triple yang konsisten secara geometris dengan dua finder asli.
+## 6. Menyelesaikan: least squares atas dua belas titik
 
-## 5. Sebuah fallback, bukan pengganti
+Dengan lebih dari empat korespondensi, sistemnya over-determined, jadi diselesaikan dalam arti total-least-squares lewat normal equations `(A^T A) h = A^T b` dengan normalisasi h22 = 1, memakai ulang solver Gaussian 8x8 yang sudah ada. Merata-ratakan atas dua belas sudut menyerap noise ekstraksi per-sudut yang akan diwarisi solve empat-titik mana pun.
 
-Lintasan komponen memakan segmentasi O(piksel) penuh, lebih mahal daripada segelintir pemindaian baris, jadi ia berjalan **hanya ketika pemindai baris gagal mengembalikan tiga finder** — bentuk yang sama dengan fallback Otsu -> Sauvola (dokumen 14). Simbol yang tegak dan sedikit miring ditemukan oleh pemindai cepat dan tak pernah membayar lintasan komponen; yang miring curam jatuh ke sana. Ini menjaga kasus umum pada kecepatannya sekarang dan menjamin tanpa regresi: jika pemindai baris masih berhasil, hasilnya dipakai persis seperti sebelumnya.
+## 7. Version di bawah perspektif, dan trial decode
 
-## 6. Validasi, dan batas yang jujur
+Satu masalah tersisa: ukuran grid. Sudut-sudut jauh homografi ditempatkan di modul (n-4, ...), jadi transformasi itu sendiri butuh version n, dan grid modul yang disampel darinya berukuran n kali n. Namun version dibaca dari jarak antar-finder dalam satuan modul, dan di bawah kemiringan jarak itu foreshorten sementara estimasi pitch modul dari bounding box finder yang berotasi justru membengkak -- sehingga estimasi biasa jatuh di luar rentang.
 
-Tidak ada tabel spec untuk mengecek detektor CV, jadi ia divalidasi secara empiris. Sebuah **warp kemiringan** khusus-tes merender QR tegak dan memproyeksikannya lewat homografi rotasi-plus-kemiringan pilihan (tiap piksel tujuan dipetakan balik dan disampel dari sumbernya), menghasilkan foto sintetis pada 30, 45, 60, dan derajat lebih curam. Tes round-trip mendekode masing-masing dan mencatat pita yang lolos; README dan dokumen ini menyatakan pita yang benar-benar dilewati, bukan sekadar aspirasi.
+Perbaikannya dua bagian. *Seed* yang lebih baik: estimasi pitch modul dari panjang sisi luar sebuah quad finder (tiap sisi 7 modul), bukan dari bounding box sejajar-sumbunya, yang tidak dibengkakkan rotasi. Dan sebuah *trial*: karena seed masih bisa meleset beberapa version di bawah perspektif kuat, decoder mencoba kandidat version berurutan menurut kedekatan dengan seed, memasang homografi dan mencoba decode untuk masing-masing. Validasi Reed-Solomon dan format information membuat version yang salah gagal cepat dan version yang benar mendekode, jadi keberhasilan pertama adalah jawabannya. Version yang benar biasanya adalah seed atau salah satu tetangga terdekatnya, sehingga trial cepat selesai.
 
-Harapan yang jujur: ini melebarkan pita andal secara substansial melewati ~30 derajat, tetapi ini adalah computer vision usaha-terbaik (best-effort). Sudut mendekati 90 derajat yang menyerempet (ketika simbol hampir tegak lurus pandang dan finder menyusut jadi serpihan tipis), blur berat, atau silau yang merusak penyarangan finder masih bisa gagal. Karena detektor ini sebuah fallback, tak satu pun dari itu meregresikan kasus tegak dan sedikit miring; ia hanya menambah dekode yang sebelumnya gagal total.
+## 8. Sebuah fallback, agar tak ada yang regresi
 
-## 7. Penunjuk implementasi
+Pipeline projektif ketat merupakan percobaan kedua. `decodeImage` pertama menjalankan pipeline afin yang tak diubah -- line scanner cepat dan homografi berbasis pusat -- yang optimal untuk simbol tegak dan berotasi serta menangani setiap kasus yang ditangani decoder sebelumnya. Hanya ketika itu gagal menghasilkan grid yang bisa didekode, tanda khas kemiringan perspektif, ia jatuh ke pipeline projektif connected-component. Simbol tegak tak pernah membayar pass komponen atau trial version, decode yang ada tetap byte-for-byte tak berubah, dan error dari percobaan afin adalah yang dimunculkan saat gagal total sehingga pesan error stabil.
 
-- `qrgen/decode_finder_cc.go` menampung labelling dua-lintasan union-find, akumulasi per-komponen, dan pencocok penyarangan/konsentrisitas/rasio-luas yang memancarkan pusat `finderCandidate`.
-- `decodeImageDebug` di `qrgen/decode_image.go` memanggilnya sebagai fallback setelah pemindai baris tak mengembalikan triple, lalu berlanjut lewat pipeline geometri yang tak diubah; state debug mencatat detektor mana yang berhasil, yang di-assert oleh tes.
-- Warp kemiringan dan round-trip sudut-sembarang berada di `qrgen/decode_tilt_test.go`; warp itu perancah khusus-tes, tak pernah menjadi bagian pustaka.
+## 9. Validasi, dan batas yang jujur
+
+Tidak ada tabel spec untuk mengecek decoder projektif, jadi ia divalidasi secara empiris. Sebuah warp kemiringan khusus-tes merender simbol tegak dan memproyeksikannya lewat homografi rotasi-plus-kemiringan pilihan (tiap piksel tujuan dipetakan balik dan disampel bilinear), menghasilkan foto sintetis pada rentang sudut. Tes round-trip mendekodenya dan meng-assert pita yang bertahan.
+
+Hasil yang jujur: lintas orientasi, decoder andal membaca kemiringan sampai kira-kira 35 hingga 40 derajat, dan sampai sekitar 55 derajat pada rotasi in-plane yang menguntungkan; batas atas tepatnya bergantung pada orientasi karena ekstraksi sudut dan seed bounding box menurun saat persegi finder foreshorten. Di luar ~55 hingga 60 derajat finder sendiri berhenti terdeteksi dan tak ada tahap berikutnya yang bisa memulihkan. Blur berat, silau yang merusak penyarangan finder, lipatan, dan sudut nyaris menyerempet tetap gagal. Karena seluruh jalur ini fallback, tak satu pun dari itu meregresikan kasus tegak dan berotasi; ia hanya menambah decode yang sebelumnya gagal total.
+
+## 10. Penunjuk implementasi
+
+- `qrgen/decode_finder_cc.go`: labelling two-pass union-find, pencocok penyarangan, ekstraksi sudut (`extractQuadCorners`, `farthestFrom`, `farthestAcross`), dan `findFinderQuadTriple`, yang mengurutkan quad finder lewat `orderFinderTriple` yang invarian rotasi.
+- `qrgen/decode_image.go`: `homographyFromFinderQuads` (penetapan koordinat-modul sudut) dan `computeHomographyLS` (solve least-squares); `decodeImageProjective` dan `decodeProjectiveFromBitmap` (trial version); serta `decodeImage`, yang mengurutkan percobaan afin lalu projektif.
+- `qrgen/decode_tilt_test.go`: warp kemiringan khusus-tes dan round-trip sudut-sembarang, plus penjaga regresi tegak-pakai-afin.
 
 ## Referensi
 
-- ISO/IEC 18004:2015 — struktur modul konsentris 7x7 / 5x5 / 3x3 pola finder dan quiet zone yang memisahkannya dari data.
-- `docs/theory/12-image-processing.md` — binarisasi dan pemindaian finder baris/kolom yang menjadi tempat milestone ini melakukan fallback.
-- `docs/theory/14-adaptive-thresholding.md` — pola dispatch coba-lalu-fallback yang dipakai ulang di sini.
-- `docs/theory/15-rotation-handling.md` — pengurutan finder yang invarian rotasi dan batas cakupan ~30 derajat yang diperluas milestone ini.
-- Connected-component labelling (dua-lintasan, union-find) — algoritma segmentasi citra standar, diimplementasikan dalam Go murni; detektor QR ZXing dan OpenCV memakai analisis komponen/kontur sebagai prior art konseptual.
+- ISO/IEC 18004:2015 -- struktur modul konsentris 7x7 / 5x5 / 3x3 pola finder dan quiet zone yang mengisolasinya.
+- `docs/theory/12-image-processing.md` -- binarisasi dan pipeline finder afin yang menjadi tempat milestone ini melakukan fallback.
+- `docs/theory/14-adaptive-thresholding.md` -- pola dispatch coba-lalu-fallback yang dipakai ulang di sini.
+- `docs/theory/15-rotation-handling.md` -- pengurutan finder yang invarian rotasi, dipakai ulang tanpa perubahan untuk triple quad.
+- Direct Linear Transform untuk estimasi homografi, dan analisis connected-component / kontur untuk lokasi finder, adalah computer vision standar; detektor QR ZXing dan OpenCV memakai basis sudut-plus-homografi yang sama sebagai prior art konseptual (bukan dependensi).

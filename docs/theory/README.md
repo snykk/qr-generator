@@ -63,7 +63,7 @@ This folder contains the literature review and theoretical foundation for the `q
 
 ### Decoder robustness (v0.13.0)
 
-24. [Arbitrary-Angle Finder Detection](24-arbitrary-angle-detection.md) — decoding symbols tilted past the ~30-degree band the 1:1:3:1:1 line scanner handles: why rotation is fine but perspective foreshortening breaks the ratio, the topological-nesting insight that survives any homography, connected-component labelling, the dark→light→dark concentric 7:5:3 finder signature, the fallback strategy that keeps the fast path, and the synthetic-tilt validation with an honest scope boundary.
+24. [Arbitrary-Angle Decoding](24-arbitrary-angle-detection.md) — reading symbols tilted well past where the affine pipeline fails: why the real blocker is the affine three-centroid homography rather than finder detection, why perspective needs a projective transform, extracting the finder-pattern corners via connected-component analysis, the twelve-corner least-squares homography, the corner-based version seed plus trial decode, the affine-first fallback that leaves upright decoding unchanged, and the synthetic-tilt validation with an honest band.
 
 ## Primary references
 
@@ -107,6 +107,6 @@ Additional references appear at the end of each document.
 | 21-structured-append.md             | `qrgen/structured_append.go` (planned, SA3) |
 | 22-kanji-mode.md                    | `qrgen/kanji.go` (planned, K3) |
 | 23-logo-embedding.md                | `qrgen/logo.go` (planned, L3) |
-| 24-arbitrary-angle-detection.md     | `qrgen/decode_finder_cc.go` (planned, DR3) |
+| 24-arbitrary-angle-detection.md     | `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go` |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.

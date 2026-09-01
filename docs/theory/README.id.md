@@ -65,7 +65,7 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 ### Ketangguhan decoder (v0.13.0)
 
-24. [Deteksi Finder pada Sudut Sembarang](24-arbitrary-angle-detection.id.md) — mendekode simbol yang miring melewati pita ~30 derajat yang ditangani pemindai baris 1:1:3:1:1: kenapa rotasi tidak masalah tetapi foreshortening perspektif merusak rasio, wawasan penyarangan topologis yang bertahan pada homografi apa pun, connected-component labelling, tanda tangan finder konsentris gelap→terang→gelap 7:5:3, strategi fallback yang menjaga jalur cepat, dan validasi tilt sintetis dengan batas cakupan yang jujur.
+24. [Decoding pada Sudut Sembarang](24-arbitrary-angle-detection.id.md) — membaca simbol yang miring jauh melewati titik gagal pipeline afin: kenapa penghambat sebenarnya adalah homografi afin tiga-centroid dan bukan deteksi finder, kenapa perspektif butuh transformasi projektif, mengekstrak sudut pola finder lewat analisis connected-component, homografi least-squares dua-belas-sudut, seed version berbasis sudut plus trial decode, fallback afin-dulu yang membiarkan decode tegak tak berubah, dan validasi tilt sintetis dengan pita yang jujur.
 
 ## Referensi utama
 
@@ -109,6 +109,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 21-structured-append.id.md             | `qrgen/structured_append.go` (direncanakan, SA3) |
 | 22-kanji-mode.id.md                    | `qrgen/kanji.go` (direncanakan, K3) |
 | 23-logo-embedding.id.md                | `qrgen/logo.go` (direncanakan, L3) |
-| 24-arbitrary-angle-detection.id.md     | `qrgen/decode_finder_cc.go` (direncanakan, DR3) |
+| 24-arbitrary-angle-detection.id.md     | `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go` |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.

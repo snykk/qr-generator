@@ -10,22 +10,23 @@ Dokumen ini menjelaskan rencana implementasi **deteksi finder sudut-sembarang** 
 
 ## 1. Visi & Tujuan
 
-- Men-decode foto QR yang diambil pada sudut curam — pita 30..90 derajat tempat finder scanner sekarang gagal — tanpa intervensi pemanggil, sama seperti rotation handling v0.4 dan adaptive thresholding v0.3 yang otomatis.
-- Melakukannya dengan memperbaiki **satu** stage yang gagal di sudut curam: **deteksi finder**. Segala setelahnya (pengurutan finder, estimasi version, homography, sampling modul) sudah berupa projective transform dan menangani tilt sembarang; hanya line scan 1:1:3:1:1 yang melokasi finder yang patah di bawah perspektif kuat. Jadi milestone ini menambah detektor finder yang rotation-and-perspective-invariant dan memakai ulang pipeline geometri yang ada apa adanya.
-- Menjaga jalur cepat tetap cepat: detektor baru jalan sebagai **fallback**, hanya saat line scanner yang ada gagal menemukan tiga finder, meniru fallback Otsu -> Sauvola (doc 14). Simbol tegak mempertahankan kecepatannya sekarang.
-- Menjaga **zero runtime dependency**: detektor adalah pass connected-component pure-Go; fixture test tilt di-generate oleh warp gambar in-tree, tanpa OpenCV atau `x/image`.
+- Men-decode foto QR yang diambil pada sudut curam — pita tilt tempat pipeline sekarang gagal — tanpa intervensi pemanggil, sama seperti rotation handling v0.4 dan adaptive thresholding v0.3 yang otomatis.
+- Memperbaiki stage yang benar-benar patah di bawah perspektif. Plan awalnya mengira itu deteksi finder; pengukuran menunjukkan itu **homografi afin tiga-pusat**, yang tak bisa membalik keystoning perspektif (bagian 2). Jadi milestone ini mengestimasi **homografi projektif dari sudut finder** dan menyerahkan deteksi finder ke pass connected-component yang memasok sudut-sudut itu.
+- Menjaga jalur cepat tetap cepat: pipeline projektif jalan sebagai **fallback**, hanya saat decode afin gagal, meniru fallback Otsu -> Sauvola (doc 14). Simbol tegak dan berotasi mempertahankan kecepatan dan hasilnya sekarang.
+- Menjaga **zero runtime dependency**: detektor dan solver homografi murni Go; fixture test tilt di-generate oleh warp gambar in-tree, tanpa OpenCV atau `x/image`.
 - **Jujur soal batas.** CV itu empiris: milestone melebarkan pita kerja dan mendokumentasikan rentang sudut yang benar-benar dilewatinya pada fixture sintetis, alih-alih mengklaim robustness universal.
 
-## 2. Kenapa detektor sekarang gagal, dan perbaikannya
+## 2. Kenapa decoding gagal saat miring, dan perbaikannya
 
-`findFinders` sekarang menyusuri baris gambar (dan cross-check kolom) untuk lima run yang cocok dengan rasio **1:1:3:1:1** (`fitsFinderRatio`, +-50% per modul). Finder pattern adalah persegi konsentris, jadi garis lurus lewat pusatnya menyilang rasio itu pada *rotasi* apa pun — itulah kenapa v0.4 sudah menangani rotasi sampai ~30 derajat. Yang mematahkannya adalah **foreshortening perspektif**: lewat ~30 derajat tilt, panjang persilangan tertekan tak merata, rasio terukur melenceng keluar pita toleransi, dan tak ada run lima yang lolos. Melebarkan toleransi akan membanjiri detektor dengan false positive.
+> Koreksi arah (ditemukan empiris saat implementasi). Plan awal berasumsi deteksi finder adalah bottleneck: bahwa line scan **1:1:3:1:1** (`fitsFinderRatio`, +-50% per modul) patah di bawah foreshortening perspektif lewat ~30 derajat. Diukur terhadap fixture tilt sintetis, itu keliru dalam dua hal. Pertama, toleransi longgar line scan tetap menemukan ketiga finder sampai ~55 derajat. Kedua, dan menentukan, decoding gagal mulai ~20 derajat **bahkan ketika finder sudah ditemukan** — karena `homographyFromFinders` membangun map **afin** dari tiga pusat finder, dan map afin tak bisa membalik keystoning perspektif. Sebuah test kontrol memastikannya: menyampel fixture miring yang sama dengan homografi **projektif** ground-truth mendekode bersih sampai 70 derajat. Jadi penghambat sebenarnya adalah tahap geometri, bukan deteksi finder.
 
-Perbaikan yang robust adalah berhenti mengukur rasio 1-D dan sebaliknya mendeteksi **struktur topologis** finder, yang dipertahankan sebuah projective transform. Finder adalah pusat gelap solid di dalam ring terang di dalam ring gelap — tiga region bersarang dengan pusat konsentris dan rasio area mendekati 3x3 : 5x5 : 7x7. Nesting dan konsentrisitas bertahan di homography mana pun, jadi analisis **connected-component** menemukan finder pada sudut apa pun:
+Perbaikan yang robust adalah **homografi projektif yang diestimasi dari sudut pola finder**. Projective transform persis merupakan map antara bidang dan citra perspektifnya; ia butuh empat-plus korespondensi yang tidak degenerate. Tiga pusat finder hanya memberi tiga titik tak sempurna (centroid finder bukan invarian projektif), tetapi tiap finder adalah persegi dengan empat sudut, jadi tiga finder memberi dua belas korespondensi sudut yang tersebar di seluruh simbol. Pipeline-nya menjadi:
 
-1. Label connected component gelap dari gambar terbinarisasi (union-find dua-pass).
-2. Untuk tiap component gelap, temukan component terang yang dikelilinginya dan component gelap yang terkurung di dalamnya (hierarki component / lubang).
-3. Terima triple sebagai finder candidate saat ketiga centroid berimpit (dalam toleransi) dan area bersarangnya cocok dengan struktur 7:5:3 dalam toleransi.
-4. Kembalikan pusat candidate, yang menyuap pipeline `orderFinderTriple` -> `estimateVersion` -> `homographyFromFinders` -> `refineHomography` -> `sampleMatrix` yang ada, persis seperti output line scanner sekarang.
+1. Lokasi finder lewat analisis **connected-component** (union-find dua-pass + nesting gelap/terang/gelap dengan sisi bounding box 7:5:3), yang labelling-nya juga membiarkan kita mengunjungi ulang piksel untuk sudut. Ini menjangkau ~55 derajat yang sama seperti line scan; di luar itu keduanya tak mendeteksi finder.
+2. Ekstrak empat sudut cincin-luar tiap finder (metode titik-terjauh, agnostik rotasi) dan tetapkan tiap sudut koordinat modulnya lewat sumbu simbol.
+3. Selesaikan **homografi projektif least-squares** atas dua belas sudut (`computeHomographyLS`, normal equations).
+4. Karena version tak bisa dibaca andal dari simbol yang foreshorten, seed dari panjang sisi quad finder dan **trial** version-version terdekat, membiarkan validasi Reed-Solomon memilih yang mendekode.
+5. Rangkai semuanya sebagai **fallback**: `decodeImage` menjalankan pipeline afin yang tak diubah lebih dulu dan baru jatuh ke yang projektif saat itu gagal decode, jadi simbol tegak dan berotasi tetap byte-for-byte.
 
 ## 3. Cakupan
 
@@ -61,22 +62,25 @@ Tujuan: mendokumentasikan pendekatan dan buktinya sebelum kode.
 - [ ] Padanan Indonesia `docs/theory/24-arbitrary-angle-detection.id.md`.
 - [ ] Memperbarui `docs/theory/README.md` dan `.id.md`: entri 24 plus baris pemetaan kode.
 
-### DR3 — Detektor Finder Connected-Component `(L)`
+### DR3 — Detektor Finder Connected-Component `(L)` — selesai
 
-Tujuan: detektornya sendiri, diuji pada bitmap yang dikonstruksi.
+Tujuan: detektor component, diuji pada bitmap yang dikonstruksi.
 
-- [ ] Connected-component labelling dua-pass atas bitmap terbinarisasi (union-find), menghasilkan bounding box, area, centroid, dan warna per-component.
-- [ ] Analisis nesting: mencocokkan triple konsentris gelap -> terang -> gelap dengan rasio area 7:5:3-ish menjadi finder candidate; dedupe candidate nyaris-duplikat.
-- [ ] Unit test pada bitmap buatan-tangan: finder pattern sintetis terdeteksi di pusat sejatinya; persegi polos dan noise acak ditolak; tiga finder dalam satu frame menghasilkan tiga candidate.
+- [x] Connected-component labelling dua-pass atas bitmap terbinarisasi (union-find), menghasilkan bounding box, area, centroid, warna per-component, dan peta label per-piksel.
+- [x] Analisis nesting: mencocokkan triple konsentris gelap -> terang -> gelap dengan sisi bounding box 7:5:3-ish menjadi finder candidate; dedupe nyaris-duplikat.
+- [x] Unit test pada bitmap buatan-tangan: finder sintetis terdeteksi di pusat sejatinya; persegi polos dan cincin tanpa pusat gelap ditolak; tiga finder menghasilkan triple terurut.
 
-### DR4 — Fallback Pipeline + Round-Trip Tilt `(M)`
+### DR4 — Geometri Projektif + Round-Trip Tilt `(L)` — selesai
 
-Tujuan: men-decode simbol miring nyata end-to-end.
+Tujuan: men-decode simbol miring nyata end-to-end. Di sinilah koreksi arah mendarat (bagian 2): alih-alih menyuap pusat finder ke pipeline afin, ekstrak sudut finder dan fit homografi projektif.
 
-- [ ] `decodeImageDebug` memanggil detektor component saat line scanner gagal, lalu lanjut lewat pipeline geometri yang tak berubah; debug state merekam detektor mana yang dipakai.
-- [ ] Warp tilt in-tree (test helper) me-render QR dan memproyeksikannya pada rotasi/tilt tertentu; `TestArbitraryAngleRoundTrip` men-decode sebaran sudut dan merekam pita yang lolos. Jalur cepat tegak tetap byte-for-byte pada perilaku sekarang (test decode yang ada tak tersentuh).
+- [x] Ekstraksi sudut dari cincin luar tiap finder (`extractQuadCorners`) dan pengurutan quad (`findFinderQuadTriple`).
+- [x] `homographyFromFinderQuads` menetapkan tiap sudut koordinat modulnya lewat sumbu simbol dan menyelesaikan homografi projektif least-squares (`computeHomographyLS`).
+- [x] Seed version dari panjang sisi quad finder plus trial version terurut-kedekatan yang divalidasi Reed-Solomon (`decodeProjectiveFromBitmap`).
+- [x] `decodeImage` menjalankan pipeline afin lebih dulu dan jatuh ke projektif hanya saat gagal decode; error afin dipertahankan. Kasus tegak dan berotasi tetap byte-for-byte (test batas v0.4 yang dulu meng-assert kegagalan 45 derajat kini meng-assert pemulihan lewat jalur projektif).
+- [x] Warp tilt in-tree (`warpTilt`) dan `TestArbitraryAngleRoundTrip`; sweep merekam pita yang lolos dan `TestUprightUsesAffinePath` menjaga jalur cepat.
 
-### Checkpoint A — Decode publik membaca tilt sintetis lintas pita target.
+### Checkpoint A — Decode publik membaca tilt sintetis lintas pita target. Tercapai: andal sampai ~35-40 derajat lintas orientasi, ~55 derajat pada rotasi menguntungkan, dibatasi ~55-60 derajat oleh deteksi finder.
 
 ### DR5 — Polish & Rilis `(S)`
 
@@ -93,9 +97,9 @@ Tujuan: memotong `v0.13.0`.
 
 ```
 qrgen/
-├── decode_finder_cc.go        # baru — detektor finder connected-component
+├── decode_finder_cc.go        # baru — CC labelling, cocok nesting, ekstraksi sudut, triple quad
 ├── decode_finder_cc_test.go   # baru — unit test CCL + nesting
-├── decode_image.go            # wiring fallback findFinders; catatan debug state
+├── decode_image.go            # homografi projektif, trial version, dan decodeImage afin-lalu-projektif
 ├── decode_tilt_test.go        # baru — warp tilt in-tree + round-trip sudut-sembarang
 docs/
 ├── plan-decoder-robustness.md      # file ini
@@ -107,11 +111,11 @@ docs/
 
 ## 6. Risiko & Catatan Teknis
 
-- **Ini mungkin tak sepenuhnya tertutup.** Tak seperti fitur spec, detektor CV tak punya success rate terjamin. Rencana memitigasi dengan (a) menjaganya sebagai fallback sehingga tak ada yang regresi, dan (b) memvalidasi pada fixture sintetis dan melaporkan pita sebenarnya alih-alih klaim. Kalau detektor component melewati, katakanlah, 30..70 derajat tetapi tidak 70..90, itu hasil terdokumentasi dan tetap peningkatan nyata.
-- **False positive.** Melonggarkan deteksi finder berisiko menerima non-finder. Test nesting + konsentrisitas + rasio-area lebih ketat dari rasio 1-D, dan tiga finder yang saling konsisten (via `orderFinderTriple` dan `estimateVersion`) harus setuju, jadi candidate nyasar tersaring di hilir.
-- **Fallback menjaga jalur cepat.** Pass component (CCL atas gambar) lebih mahal dari beberapa row scan, jadi ia jalan hanya saat line scanner gagal. Simbol tegak dan miring-ringan tak pernah membayarnya, dan test decode serta timing yang ada tak terpengaruh.
-- **Homography sudah menangani perspektif.** Milestone sengaja tak menyentuh `homographyFromFinders`/`refineHomography`; keduanya sudah men-fit projective transform 3x3 sembarang dari pusat finder, jadi begitu pusatnya ditemukan pada sudut curam, sisanya tinggal jalan. Refinement alignment-pattern (v0.4) semakin mengoreksi perspektif.
-- **Warp test-fixture bukan produk.** Warp tilt hidup hanya di test; ia memfabrikasi input untuk membuktikan detektor, dan kualitasnya sendiri (sampling nearest vs bilinear) hanya memengaruhi seberapa sulit gambar test, bukan library.
+- **Ini tak sepenuhnya tertutup, dan itu terdokumentasi.** Tak seperti fitur spec, pipeline CV tak punya success rate terjamin. Pitanya empiris (DR4 Checkpoint A) dan bergantung orientasi; README dan theory doc menyatakannya jujur alih-alih mengklaim ketangguhan universal. Ini peningkatan nyata — decoding yang dulu gagal mulai ~20 derajat kini menjangkau ~35-55 — bukan solusi lengkap.
+- **Bottleneck-nya geometri, bukan deteksi.** Asumsi awal (bahwa line scan finder gagal lebih dulu) terbantah oleh pengukuran; homografi afin tiga-centroid-lah yang membatasi pipeline lama, dan centroid finder bukan invarian projektif. Perbaikannya mengestimasi transformasi projektif dari dua belas sudut finder.
+- **Version di bawah perspektif.** Jarak antar-finder foreshorten dan estimasi modul bounding box membengkak, jadi estimasi version tak andal. Dimitigasi dengan seed sisi-sudut dan trial version terurut-kedekatan yang digerbangi Reed-Solomon, yang membuat version salah gagal cepat dan yang benar mendekode.
+- **Fallback menjaga jalur cepat.** Jalur projektif (labelling CC plus trial version terbatas) lebih mahal dari pipeline afin, jadi ia jalan hanya saat decode afin gagal. Simbol tegak dan berotasi tak pernah membayarnya, dan test decode serta timing yang ada tak terpengaruh.
+- **Warp test-fixture bukan produk.** Warp tilt hidup hanya di test; ia memfabrikasi input untuk membuktikan pipeline, dan kualitas sampling-nya sendiri hanya memengaruhi seberapa sulit gambar test, bukan library.
 
 ## 7. Referensi
 
