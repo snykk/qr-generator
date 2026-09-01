@@ -61,6 +61,10 @@ This folder contains the literature review and theoretical foundation for the `q
 
 23. [Logo Embedding](23-logo-embedding.md) — overlaying a centred logo while staying scannable: why Reed–Solomon recovery and block interleaving absorb the occlusion, the safe default size, the automatic EC-H bump, the background pad, PNG compositing versus SVG data-URI embedding, and the zero-dependency resampler.
 
+### Decoder robustness (v0.13.0)
+
+24. [Arbitrary-Angle Decoding](24-arbitrary-angle-detection.md) — reading symbols tilted well past where the affine pipeline fails: why the real blocker is the affine three-centroid homography rather than finder detection, why perspective needs a projective transform, extracting the finder-pattern corners via connected-component analysis, the twelve-corner least-squares homography, the corner-based version seed plus trial decode, the affine-first fallback that leaves upright decoding unchanged, and the synthetic-tilt validation with an honest band.
+
 ## Primary references
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* The normative source.
@@ -103,5 +107,6 @@ Additional references appear at the end of each document.
 | 21-structured-append.md             | `qrgen/structured_append.go` (planned, SA3) |
 | 22-kanji-mode.md                    | `qrgen/kanji.go` (planned, K3) |
 | 23-logo-embedding.md                | `qrgen/logo.go` (planned, L3) |
+| 24-arbitrary-angle-detection.md     | `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go` |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.

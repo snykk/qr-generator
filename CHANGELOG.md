@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-01
+
+This release adds **arbitrary-angle decoding**: QR photos taken at a real perspective tilt now read. Implementation overturned the plan's premise — finder detection was not the bottleneck (the 1:1:3:1:1 line scanner already reaches ~55 degrees), the affine three-centre homography was, since it cannot undo perspective keystoning. The fix estimates a projective homography from the finder corners and runs strictly as a fallback, so upright and rotated decoding is byte-for-byte unchanged.
+
+### Added
+
+- A projective decode path in `decodeImage`: when the affine pipeline cannot decode a symbol, it locates the finders by connected-component analysis, extracts the four outer corners of each finder ring, assigns every corner its module coordinate from the symbol axes, and fits a least-squares projective homography over the twelve correspondences (`homographyFromFinderQuads`, `computeHomographyLS`).
+- A version trial (`decodeProjectiveFromBitmap`): because a foreshortened symbol reports its version unreliably, the version is seeded from the finder-quad edge length and trialled across nearby candidates, with Reed-Solomon and format-information validation selecting the one that decodes.
+- `qrgen/decode_finder_cc.go`: two-pass union-find connected-component labelling, the dark/light/dark 7:5:3 nesting matcher, rotation-agnostic corner extraction (`extractQuadCorners`), and the ordered finder-quad triple (`findFinderQuadTriple`).
+- New reference doc `docs/theory/24-arbitrary-angle-detection.md` (English plus Indonesian), plan doc `docs/plan-decoder-robustness.md` (plus Indonesian) with milestones DR1..DR5.
+
+### Changed
+
+- The decoder now reads perspective tilt reliably to roughly 35-40 degrees across orientations and up to about 55 degrees at favourable in-plane rotations; beyond ~55-60 degrees finder detection itself gives out. The band is orientation-dependent and documented honestly rather than claimed. Upright and rotated inputs keep their exact previous behaviour, speed, and error messages (the affine attempt runs first and its error is surfaced on total failure).
+- `TestRotationSoftTilt45` (was `TestRotationSoftTiltOutOfBand`): the v0.4 boundary test that asserted a 45-degree rotation must fail now asserts recovery through the projective fallback.
+
+### Validated
+
+- `TestArbitraryAngleRoundTrip` and `TestArbitraryAngleSweep` warp a symbol through synthetic perspective (an in-tree tilt warp, no image dependencies) and confirm decoding across the band via the public `DecodeBytes`, with `TestUprightUsesAffinePath` guarding that upright symbols still take the affine fast path. Connected-component unit tests cover a finder found at its true centre, rejection of a solid square and of a ring without a dark centre, and three finders resolved into an ordered triple. gofmt-clean, `go test -race ./...` clean.
+
 ## [0.12.0] - 2026-08-29
 
 This release adds **logo embedding**, overlaying a centred logo on a QR symbol while keeping it scannable. It is the first output-styling feature after the encoder's mode set was completed in v0.11; the encoding and the decoder are untouched, and the symbol still reads because error correction recovers the modules the logo covers.
@@ -315,7 +335,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/snykk/qr-generator/releases/tag/v0.13.0
 [0.12.0]: https://github.com/snykk/qr-generator/releases/tag/v0.12.0
 [0.11.0]: https://github.com/snykk/qr-generator/releases/tag/v0.11.0
 [0.10.0]: https://github.com/snykk/qr-generator/releases/tag/v0.10.0
