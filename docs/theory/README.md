@@ -65,6 +65,10 @@ This folder contains the literature review and theoretical foundation for the `q
 
 24. [Arbitrary-Angle Decoding](24-arbitrary-angle-detection.md) — reading symbols tilted well past where the affine pipeline fails: why the real blocker is the affine three-centroid homography rather than finder detection, why perspective needs a projective transform, extracting the finder-pattern corners via connected-component analysis, the twelve-corner least-squares homography, the corner-based version seed plus trial decode, the affine-first fallback that leaves upright decoding unchanged, and the synthetic-tilt validation with an honest band.
 
+### Multi-symbol decoding (v0.14.0)
+
+25. [Multi-Symbol Decoding](25-multi-symbol-decoding.md) — reading every QR symbol in one image: why the connected-component detector already enumerates all finders, grouping them into disjoint valid triples of a shared module pitch and right-isosceles geometry, why decode success (not geometry) must be the claim arbiter so a same-size grid's cross-symbol triples cannot steal real finders, reusing the per-symbol projective pipeline, deriving each symbol's outline from its homography, the reading-order and skip-per-symbol error semantics, and the honest limits.
+
 ## Primary references
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* The normative source.
@@ -108,5 +112,6 @@ Additional references appear at the end of each document.
 | 22-kanji-mode.md                    | `qrgen/kanji.go` (planned, K3) |
 | 23-logo-embedding.md                | `qrgen/logo.go` (planned, L3) |
 | 24-arbitrary-angle-detection.md     | `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go` |
+| 25-multi-symbol-decoding.md         | `qrgen/decode_multi.go` (planned, MS4), `qrgen/decode_finder_cc.go` |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.
