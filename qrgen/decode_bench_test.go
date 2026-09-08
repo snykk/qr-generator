@@ -24,9 +24,8 @@ func BenchmarkDecodeMatrixSmall(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := DecodeMatrix(grid); err != nil {
 			b.Fatal(err)
 		}
@@ -40,9 +39,8 @@ func BenchmarkDecodeMatrixMultiBlock(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := DecodeMatrix(grid); err != nil {
 			b.Fatal(err)
 		}
@@ -57,9 +55,8 @@ func BenchmarkDecodeImageSmall(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := DecodeBytes(pngBytes); err != nil {
 			b.Fatal(err)
 		}
@@ -73,9 +70,8 @@ func BenchmarkDecodeImageMultiBlock(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := DecodeBytes(pngBytes); err != nil {
 			b.Fatal(err)
 		}
@@ -89,9 +85,8 @@ func BenchmarkDecodeImageURL(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := DecodeBytes(pngBytes); err != nil {
 			b.Fatal(err)
 		}
@@ -110,9 +105,8 @@ func BenchmarkDecodeImageFromPNGDecode(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := Decode(img); err != nil {
 			b.Fatal(err)
 		}
@@ -152,9 +146,8 @@ func BenchmarkDecodeImageSauvolaFallback(b *testing.B) {
 			}
 		}
 	}
-	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := Decode(img); err != nil {
 			b.Fatal(err)
 		}
@@ -179,9 +172,8 @@ func BenchmarkDecodeImageRotated90(b *testing.B) {
 		b.Fatal(err)
 	}
 	rotated := rotateImage(clean, 90)
-	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := Decode(rotated); err != nil {
 			b.Fatal(err)
 		}
