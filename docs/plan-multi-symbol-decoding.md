@@ -146,7 +146,7 @@ examples/decode/multi/main.go          # new — runnable demo
 
 To be answered before the corresponding milestone:
 
-- **Cost ceiling value.** Set empirically in MS3 from the tilt/rotation corpus; the plan commits to measuring, not to a number.
-- **Version window for the multi path.** Full 1..40 proximity sweep (max robustness) versus a narrowed window around `estimateVersionQuad` (bounded cost). Decide in MS3 against the attempt-cap and grid cases.
-- **Attempt-cap policy.** `c x N`, or "until the candidate pool is exhausted"? Pick the simplest that never drops a real symbol in the grid stress case (MS5 case g).
+- **Cost ceiling value.** Resolved in MS3: measuring the tilt/rotation corpus showed genuinely decodable symbols reach `finderTripleCost` about 0.76 at 55 degrees with no clean separation from noise, so there is **no fixed ceiling**. `orderFinderTriple` is the validity gate, triples are cost-sorted (real symbols near zero first), and the attempt cap bounds the rest — which also cannot regress the single-symbol path, since it too has no ceiling.
+- **Version window for the multi path.** Resolved in MS3: the per-triple decode (`decodeOneQuadTriple`) is shared with the single-symbol path and keeps the full proximity-ordered version sweep, so single-symbol behaviour is identical; the multi path bounds cost with the attempt cap rather than a narrower window. Revisit only if the MS5 grid case proves too slow.
+- **Attempt-cap policy.** Resolved in MS3: `4*N + 16` decode attempts (N = finder count), with claimed/duplicate triples skipped for free. Generous relative to the at-most `N/3` real symbols; validated against the MS5 grid stress case (case g) and tightened there if needed.
 - **Result metadata.** Ship the lean `Result` (Text, Corners, Finders, Version); add EC level / mask / SA header later behind demand, without breaking callers.

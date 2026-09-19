@@ -862,6 +862,19 @@ func decodeProjectiveFromBitmap(bm *bitmap) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	text, _, _, derr := decodeOneQuadTriple(bm, tq)
+	return text, derr
+}
+
+// decodeOneQuadTriple decodes a single ordered finder-quad triple. Because a
+// foreshortened symbol reports its version unreliably, it trials candidate
+// versions (seeded by the finder-quad edge length), fits the projective
+// homography for each, samples the grid, and returns the first Reed-Solomon
+// valid decode together with the winning version and homography -- which the
+// multi-symbol path uses to locate the symbol. Returns the last decode error if
+// no version decodes. Shared by the single-symbol path (decodeProjectiveFromBitmap)
+// and the multi-symbol grouping loop so both decode a triple identically.
+func decodeOneQuadTriple(bm *bitmap, tq finderTripleQuad) (string, Version, homography, error) {
 	lastErr := error(ErrInvalidVersion)
 	for _, v := range candidateVersions(estimateVersionQuad(tq)) {
 		hg, herr := homographyFromFinderQuads(tq, v)
@@ -871,11 +884,11 @@ func decodeProjectiveFromBitmap(bm *bitmap) (string, error) {
 		grid := sampleMatrix(bm, hg, v.Size())
 		text, derr := DecodeMatrix(grid)
 		if derr == nil {
-			return text, nil
+			return text, v, hg, nil
 		}
 		lastErr = derr
 	}
-	return "", lastErr
+	return "", 0, homography{}, lastErr
 }
 
 // candidateVersions orders all valid versions by increasing distance from the

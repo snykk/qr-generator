@@ -146,7 +146,7 @@ examples/decode/multi/main.go          # baru — demo runnable
 
 Dijawab sebelum milestone terkait:
 
-- **Nilai ceiling cost.** Diset empiris di MS3 dari korpus tilt/rotasi; plan berkomitmen mengukur, bukan pada satu angka.
-- **Window version untuk jalur multi.** Sweep kedekatan penuh 1..40 (robustness maksimal) versus window yang dipersempit sekitar `estimateVersionQuad` (biaya terbatas). Putuskan di MS3 terhadap kasus cap-attempt dan grid.
-- **Kebijakan cap-attempt.** `c x N`, atau "sampai pool kandidat habis"? Pilih yang paling sederhana yang tak pernah men-drop simbol nyata di kasus stress grid (MS5 kasus g).
+- **Nilai ceiling cost.** Diselesaikan di MS3: pengukuran korpus tilt/rotasi menunjukkan simbol yang benar-benar bisa didekode mencapai `finderTripleCost` sekitar 0.76 pada 55 derajat tanpa pemisahan bersih dari noise, jadi **tak ada ceiling tetap**. `orderFinderTriple` adalah gerbang validitas, triple diurut menurut cost (simbol nyata dekat nol lebih dulu), dan cap attempt membatasi sisanya — yang juga tak bisa meregresikan jalur single-symbol, karena ia pun tak punya ceiling.
+- **Window version untuk jalur multi.** Diselesaikan di MS3: decode per-triple (`decodeOneQuadTriple`) dipakai bersama jalur single-symbol dan mempertahankan sweep version terurut-kedekatan penuh, jadi perilaku single-symbol identik; jalur multi membatasi biaya lewat cap attempt, bukan window yang lebih sempit. Ditinjau ulang hanya bila kasus grid MS5 terbukti terlalu lambat.
+- **Kebijakan cap-attempt.** Diselesaikan di MS3: `4*N + 16` percobaan decode (N = jumlah finder), dengan triple ter-klaim/duplikat dilewati gratis. Longgar relatif terhadap paling banyak `N/3` simbol nyata; divalidasi terhadap kasus stress grid MS5 (kasus g) dan dikencangkan di sana bila perlu.
 - **Metadata Result.** Kirim `Result` ramping (Text, Corners, Finders, Version); tambah EC level / mask / header SA nanti sesuai kebutuhan, tanpa memecahkan pemanggil.
