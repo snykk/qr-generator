@@ -12,9 +12,187 @@ import (
 	"bytes"
 	"errors"
 	"image"
+	"image/color"
+	"image/draw"
 	"image/png"
 	"testing"
 )
+
+// renderQR encodes payload to a PNG and decodes it back to an image, one tile
+// for compositing multi-symbol test scenes.
+func renderQR(t *testing.T, payload string, opts ...Option) image.Image {
+	t.Helper()
+	pngBytes, err := Encode(payload, opts...)
+	if err != nil {
+		t.Fatalf("Encode(%q): %v", payload, err)
+	}
+	img, err := png.Decode(bytes.NewReader(pngBytes))
+	if err != nil {
+		t.Fatalf("png.Decode: %v", err)
+	}
+	return img
+}
+
+type placedTile struct {
+	img  image.Image
+	x, y int
+}
+
+// compositeTiles draws each tile onto one white canvas at its offset, building
+// a multi-symbol image in memory without any binary fixture.
+func compositeTiles(w, h int, tiles ...placedTile) image.Image {
+	canvas := image.NewRGBA(image.Rect(0, 0, w, h))
+	draw.Draw(canvas, canvas.Bounds(), image.NewUniform(color.White), image.Point{}, draw.Src)
+	for _, ti := range tiles {
+		b := ti.img.Bounds()
+		dst := image.Rect(ti.x, ti.y, ti.x+b.Dx(), ti.y+b.Dy())
+		draw.Draw(canvas, dst, ti.img, b.Min, draw.Src)
+	}
+	return canvas
+}
+
+func resultTexts(results []Result) []string {
+	out := make([]string, len(results))
+	for i, r := range results {
+		out[i] = r.Text
+	}
+	return out
+}
+
+// assertTextSet checks the decoded payloads match want as a set (order aside).
+func assertTextSet(t *testing.T, results []Result, want ...string) {
+	t.Helper()
+	got := map[string]int{}
+	for _, r := range results {
+		got[r.Text]++
+	}
+	if len(results) != len(want) {
+		t.Errorf("got %d results %v, want %d %v", len(results), resultTexts(results), len(want), want)
+	}
+	for _, w := range want {
+		if got[w] == 0 {
+			t.Errorf("missing payload %q; got %v", w, resultTexts(results))
+		}
+	}
+}
+
+func TestDecodeAllTwoUpright(t *testing.T) {
+	a := renderQR(t, "ALPHA")
+	b := renderQR(t, "BRAVO")
+	tw, th := a.Bounds().Dx(), a.Bounds().Dy()
+	canvas := compositeTiles(tw*2+80, th+40,
+		placedTile{a, 20, 20},
+		placedTile{b, tw + 60, 20})
+
+	results, err := DecodeAll(canvas)
+	if err != nil {
+		t.Fatalf("DecodeAll: %v", err)
+	}
+	assertTextSet(t, results, "ALPHA", "BRAVO")
+	// Same row, so reading order runs left to right: ALPHA before BRAVO.
+	if len(results) == 2 && results[0].Text != "ALPHA" {
+		t.Errorf("reading order = %v, want ALPHA first", resultTexts(results))
+	}
+}
+
+func TestDecodeAllDifferentSizes(t *testing.T) {
+	const bigPayload = "DATA-DATA-DATA-DATA-DATA-DATA-0123456789"
+	small := renderQR(t, "HI")
+	big := renderQR(t, bigPayload)
+	sw, sh := small.Bounds().Dx(), small.Bounds().Dy()
+	bw, bh := big.Bounds().Dx(), big.Bounds().Dy()
+	canvas := compositeTiles(sw+bw+120, max(sh, bh)+40,
+		placedTile{small, 20, 20},
+		placedTile{big, sw + 80, 20})
+
+	results, err := DecodeAll(canvas)
+	if err != nil {
+		t.Fatalf("DecodeAll: %v", err)
+	}
+	assertTextSet(t, results, "HI", bigPayload)
+	ver := map[string]Version{}
+	for _, r := range results {
+		ver[r.Text] = r.Version
+	}
+	if ver["HI"] == ver[bigPayload] {
+		t.Errorf("versions did not differ: HI=%d big=%d", ver["HI"], ver[bigPayload])
+	}
+}
+
+func TestDecodeAllTwoTilts(t *testing.T) {
+	t1 := warpTilt(t, tiltSource(t, "TILT-A-111"), 30, 8)
+	t2 := warpTilt(t, tiltSource(t, "TILT-B-222"), 40, -8)
+	w := t1.Bounds().Dx() + t2.Bounds().Dx() + 120
+	h := max(t1.Bounds().Dy(), t2.Bounds().Dy()) + 40
+	canvas := compositeTiles(w, h,
+		placedTile{t1, 20, 20},
+		placedTile{t2, t1.Bounds().Dx() + 80, 20})
+
+	results, err := DecodeAll(canvas)
+	if err != nil {
+		t.Fatalf("DecodeAll: %v", err)
+	}
+	assertTextSet(t, results, "TILT-A-111", "TILT-B-222")
+}
+
+func TestDecodeAllMatchesSingleDecode(t *testing.T) {
+	img := renderQR(t, "SINGLE-SYMBOL-42")
+	single, err := Decode(img)
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	all, err := DecodeAll(img)
+	if err != nil {
+		t.Fatalf("DecodeAll: %v", err)
+	}
+	if len(all) != 1 {
+		t.Fatalf("DecodeAll returned %d results, want 1", len(all))
+	}
+	if all[0].Text != single {
+		t.Errorf("DecodeAll text = %q, want %q (Decode)", all[0].Text, single)
+	}
+}
+
+func TestDecodeAllAdjacent(t *testing.T) {
+	// Tiles touching edge to edge: their quiet zones abut but the symbol data
+	// stays separated, so both must still decode.
+	a := renderQR(t, "LEFT-CODE")
+	b := renderQR(t, "RIGHT-CODE")
+	tw, th := a.Bounds().Dx(), a.Bounds().Dy()
+	canvas := compositeTiles(tw*2+40, th+40,
+		placedTile{a, 20, 20},
+		placedTile{b, tw + 20, 20})
+
+	results, err := DecodeAll(canvas)
+	if err != nil {
+		t.Fatalf("DecodeAll: %v", err)
+	}
+	assertTextSet(t, results, "LEFT-CODE", "RIGHT-CODE")
+}
+
+func TestDecodeAllGrid(t *testing.T) {
+	// A 3x3 grid of same-size symbols: the case that stresses the attempt cap,
+	// since same-pitch cross-symbol triples pass the geometry gate.
+	payloads := []string{"G00", "G01", "G02", "G10", "G11", "G12", "G20", "G21", "G22"}
+	tile0 := renderQR(t, payloads[0])
+	tw, th := tile0.Bounds().Dx(), tile0.Bounds().Dy()
+	const gap = 30
+	canvas := image.NewRGBA(image.Rect(0, 0, 3*tw+4*gap, 3*th+4*gap))
+	draw.Draw(canvas, canvas.Bounds(), image.NewUniform(color.White), image.Point{}, draw.Src)
+	for r := 0; r < 3; r++ {
+		for c := 0; c < 3; c++ {
+			tile := renderQR(t, payloads[r*3+c])
+			x, y := gap+c*(tw+gap), gap+r*(th+gap)
+			draw.Draw(canvas, image.Rect(x, y, x+tw, y+th), tile, tile.Bounds().Min, draw.Src)
+		}
+	}
+
+	results, err := DecodeAll(canvas)
+	if err != nil {
+		t.Fatalf("DecodeAll: %v", err)
+	}
+	assertTextSet(t, results, payloads...)
+}
 
 func mkFinder(x, y float64) finderCandidate {
 	return finderCandidate{x: x, y: y, moduleSize: 10}
