@@ -19,7 +19,7 @@ import (
 func BenchmarkEncodeSmall(b *testing.B) {
 	const text = "HELLO WORLD"
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := Encode(text); err != nil {
 			b.Fatal(err)
 		}
@@ -31,7 +31,7 @@ func BenchmarkEncodeSmall(b *testing.B) {
 func BenchmarkEncodeURL(b *testing.B) {
 	const text = "https://github.com/snykk/qr-generator"
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := Encode(text); err != nil {
 			b.Fatal(err)
 		}
@@ -44,7 +44,7 @@ func BenchmarkEncodeURL(b *testing.B) {
 func BenchmarkEncodeMultiBlock(b *testing.B) {
 	text := strings.Repeat("ABC123", 10) // 60 alphanumeric chars → V5-Q
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := Encode(text, WithECLevel(ECLevelQ)); err != nil {
 			b.Fatal(err)
 		}
@@ -55,7 +55,7 @@ func BenchmarkEncodeMultiBlock(b *testing.B) {
 func BenchmarkEncodeLarge(b *testing.B) {
 	text := strings.Repeat("The quick brown fox jumps over the lazy dog. ", 20)
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := Encode(text); err != nil {
 			b.Fatal(err)
 		}
@@ -68,7 +68,7 @@ func BenchmarkEncodeLarge(b *testing.B) {
 func BenchmarkEncodeMixed(b *testing.B) {
 	const text = "Order #1234567890 shipped to bay 42"
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := Encode(text); err != nil {
 			b.Fatal(err)
 		}
@@ -80,7 +80,7 @@ func BenchmarkEncodeMixed(b *testing.B) {
 func BenchmarkMatrixOnly(b *testing.B) {
 	const text = "HELLO WORLD"
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := Matrix(text); err != nil {
 			b.Fatal(err)
 		}
@@ -93,7 +93,7 @@ func BenchmarkMatrixOnly(b *testing.B) {
 func BenchmarkEncodeSVGSmall(b *testing.B) {
 	const text = "HELLO WORLD"
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := EncodeSVG(text); err != nil {
 			b.Fatal(err)
 		}
@@ -105,7 +105,7 @@ func BenchmarkEncodeSVGSmall(b *testing.B) {
 func BenchmarkEncodeSVGURL(b *testing.B) {
 	const text = "https://github.com/snykk/qr-generator"
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := EncodeSVG(text); err != nil {
 			b.Fatal(err)
 		}

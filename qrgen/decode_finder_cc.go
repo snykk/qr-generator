@@ -342,6 +342,66 @@ func bestFinderTripleIdx(c []finderCandidate) ([3]int, bool) {
 	return best, ok
 }
 
+// orderedTriple is a geometrically valid finder triple expressed as indices
+// into a candidate slice, in reading order (top-left, top-right, bottom-left),
+// carrying its finderTripleCost. Indices, not centre values, so the caller maps
+// back to finder quads without a float-equality lookup.
+type orderedTriple struct {
+	tl, tr, bl int
+	cost       float64
+}
+
+// groupFinderTriples is the multi-symbol generalisation of bestFinderTripleIdx:
+// instead of the single lowest-cost triple it returns every geometrically valid
+// triple among the candidates, ordered (top-left, top-right, bottom-left) and
+// sorted by ascending cost. Validity is orderFinderTriple's existing gate (equal
+// legs, right angle); there is deliberately no absolute cost ceiling, because
+// measuring the tilt corpus showed genuinely decodable symbols reaching
+// finderTripleCost around 0.76 at 55 degrees with no clean separation from
+// noise, so a fixed gate would drop real steep-tilt decodes and would also
+// regress the single-symbol path (which has no ceiling). Sorting by cost puts
+// real symbols (cost near zero) first; the caller claims disjoint triples and
+// its attempt cap bounds the rest.
+func groupFinderTriples(centres []finderCandidate) []orderedTriple {
+	n := len(centres)
+	var out []orderedTriple
+	for i := 0; i < n; i++ {
+		for j := i + 1; j < n; j++ {
+			for k := j + 1; k < n; k++ {
+				tri, err := orderFinderTriple(centres[i], centres[j], centres[k])
+				if err != nil {
+					continue
+				}
+				ids := tripleIndices(centres, i, j, k, tri)
+				out = append(out, orderedTriple{
+					tl:   ids[0],
+					tr:   ids[1],
+					bl:   ids[2],
+					cost: finderTripleCost(centres[i], centres[j], centres[k]),
+				})
+			}
+		}
+	}
+	sort.Slice(out, func(a, b int) bool { return out[a].cost < out[b].cost })
+	return out
+}
+
+// tripleIndices maps an ordered finder triple back to indices among {i, j, k}.
+// orderFinderTriple only permutes its three inputs, so each ordered centre
+// equals exactly one input by value; dedupeCCNestings guarantees the candidate
+// centres are distinct, so the value match is unambiguous.
+func tripleIndices(centres []finderCandidate, i, j, k int, tri finderTriple) [3]int {
+	idxOf := func(c finderCandidate) int {
+		for _, x := range [3]int{i, j, k} {
+			if centres[x] == c {
+				return x
+			}
+		}
+		return i // unreachable: tri's centres are a permutation of {i, j, k}
+	}
+	return [3]int{idxOf(tri.topLeft), idxOf(tri.topRight), idxOf(tri.bottomLeft)}
+}
+
 // finderTripleCost scores how well three candidates fit the finder geometry;
 // lower is better. It sums the module-size spread and two shape residuals: the
 // centres should form a right angle (leg^2 + leg^2 = hypotenuse^2) with equal

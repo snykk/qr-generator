@@ -67,6 +67,10 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 24. [Decoding pada Sudut Sembarang](24-arbitrary-angle-detection.id.md) — membaca simbol yang miring jauh melewati titik gagal pipeline afin: kenapa penghambat sebenarnya adalah homografi afin tiga-centroid dan bukan deteksi finder, kenapa perspektif butuh transformasi projektif, mengekstrak sudut pola finder lewat analisis connected-component, homografi least-squares dua-belas-sudut, seed version berbasis sudut plus trial decode, fallback afin-dulu yang membiarkan decode tegak tak berubah, dan validasi tilt sintetis dengan pita yang jujur.
 
+### Multi-symbol decoding (v0.14.0)
+
+25. [Multi-Symbol Decoding](25-multi-symbol-decoding.id.md) — membaca setiap simbol QR dalam satu gambar: kenapa detektor connected-component sudah meng-enumerasi semua finder, mengelompokkannya jadi triple valid disjoint dengan pitch modul bersama dan geometri right-isosceles, kenapa keberhasilan decode (bukan geometri) harus jadi penentu klaim agar triple cross-symbol pada grid same-size tak bisa mencuri finder nyata, memakai ulang pipeline projektif per-simbol, menurunkan garis luar tiap simbol dari homography-nya, semantik reading-order dan skip-per-simbol, serta batas yang jujur.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -110,5 +114,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 22-kanji-mode.id.md                    | `qrgen/kanji.go` (direncanakan, K3) |
 | 23-logo-embedding.id.md                | `qrgen/logo.go` (direncanakan, L3) |
 | 24-arbitrary-angle-detection.id.md     | `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go` |
+| 25-multi-symbol-decoding.id.md          | `qrgen/decode_multi.go` (direncanakan, MS4), `qrgen/decode_finder_cc.go` |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.
