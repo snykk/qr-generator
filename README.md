@@ -209,7 +209,16 @@ As of v0.4, the decoder also handles axis-aligned rotations (90 / 180 / 270 degr
 
 As of v0.13, the decoder reads symbols under real perspective tilt. When the affine pipeline cannot decode — the signature of a slanted photo, whose keystoning a three-centre affine homography cannot undo — it falls back to locating the finders by connected-component analysis, extracting the four corners of each finder pattern, and fitting a projective homography from those twelve correspondences (with a version trial gated by Reed–Solomon, since a foreshortened symbol reports its version unreliably). The fallback is internal and adds only decodes: upright and rotated inputs keep their exact previous behaviour and speed. It reliably reads tilts to roughly 35–40 degrees across orientations and up to about 55 degrees at favourable rotations; beyond that finder detection itself gives out. See [docs/theory/24-arbitrary-angle-detection.md](docs/theory/24-arbitrary-angle-detection.md).
 
-Runnable demos live in [examples/decode/basic](examples/decode/basic/main.go) and [examples/decode/styled](examples/decode/styled/main.go).
+As of v0.14, `qrgen.DecodeAll` reads every QR symbol in one image — a page of codes, a strip of tickets, a scene with several at once — returning one `Result` per symbol with its text, its four outer corners (the true perspective outline, with a `Bounds()` helper for an axis-aligned box), its finder centres, and its version, in reading order. Per-symbol failures are skipped rather than failing the batch; only an image with nothing decodable returns `ErrFinderNotFound`. `DecodeAll` uses the connected-component detector and grouping described in [docs/theory/25-multi-symbol-decoding.md](docs/theory/25-multi-symbol-decoding.md); the single-symbol `Decode` and `DecodeBytes` are unchanged.
+
+```go
+results, err := qrgen.DecodeAllBytes(data)
+for _, r := range results {
+    fmt.Printf("%q at %v (v%d)\n", r.Text, r.Bounds(), r.Version)
+}
+```
+
+Runnable demos live in [examples/decode/basic](examples/decode/basic/main.go), [examples/decode/styled](examples/decode/styled/main.go), and [examples/decode/multi](examples/decode/multi/main.go).
 
 ## CLI usage
 
@@ -292,6 +301,8 @@ Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: �
 | `Decode(img image.Image) (string, error)` | Image → text. Runs the full image pipeline. |
 | `DecodeBytes(data []byte) (string, error)` | PNG / JPEG / GIF bytes → text. Convenience wrapper around `Decode`. |
 | `DecodeMatrix(grid [][]bool) (string, error)` | Boolean module grid → text. Skips the image pipeline. |
+| `DecodeAll(img image.Image) ([]Result, error)` | Image → every QR symbol in it, each a `Result` (text, corners, finder centres, version), in reading order. |
+| `DecodeAllBytes(data []byte) ([]Result, error)` | PNG / JPEG / GIF bytes → all symbols. Convenience wrapper around `DecodeAll`. |
 | `DecodeStructuredAppend(symbols [][]byte) (string, error)` | A set of structured-append symbols (any order) → reassembled text. |
 
 **Sentinel errors** (use `errors.Is`):
@@ -339,6 +350,7 @@ The library covers the encoder and the decoder end-to-end as of v0.2.0; the foll
 - **Structured-append is opt-in and PNG-only.** `EncodeStructuredAppend` (v0.10) splits a long message across 2..16 linked symbols and `DecodeStructuredAppend` reassembles them, but the encoder returns PNG bytes only (no SVG or terminal variant yet), takes an explicit part count rather than auto-sizing, and does not combine with `WithECI`. A single `Encode` still caps at one symbol (V40 ~2,953 bytes in byte mode at EC-L).
 - **Logo size is the caller's responsibility.** `WithLogo` (v0.12) forces EC-H and defaults to a safe ~20%-width logo, but it does not stop an oversized logo from exceeding the recovery budget; keep the logo modest and clear of the corner finder patterns.
 - **Arbitrary-angle decoding is bounded.** v0.4 handles the axis-aligned rotations and soft tilts to ~30 degrees; v0.13 adds a projective connected-component fallback that reads real perspective tilt reliably to ~35–40 degrees across orientations and up to ~55 degrees at favourable rotations. Beyond ~55–60 degrees the finder patterns themselves stop being detectable, so near-grazing angles, heavy blur, and glare that breaks a finder's nesting still fail.
+- **Multi-symbol decoding is best-effort.** `DecodeAll` (v0.14) uses the connected-component detector only, so a blurry or low-resolution upright symbol the single-symbol `Decode` reads via the line scanner may be missed. Each symbol's three finder patterns must be fully within the frame — a symbol running off the edge is skipped, not partially recovered — and two symbols packed tightly enough to merge their quiet zones can lose an edge finder. It does not reassemble a structured-append set from one image; use `DecodeStructuredAppend` for that.
 - **Adaptive thresholding only on the quiet zone.** v0.3 added a Sauvola fallback that recovers QR codes whose quiet zone has been darkened by uneven lighting or soft shadows, but mutations that compress the QR's own ink-paper contrast (very dim photos, heavy gradient across the symbol itself) still defeat both Otsu and Sauvola at default parameters.
 - **Rule-4 mask penalty.** The dark-ratio bucket boundary uses the Thonky-style floor formula; other implementations use a ceiling-style formula and may pick a different mask for the same input. Output remains spec-compliant either way.
 
@@ -352,7 +364,7 @@ Candidates for future minor releases (post-v0.2.0):
 - **Logo embedding:** shipped in v0.12 — a centred logo with an automatic EC-H bump on PNG and SVG.
 - **Micro QR & rMQR:** smaller form factors for short payloads.
 - **Structured-append extensions:** auto part-count, SVG/terminal output, and ECI combination. (Core PNG structured-append shipped in v0.10.)
-- **Decoder robustness:** pushing tilt past ~55 degrees (sub-pixel corner refinement, alignment-grid sampling), tunable Sauvola parameters (k, window) plus morphological cleanup so heavier within-symbol contrast loss can also be recovered, multi-symbol detection.
+- **Decoder robustness:** pushing tilt past ~55 degrees (sub-pixel corner refinement, alignment-grid sampling), tunable Sauvola parameters (k, window) plus morphological cleanup so heavier within-symbol contrast loss can also be recovered.
 - **Performance:** reduce allocations on the hot encode and decode paths.
 
 Contributions for any of these are welcome — please open an issue first so we can sketch the API together.
