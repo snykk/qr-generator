@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-09-19
+
+This release adds **multi-symbol decoding**: `DecodeAll` reads every QR symbol present in one image, not just the first. It builds on the v0.13 connected-component detector, which already enumerates every finder pattern, so multi-symbol decoding is a different selection rather than a new detector. The single-symbol `Decode`, `DecodeBytes`, and `DecodeMatrix` are unchanged.
+
+### Added
+
+- `DecodeAll(image.Image) ([]Result, error)` and `DecodeAllBytes([]byte) ([]Result, error)`: find and decode every symbol, returning one `Result` per symbol in reading order. Per-symbol failures are skipped; only a whole-image failure returns `ErrFinderNotFound`.
+- `Result` (`Text`, `Corners [4]image.Point`, `Finders [3]image.Point`, `Version`) with a `Bounds()` helper. `Corners` are the symbol's true perspective outline, derived from its homography, not the finder rings.
+- The grouping engine in `qrgen/decode_multi.go` and `qrgen/decode_finder_cc.go`: `groupFinderTriples` generalises the single lowest-cost finder triple into every geometrically valid triple, and `decodeMultipleFromBitmap` claims a triple's three finders only when it actually Reed-Solomon decodes, so a bogus cross-symbol grouping fails and frees its finders for the real triples. The per-symbol projective decode is factored into `decodeOneQuadTriple`, shared with the single-symbol path.
+- New reference doc `docs/theory/25-multi-symbol-decoding.md` (English plus Indonesian), plan doc `docs/plan-multi-symbol-decoding.md` (plus Indonesian) with milestones MS1..MS6, and a runnable example `examples/decode/multi`.
+
+### Changed
+
+- The multi-symbol cost gate was set by measurement, not a guess: genuinely decodable symbols reach `finderTripleCost` around 0.76 at 55 degrees, so there is no fixed ceiling — `orderFinderTriple` is the validity gate, triples are cost-sorted, and the decode-attempt cap scales with the finder count so a same-size grid does not exhaust it. `DecodeAll` is connected-component only and best-effort: a blurry upright symbol the line scanner reads may be missed, a symbol whose finders run off the frame is skipped, and structured-append sets are not reassembled from one image.
+- Benchmark loops modernised to the Go 1.24+ `for b.Loop()` form.
+
+### Validated
+
+- `TestDecodeAll*` composite multi-symbol scenes in memory (no binary fixtures) and cover two upright symbols with reading order, different-size symbols, two tilts, a single symbol matching `Decode`, adjacent symbols, and a three-by-three grid that stresses the attempt cap. `TestDecodeAllMatchesGozxingMulti` cross-checks the payload set against gozxing's `QRCodeMultiReader`. gofmt-clean, `go test -race ./...` clean.
+
 ## [0.13.0] - 2026-09-01
 
 This release adds **arbitrary-angle decoding**: QR photos taken at a real perspective tilt now read. Implementation overturned the plan's premise — finder detection was not the bottleneck (the 1:1:3:1:1 line scanner already reaches ~55 degrees), the affine three-centre homography was, since it cannot undo perspective keystoning. The fix estimates a projective homography from the finder corners and runs strictly as a fallback, so upright and rotated decoding is byte-for-byte unchanged.
@@ -335,7 +355,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/snykk/qr-generator/releases/tag/v0.14.0
 [0.13.0]: https://github.com/snykk/qr-generator/releases/tag/v0.13.0
 [0.12.0]: https://github.com/snykk/qr-generator/releases/tag/v0.12.0
 [0.11.0]: https://github.com/snykk/qr-generator/releases/tag/v0.11.0
