@@ -10,6 +10,8 @@ package qrgen
 
 import (
 	"bytes"
+	"errors"
+	"image"
 	"image/png"
 	"testing"
 )
@@ -118,5 +120,66 @@ func TestDecodeMultipleSingleSymbol(t *testing.T) {
 	}
 	if syms[0].text != payload {
 		t.Errorf("text = %q, want %q", syms[0].text, payload)
+	}
+}
+
+func TestDecodeAllSingleSymbol(t *testing.T) {
+	const payload = "HELLO WORLD"
+	pngBytes, err := Encode(payload)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	img, err := png.Decode(bytes.NewReader(pngBytes))
+	if err != nil {
+		t.Fatalf("png.Decode: %v", err)
+	}
+	results, err := DecodeAll(img)
+	if err != nil {
+		t.Fatalf("DecodeAll: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("got %d results, want 1", len(results))
+	}
+	r := results[0]
+	if r.Text != payload {
+		t.Errorf("Text = %q, want %q", r.Text, payload)
+	}
+	if r.Version < MinVersion || r.Version > MaxVersion {
+		t.Errorf("Version = %d, want 1..40", r.Version)
+	}
+	// Every corner sits inside the source image.
+	b := img.Bounds()
+	for i, c := range r.Corners {
+		if c.X < b.Min.X || c.X > b.Max.X || c.Y < b.Min.Y || c.Y > b.Max.Y {
+			t.Errorf("corner %d = %v outside image %v", i, c, b)
+		}
+	}
+	if bb := r.Bounds(); bb.Dx() <= 0 || bb.Dy() <= 0 {
+		t.Errorf("Bounds() = %v, want positive area", bb)
+	}
+}
+
+func TestDecodeAllBytes(t *testing.T) {
+	pngBytes, err := Encode("HELLO WORLD")
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	results, err := DecodeAllBytes(pngBytes)
+	if err != nil {
+		t.Fatalf("DecodeAllBytes: %v", err)
+	}
+	if len(results) != 1 || results[0].Text != "HELLO WORLD" {
+		t.Fatalf("results = %+v, want one HELLO WORLD", results)
+	}
+}
+
+func TestDecodeAllEmptyImage(t *testing.T) {
+	img := image.NewGray(image.Rect(0, 0, 120, 120))
+	for i := range img.Pix {
+		img.Pix[i] = 255 // blank white: no finders
+	}
+	_, err := DecodeAll(img)
+	if !errors.Is(err, ErrFinderNotFound) {
+		t.Errorf("err = %v, want ErrFinderNotFound", err)
 	}
 }
