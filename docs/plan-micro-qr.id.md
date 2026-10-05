@@ -79,7 +79,7 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah MQ5) me-round-trip setia
 
 ### MQ2 — Dokumen Referensi `(S)`
 
-- [ ] `docs/theory/26-micro-qr.md` (EN + ID): tipe simbol dan kapasitasnya, mode dan lebar bitnya, terminator dan padding termasuk half codeword, tata letak dan format information, penempatan, mask dan penilaiannya, bagaimana Micro berbeda dari QR di tiap langkah, serta bit stream hasil turunan tangan yang mengunci encoding-nya. Plus entri README theory dan baris pemetaan kode.
+- [x] `docs/theory/26-micro-qr.md` (EN + ID): tipe simbol dan kapasitasnya, mode dan lebar bitnya, terminator dan padding termasuk half codeword, tata letak dan format information, penempatan, mask dan penilaiannya, bagaimana Micro berbeda dari QR di tiap langkah, serta bit stream hasil turunan tangan yang mengunci encoding-nya. Plus entri README theory dan baris pemetaan kode.
 
 ### MQ3 — Tabel, Segmentasi, dan Bit Stream `(L)`
 
@@ -106,6 +106,7 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah MQ5) me-round-trip setia
 
 - [ ] README (bagian encoding, scope, limitations, roadmap), `examples/encode/micro`, dan flag CLI.
 - [ ] Entri `v0.15.0` di `CHANGELOG.md`, dibiarkan unstaged untuk release branch.
+- [ ] Hapus tanda direncanakan dari baris dokumen 26 di peta kode theory, agar tidak basi seperti baris 11 sampai 25.
 - [ ] `go test -race ./...` bersih, gofmt bersih.
 
 ## 7. Strategi validasi

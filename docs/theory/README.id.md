@@ -71,6 +71,10 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 25. [Multi-Symbol Decoding](25-multi-symbol-decoding.id.md) — membaca setiap simbol QR dalam satu gambar: kenapa detektor connected-component sudah meng-enumerasi semua finder, mengelompokkannya jadi triple valid disjoint dengan pitch modul bersama dan geometri right-isosceles, kenapa keberhasilan decode (bukan geometri) harus jadi penentu klaim agar triple cross-symbol pada grid same-size tak bisa mencuri finder nyata, memakai ulang pipeline projektif per-simbol, menurunkan garis luar tiap simbol dari homography-nya, semantik reading-order dan skip-per-simbol, serta batas yang jujur.
 
+### Micro QR Code (v0.15.0)
+
+26. [Micro QR Code](26-micro-qr.id.md) — saudara kecil QR di standar yang sama: delapan tipe simbol M1 sampai M4 dan kapasitasnya, mode indicator dan lebar count yang lebih pendek, aturan terminator dan padding termasuk half codeword 4 bit di M1 dan M3, satu blok Reed-Solomon (hanya deteksi di M1), tata letak satu finder dengan timing di baris 0 dan kolom 0, satu salinan format information dengan XOR mask sendiri, penempatan tanpa lompatan kolom 6, empat mask dengan aturan skor tepi tertinggi, perbandingan langkah demi langkah dengan QR, dan bit stream contoh yang dicek terhadap zint.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -115,5 +119,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 23-logo-embedding.id.md                | `qrgen/logo.go` |
 | 24-arbitrary-angle-detection.id.md     | `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go` |
 | 25-multi-symbol-decoding.id.md          | `qrgen/decode_multi.go`, `qrgen/decode_finder_cc.go` |
+| 26-micro-qr.id.md                       | `qrgen/micro.go`, `qrgen/micro_encode.go`, `qrgen/micro_matrix.go`, `qrgen/micro_decode.go` (direncanakan, MQ3–MQ5) |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.

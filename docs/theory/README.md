@@ -69,6 +69,10 @@ This folder contains the literature review and theoretical foundation for the `q
 
 25. [Multi-Symbol Decoding](25-multi-symbol-decoding.md) — reading every QR symbol in one image: why the connected-component detector already enumerates all finders, grouping them into disjoint valid triples of a shared module pitch and right-isosceles geometry, why decode success (not geometry) must be the claim arbiter so a same-size grid's cross-symbol triples cannot steal real finders, reusing the per-symbol projective pipeline, deriving each symbol's outline from its homography, the reading-order and skip-per-symbol error semantics, and the honest limits.
 
+### Micro QR Code (v0.15.0)
+
+26. [Micro QR Code](26-micro-qr.md) — the small sibling of QR in the same standard: the eight symbol types M1 to M4 and their capacities, the shorter mode indicators and count widths, the terminator and padding rules including the 4-bit half codeword in M1 and M3, a single Reed-Solomon block (detection only in M1), the one-finder layout with timing on row 0 and column 0, the single format-information copy with its own XOR mask, placement without the column-6 skip, the four masks and their highest-edge-score rule, a step-by-step comparison with QR, and worked bit streams checked against zint.
+
 ## Primary references
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* The normative source.
@@ -113,5 +117,6 @@ Additional references appear at the end of each document.
 | 23-logo-embedding.md                | `qrgen/logo.go` |
 | 24-arbitrary-angle-detection.md     | `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go` |
 | 25-multi-symbol-decoding.md         | `qrgen/decode_multi.go`, `qrgen/decode_finder_cc.go` |
+| 26-micro-qr.md                      | `qrgen/micro.go`, `qrgen/micro_encode.go`, `qrgen/micro_matrix.go`, `qrgen/micro_decode.go` (planned, MQ3–MQ5) |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.

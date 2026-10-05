@@ -79,7 +79,7 @@ Milestones land sequentially. **Checkpoint A** (after MQ5) round-trips every Mic
 
 ### MQ2 — Reference Doc `(S)`
 
-- [ ] `docs/theory/26-micro-qr.md` (EN + ID): symbol types and capacities, modes and bit widths, terminator and padding including the half codeword, layout and format information, placement, masks and their scoring, how Micro differs from QR at each step, and the hand-derived bit streams that pin the encoding. Plus the theory README entry and code-mapping row.
+- [x] `docs/theory/26-micro-qr.md` (EN + ID): symbol types and capacities, modes and bit widths, terminator and padding including the half codeword, layout and format information, placement, masks and their scoring, how Micro differs from QR at each step, and the hand-derived bit streams that pin the encoding. Plus the theory README entry and code-mapping row.
 
 ### MQ3 — Tables, Segmentation, and Bit Stream `(L)`
 
@@ -106,6 +106,7 @@ Milestones land sequentially. **Checkpoint A** (after MQ5) round-trips every Mic
 
 - [ ] README (encoding section, scope, limitations, roadmap), `examples/encode/micro`, and CLI flags.
 - [ ] `CHANGELOG.md` `v0.15.0` entry, left unstaged for the release branch.
+- [ ] Drop the planned mark from the doc 26 row of the theory code map, so it does not go stale the way rows 11 to 25 did.
 - [ ] `go test -race ./...` clean, gofmt-clean.
 
 ## 7. Validation strategy
