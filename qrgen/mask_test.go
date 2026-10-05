@@ -195,35 +195,34 @@ func TestSelectAndApplyMaskHelloWorld(t *testing.T) {
 	}
 
 	wantFormat := uint32(formatInfo(ECLevelM, mask))
+	n := m.size
 
-	// First copy bits 0..5 along row 8 left.
-	for i := 0; i < 6; i++ {
-		want := bitOf(wantFormat, i)
-		if got := m.modules[8][i]; got != want {
-			t.Errorf("first copy bit %d at (8,%d): got %v, want %v", i, i, got, want)
+	// Module (row, col) of format bit i in the first copy, per ISO/IEC
+	// 18004:2015 section 7.9.1. These positions are pinned to external
+	// references rather than derived from the encoder: they match ZXing's
+	// TYPE_INFO_COORDINATES and segno's add_format_info, and the third-party
+	// fixtures in testdata/thirdparty decode only under this layout. Before
+	// v0.14.1 the encoder wrote this copy bit-reversed and this test locked
+	// that in, which is how the bug survived.
+	first := [15][2]int{
+		{0, 8}, {1, 8}, {2, 8}, {3, 8}, {4, 8}, {5, 8}, {7, 8}, {8, 8},
+		{8, 7}, {8, 5}, {8, 4}, {8, 3}, {8, 2}, {8, 1}, {8, 0},
+	}
+	for i, rc := range first {
+		if got, want := m.modules[rc[0]][rc[1]], bitOf(wantFormat, i); got != want {
+			t.Errorf("first copy bit %d at (%d,%d): got %v, want %v", i, rc[0], rc[1], got, want)
 		}
 	}
-	// bit 6 → (8, 7), bit 7 → (8, 8), bit 8 → (7, 8).
-	if got, want := m.modules[8][7], bitOf(wantFormat, 6); got != want {
-		t.Errorf("first copy bit 6 at (8,7): got %v, want %v", got, want)
-	}
-	if got, want := m.modules[8][8], bitOf(wantFormat, 7); got != want {
-		t.Errorf("first copy bit 7 at (8,8): got %v, want %v", got, want)
-	}
-	if got, want := m.modules[7][8], bitOf(wantFormat, 8); got != want {
-		t.Errorf("first copy bit 8 at (7,8): got %v, want %v", got, want)
-	}
-	// bit 14 → (0, 8).
-	if got, want := m.modules[0][8], bitOf(wantFormat, 14); got != want {
-		t.Errorf("first copy bit 14 at (0,8): got %v, want %v", got, want)
-	}
-
-	// Second copy bit 0 → (8, n-1), bit 14 → (n-1, 8). n=21.
-	if got, want := m.modules[8][20], bitOf(wantFormat, 0); got != want {
-		t.Errorf("second copy bit 0 at (8,20): got %v, want %v", got, want)
-	}
-	if got, want := m.modules[20][8], bitOf(wantFormat, 14); got != want {
-		t.Errorf("second copy bit 14 at (20,8): got %v, want %v", got, want)
+	// Second copy: bits 0..7 right-to-left along row 8 from column n-1, bits
+	// 8..14 down column 8 from row n-7.
+	for i := 0; i < 15; i++ {
+		r, c := 8, n-1-i
+		if i >= 8 {
+			r, c = n-15+i, 8
+		}
+		if got, want := m.modules[r][c], bitOf(wantFormat, i); got != want {
+			t.Errorf("second copy bit %d at (%d,%d): got %v, want %v", i, r, c, got, want)
+		}
 	}
 }
 

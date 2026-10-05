@@ -34,24 +34,26 @@ const formatCombinedBudget = 6
 func readFormatInfo(m *matrix) (ECLevel, int, error) {
 	n := m.size
 
-	// First copy around the top-left finder.
+	// First copy around the top-left finder, in the ISO/IEC 18004:2015
+	// section 7.9.1 order the encoder writes: bits 0..5 down column 8, bit 6
+	// at (7,8), bit 7 at (8,8), bit 8 at (8,7), bits 9..14 left along row 8.
 	var code1 uint32
 	for i := 0; i < 6; i++ {
-		if m.modules[8][i] {
+		if m.modules[i][8] {
 			code1 |= 1 << i
 		}
 	}
-	if m.modules[8][7] {
+	if m.modules[7][8] {
 		code1 |= 1 << 6
 	}
 	if m.modules[8][8] {
 		code1 |= 1 << 7
 	}
-	if m.modules[7][8] {
+	if m.modules[8][7] {
 		code1 |= 1 << 8
 	}
 	for i := 9; i < 15; i++ {
-		if m.modules[14-i][8] {
+		if m.modules[8][14-i] {
 			code1 |= 1 << i
 		}
 	}

@@ -285,15 +285,20 @@ func (m *matrix) writeFormatInfo(ec ECLevel, mask int) {
 	bits := uint32(formatInfo(ec, mask))
 	n := m.size
 
-	// First copy around the top-left finder.
+	// First copy around the top-left finder (ISO/IEC 18004:2015 section
+	// 7.9.1): bits 0..5 run down column 8 (rows 0..5), bit 6 sits at (7,8)
+	// past the timing row, bit 7 at the corner (8,8), bit 8 at (8,7) past the
+	// timing column, and bits 9..14 run left along row 8 so that bit 14, the
+	// most significant, lands at (8,0). The two copies therefore read the same
+	// bit sequence; see the Placement table in docs/theory/07-format-version-info.md.
 	for i := 0; i < 6; i++ {
-		m.modules[8][i] = bitOf(bits, i)
+		m.modules[i][8] = bitOf(bits, i)
 	}
-	m.modules[8][7] = bitOf(bits, 6)
+	m.modules[7][8] = bitOf(bits, 6)
 	m.modules[8][8] = bitOf(bits, 7)
-	m.modules[7][8] = bitOf(bits, 8)
+	m.modules[8][7] = bitOf(bits, 8)
 	for i := 9; i < 15; i++ {
-		m.modules[14-i][8] = bitOf(bits, i)
+		m.modules[8][14-i] = bitOf(bits, i)
 	}
 
 	// Second copy: bits 0..7 along the right side of row 8, bits 8..14 down
