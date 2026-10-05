@@ -23,12 +23,19 @@ XOR the 15-bit codeword with `101010000010010` (`0x5412`). The XOR prevents an a
 
 ### Placement
 
-The 15 bits are written into two locations:
+The 15 bits are written twice so that damage to one region does not destroy the metadata. Bit 0 is the least significant bit of the masked codeword and bit 14 the most significant; positions are `(row, column)` with `(0, 0)` at the top-left and `n` the symbol side.
 
-- Around the **top-left finder** in an L shape.
-- Across the **top-right** finder (row 8) and the **bottom-left** finder (column 8), split between the two so that damage to one corner does not destroy the metadata.
+- **First copy, around the top-left finder.** Bits 0–5 run down column 8 in rows 0–5, bit 6 sits at `(7, 8)` just past the timing row, bit 7 at the corner `(8, 8)`, bit 8 at `(8, 7)` just past the timing column, and bits 9–14 run left along row 8 so that bit 14 lands at `(8, 0)`.
+- **Second copy, split between the other two finders.** Bits 0–7 run right to left along row 8 from `(8, n−1)` to `(8, n−8)`, and bits 8–14 run down column 8 from `(n−7, 8)` to `(n−1, 8)`. The module at `(n−8, 8)` just above them is the always-dark module, not part of the copy.
 
-Order: bit 14 (most significant) first. The exact module positions per bit are tabulated in ISO/IEC 18004:2015 §8.9.
+| Bit | 0–5 | 6 | 7 | 8 | 9–14 |
+|---|---|---|---|---|---|
+| First copy | `(i, 8)` | `(7, 8)` | `(8, 8)` | `(8, 7)` | `(8, 14−i)` |
+| Second copy | `(8, n−1−i)` | `(8, n−7)` | `(8, n−8)` | `(n−7, 8)` | `(n−15+i, 8)` |
+
+Both copies therefore carry the same 15-bit word, which is what lets a reader recover the format from either one. These positions follow ISO/IEC 18004:2015 section 7.9.1 and match ZXing's `TYPE_INFO_COORDINATES`, segno, and zint's output; `qrgen/testdata/thirdparty` pins them with symbols from independent encoders.
+
+Before v0.14.1 this library wrote and read the first copy bit-reversed, putting bit `i` where the table puts bit `14−i`. Because the encoder and decoder shared the mistake, every internal round trip passed, and other readers still scanned our symbols through the intact second copy, so it went unnoticed; but the redundancy was gone, and the decoder could not read 14 of the 32 format words written by any other encoder. The lesson generalises: test a decoder on symbols it did not produce.
 
 ## Version information — BCH(18, 6)
 
@@ -63,5 +70,5 @@ The full enumeration is small: 32 format-info codewords (4 EC levels × 8 masks)
 
 ## References
 
-- ISO/IEC 18004:2015, §8.9 (Format information), §8.10 (Version information), Annexes C and D.
+- ISO/IEC 18004:2015, section 7.9 (Format information), section 7.10 (Version information), Annexes C and D. Older references, including JIS X 0510:2004 and the ZXing sources, number these sections 8.9 and 8.10.
 - Bose, R. C. and Ray-Chaudhuri, D. K., "On a Class of Error Correcting Binary Group Codes," *Information and Control*, 3(1), 1960, pp. 68–79.
