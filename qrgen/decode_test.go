@@ -76,8 +76,10 @@ func TestDecodeMatrixRejectsBadInput(t *testing.T) {
 			grid: make([][]bool, 22),
 		},
 		{
-			name: "too small",
-			grid: make([][]bool, 17),
+			// 19 is neither a QR side (21 + 4k) nor a Micro QR side (11..17).
+			// This case used 17 until v0.15, when 17 became the M4 size.
+			name: "between Micro and QR sizes",
+			grid: make([][]bool, 19),
 		},
 	}
 	for _, c := range cases {

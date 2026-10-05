@@ -246,3 +246,19 @@ func TestMicroGoldenFullAuto(t *testing.T) {
 		}
 	}
 }
+
+// TestMicroGoldenDecode decodes every zint symbol with DecodeMatrix: our
+// decoder must read symbols it did not produce, which is the check that would
+// have caught the v0.14.1 format-orientation bug in QR.
+func TestMicroGoldenDecode(t *testing.T) {
+	for _, g := range loadMicroGoldens(t) {
+		got, err := DecodeMatrix(g.grid)
+		if err != nil {
+			t.Errorf("%s %q: %v", g.typ, g.text, err)
+			continue
+		}
+		if got != g.text {
+			t.Errorf("%s: decoded %q, want %q", g.typ, got, g.text)
+		}
+	}
+}

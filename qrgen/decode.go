@@ -49,7 +49,10 @@ func DecodeBytes(data []byte) (string, error) {
 
 // DecodeMatrix recovers the original text from a clean, top-down QR module
 // grid (true = dark). The input must be square with side 21 + 4·(v − 1) for
-// some valid v in [1, 40].
+// some valid v in [1, 40], or 11, 13, 15, or 17 for a Micro QR symbol, which
+// is recognised by its size alone and decoded with Micro's own format
+// information, single Reed-Solomon block (detection only in M1), and field
+// widths (see docs/theory/26-micro-qr.md).
 //
 // The full pipeline runs in five stages (see docs/theory/13-decoder-pipeline.md):
 //
@@ -66,8 +69,9 @@ func DecodeBytes(data []byte) (string, error) {
 // recovered bit stream contains an unparseable segment header. Plain wrapping
 // errors are returned for structural problems (invalid matrix size, etc.).
 //
-// Image-based decoding (`Decode`) is planned for later milestones; for now
-// callers with a real image must produce the matrix themselves.
+// Callers with an image rather than a module grid use [Decode] or
+// [DecodeBytes], which locate and sample QR symbols themselves; locating Micro
+// QR symbols in images is not supported yet.
 func DecodeMatrix(grid [][]bool) (string, error) {
 	text, _, err := decodeMatrixSA(grid)
 	return text, err
@@ -78,6 +82,12 @@ func DecodeMatrix(grid [][]bool) (string, error) {
 // its position/total/parity (nil otherwise). DecodeMatrix discards the metadata;
 // DecodeStructuredAppend uses it to reassemble a set.
 func decodeMatrixSA(grid [][]bool) (string, *saHeaderInfo, error) {
+	// Micro QR sides (11..17, odd) never coincide with QR sides (21 + 4k), so
+	// the size alone routes the grid. Micro has no structured append.
+	if microVersionForSize(len(grid)) != 0 {
+		text, err := decodeMicroMatrix(grid)
+		return text, nil, err
+	}
 	m, err := matrixFromGrid(grid)
 	if err != nil {
 		return "", nil, err

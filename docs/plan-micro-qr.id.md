@@ -96,9 +96,9 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah MQ5) me-round-trip setia
 
 ### MQ5 — Decoder Matriks dan Round Trip `(M)`
 
-- [ ] `decodeMicroMatrix`: baca format, unmask, stream bit-exact, RS (hanya deteksi untuk M1), dan parsing segmen Micro; dispatch `DecodeMatrix` berdasarkan ukuran.
-- [ ] Test: decode setiap fixture zint, round-trip encoder kita lintas mode dan tipe, dan sesuaikan test lama yang memakai 17 sebagai ukuran QR yang tidak valid.
-- [ ] Cek sekali jalan, dilaporkan di commit: zxing-cpp membaca PNG Micro yang kita render.
+- [x] `decodeMicroMatrix`: baca format, unmask, stream bit-exact, RS (hanya deteksi untuk M1), dan parsing segmen Micro; dispatch `DecodeMatrix` berdasarkan ukuran.
+- [x] Test: decode setiap fixture zint, round-trip encoder kita lintas mode dan tipe, dan sesuaikan test lama yang memakai 17 sebagai ukuran QR yang tidak valid.
+- [x] Cek sekali jalan, dilaporkan di commit: zxing-cpp membaca PNG Micro yang kita render.
 
 ### Checkpoint A — setiap tipe Micro bisa round-trip dan cocok dengan zint.
 

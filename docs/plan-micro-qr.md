@@ -96,9 +96,9 @@ Milestones land sequentially. **Checkpoint A** (after MQ5) round-trips every Mic
 
 ### MQ5 — Matrix Decoder and Round Trips `(M)`
 
-- [ ] `decodeMicroMatrix`: format read, unmasking, the bit-exact stream, RS (detection-only for M1), and Micro segment parsing; `DecodeMatrix` dispatch by size.
-- [ ] Tests: decode every zint fixture, round-trip our encoder across modes and types, and adjust the existing test that uses 17 as an invalid QR size.
-- [ ] One-off check, reported in the commit: zxing-cpp reads our rendered Micro PNGs.
+- [x] `decodeMicroMatrix`: format read, unmasking, the bit-exact stream, RS (detection-only for M1), and Micro segment parsing; `DecodeMatrix` dispatch by size.
+- [x] Tests: decode every zint fixture, round-trip our encoder across modes and types, and adjust the existing test that uses 17 as an invalid QR size.
+- [x] One-off check, reported in the commit: zxing-cpp reads our rendered Micro PNGs.
 
 ### Checkpoint A — every Micro type round-trips and matches zint.
 

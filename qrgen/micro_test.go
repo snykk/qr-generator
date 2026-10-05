@@ -333,3 +333,144 @@ func TestMicroRenderers(t *testing.T) {
 		t.Errorf("terminal output has %d lines, want %d", got, want)
 	}
 }
+
+// microDataPositions lists the data modules of a Micro symbol in placement
+// order, so position i holds stream bit i.
+func microDataPositions(v MicroVersion) [][2]int {
+	m := newMicroMatrix(v)
+	m.placeMicroFunctionPatterns()
+	n := m.size
+	var out [][2]int
+	upward := true
+	for col := n - 1; col > 0; col -= 2 {
+		for i := 0; i < n; i++ {
+			row := i
+			if upward {
+				row = n - 1 - i
+			}
+			for c := 0; c < 2; c++ {
+				if !m.isReserved(row, col-c) {
+					out = append(out, [2]int{row, col - c})
+				}
+			}
+		}
+		upward = !upward
+	}
+	return out
+}
+
+// TestMicroRoundTrip encodes across every symbol type, every mask, and every
+// mode (including mixed text, Kanji, and the empty M1), and decodes it back.
+func TestMicroRoundTrip(t *testing.T) {
+	texts := map[MicroVersion][]string{
+		M1: {"", "7", "12345"},
+		M2: {"0123456789", "AB-12", "HELLO"},
+		M3: {"abc", "点茗", "Ab1"},
+		M4: {"hello, micro!", "ABC123def", "点茗ABC", "0123456789012345678901"},
+	}
+	for _, s := range microSymbols {
+		ok := 0
+		for _, text := range texts[s.version] {
+			for mask := 0; mask < numMicroMasks; mask++ {
+				opts := []Option{WithMicroVersion(s.version), WithMask(mask)}
+				if !s.detectOnly {
+					opts = append(opts, WithECLevel(s.ec))
+				}
+				grid, err := Matrix(text, opts...)
+				if err != nil {
+					continue // the text does not fit this level, e.g. a long text at Q
+				}
+				got, err := DecodeMatrix(grid)
+				if err != nil || got != text {
+					t.Errorf("%v mask %d %q: decoded %q, %v", s, mask, text, got, err)
+					continue
+				}
+				ok++
+			}
+		}
+		if ok == 0 {
+			t.Errorf("%v: no text fit, so nothing was round-tripped", s)
+		}
+	}
+}
+
+// TestMicroErrorCorrection flips modules in distinct codewords, up to each
+// type's correction capacity, and requires the original text back. M1 is the
+// exception: it only detects errors, so a single flipped module must fail.
+func TestMicroErrorCorrection(t *testing.T) {
+	for _, s := range microSymbols {
+		opts := []Option{WithMicroVersion(s.version)}
+		if !s.detectOnly {
+			opts = append(opts, WithECLevel(s.ec))
+		}
+		const text = "1"
+		grid, err := Matrix(text, opts...)
+		if err != nil {
+			t.Fatalf("%v: %v", s, err)
+		}
+		pos := microDataPositions(s.version)
+		flips := s.ecWords / 2
+		if s.detectOnly {
+			flips = 1
+		}
+		for k := 0; k < flips; k++ {
+			p := pos[k*8] // stream bit 8k lies in data codeword k
+			grid[p[0]][p[1]] = !grid[p[0]][p[1]]
+		}
+		got, err := DecodeMatrix(grid)
+		if s.detectOnly {
+			if !errors.Is(err, ErrTooManyErrors) {
+				t.Errorf("M1 with one flipped module: got %q, %v; want a detection error, never a correction", got, err)
+			}
+			continue
+		}
+		if err != nil || got != text {
+			t.Errorf("%v with %d corrupted codewords: decoded %q, %v", s, flips, got, err)
+		}
+	}
+}
+
+// TestMicroFormatDamage checks the single format copy's 3-bit budget, and
+// that a blank strip is rejected for M1, whose format words all weigh at
+// least 5; only the size restriction stops a blank strip on a smaller symbol
+// from being read as M4-L mask 1, the one word within 3 bits of all-light.
+func TestMicroFormatDamage(t *testing.T) {
+	format := [15][2]int{}
+	for i := 0; i < 8; i++ {
+		format[i] = [2]int{i + 1, 8}
+	}
+	for i := 8; i < 15; i++ {
+		format[i] = [2]int{8, 15 - i}
+	}
+	for _, text := range []string{"12345", "HELLO", "abc", "hello, micro!"} {
+		grid, err := Matrix(text, WithMicro())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, i := range []int{0, 7, 14} { // three errors across both arms
+			p := format[i]
+			grid[p[0]][p[1]] = !grid[p[0]][p[1]]
+		}
+		if got, err := DecodeMatrix(grid); err != nil || got != text {
+			t.Errorf("%q with 3 format errors: %q, %v", text, got, err)
+		}
+	}
+	grid, _ := Matrix("12345", WithMicro())
+	for _, p := range format {
+		grid[p[0]][p[1]] = false
+	}
+	if _, err := DecodeMatrix(grid); !errors.Is(err, ErrFormatUnreadable) {
+		t.Errorf("M1 with a blank format strip: err = %v, want ErrFormatUnreadable", err)
+	}
+}
+
+// TestMicroDecodeRejectsBadMode feeds the segment parser an M4 data stream
+// whose mode indicator is 5, which no Micro version defines.
+func TestMicroDecodeRejectsBadMode(t *testing.T) {
+	sym, _ := microSymbolFor(M4, ECLevelL)
+	data := make([]byte, sym.dataWords)
+	data[0] = 0b101_00000
+	if _, err := decodeMicroText(data, sym); !errors.Is(err, ErrCorruptedPayload) {
+		t.Errorf("err = %v, want ErrCorruptedPayload", err)
+	}
+}
