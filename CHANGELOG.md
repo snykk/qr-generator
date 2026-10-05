@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-10-05
+
+This patch fixes a format-information layout bug present since v0.1: the first of the two format-information copies was written and read bit-reversed. Upgrading is recommended for anyone decoding QR codes produced by other software, and for anyone relying on the redundancy of the symbols this library produces.
+
+### Fixed
+
+- **Decoder:** `Decode`, `DecodeBytes`, `DecodeMatrix`, and `DecodeAll` now read the first format-information copy in the order ISO/IEC 18004:2015 section 7.9.1 defines. Previously they failed with `ErrFormatUnreadable` on clean QR codes from other encoders for 14 of the 32 EC-level/mask combinations (about 44%), because the misread first copy pushed the combined error past the correction budget.
+- **Encoder:** the first copy is now written in spec order. Earlier symbols still scanned, because readers fell back on the intact second copy, but the first copy carried a wrong word, so damage to the second copy made them unreadable: with the second copy damaged, zxing-cpp read 0 of 32 such symbols against 32 of 32 correct ones.
+
+### Changed
+
+- Encoder output changes for every symbol: the 15 modules of the first format copy move to their spec positions. Because format modules count toward the mask penalty score, the automatically selected mask also changes for about a quarter of inputs (92 of 400 sampled), which changes the data-region pattern of those symbols. All output remains valid; snapshot tests of exact symbol bytes will need updating.
+- `docs/theory/07-format-version-info.md` now tabulates the exact module of every format-information bit in both copies, and its section references use the ISO/IEC 18004:2015 numbering.
+
+### Validated
+
+- `TestThirdPartyQRDecode` decodes 46 symbols from two independent encoders, segno and zint, and `TestThirdPartyQREncode` checks that our encoder reproduces the 41 segno symbols module for module across versions 1, 7, and 14, every EC level, and all eight masks at version 1. The fixtures live in `qrgen/testdata/thirdparty` as text matrices, and the tests fail on the previous code. The format-placement test now pins all 15 bits of both copies to external coordinates rather than to the encoder's own. A wider one-off sweep of 192 segno symbols across 12 versions also decodes fully and matches byte for byte. `go test -race ./...` clean.
+
 ## [0.14.0] - 2026-09-19
 
 This release adds **multi-symbol decoding**: `DecodeAll` reads every QR symbol present in one image, not just the first. It builds on the v0.13 connected-component detector, which already enumerates every finder pattern, so multi-symbol decoding is a different selection rather than a new detector. The single-symbol `Decode`, `DecodeBytes`, and `DecodeMatrix` are unchanged.
@@ -355,7 +373,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/snykk/qr-generator/releases/tag/v0.14.1
 [0.14.0]: https://github.com/snykk/qr-generator/releases/tag/v0.14.0
 [0.13.0]: https://github.com/snykk/qr-generator/releases/tag/v0.13.0
 [0.12.0]: https://github.com/snykk/qr-generator/releases/tag/v0.12.0
