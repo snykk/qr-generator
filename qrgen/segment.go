@@ -54,24 +54,58 @@ func segmentsBitLength(segs []segment, v Version) int {
 	return total
 }
 
-// segmentText computes a minimum-bit-length segmentation of text at version v
-// via dynamic programming. dp[i] is the least number of payload+header bits to
-// encode the first i runes; each transition closes one segment runes[j:i] in
-// an eligible mode. Numeric/alphanumeric segments may only cover contiguous
-// runs of eligible runes (the inner loop breaks at the first ineligible rune);
-// byte mode is always eligible. Multi-byte runes are eligible for byte mode
-// only and are counted in bytes, so the DP never splits a rune.
-//
-// For homogeneous input the DP returns a single segment identical to the
-// greedy analyzer's choice, so pure-mode payloads encode byte-for-byte as
-// before. See docs/theory/17-optimal-segmentation.md.
+// segmentCost is the bit-cost model the segmentation DP minimises: the modes a
+// symbol allows, in tie-breaking order (on equal cost the earlier mode wins),
+// and the header each segment pays in a given mode, i.e. its mode indicator
+// plus character-count field. QR allows every mode with a 4-bit indicator;
+// Micro QR narrows the modes by version and shortens both fields.
+type segmentCost struct {
+	modes      []Mode
+	headerBits func(Mode) int
+}
+
+// qrModes is QR's mode list in the DP's historical tie-breaking order.
+var qrModes = []Mode{ModeNumeric, ModeAlphanumeric, ModeByte, ModeKanji}
+
+// qrSegmentCost is QR's cost model at version v.
+func qrSegmentCost(v Version) segmentCost {
+	return segmentCost{
+		modes:      qrModes,
+		headerBits: func(m Mode) int { return 4 + m.CharCountBits(v) },
+	}
+}
+
+// segmentText computes a minimum-bit-length QR segmentation of text at version
+// v. It is segmentWith under QR's cost model, where byte mode is always
+// available, so a segmentation always exists. For homogeneous input the DP
+// returns a single segment identical to the greedy analyzer's choice, so
+// pure-mode payloads encode byte-for-byte as before.
+// See docs/theory/17-optimal-segmentation.md.
 func segmentText(text string, v Version) []segment {
+	segs, _, _ := segmentWith(text, qrSegmentCost(v))
+	return segs
+}
+
+// segmentWith computes a minimum-bit-length segmentation of text under the
+// cost model sc via dynamic programming, and returns it with its length in
+// bits (headers plus payloads, excluding terminator and padding). dp[i] is the
+// least number of bits to encode the first i runes; each transition closes one
+// segment runes[j:i] in an allowed, eligible mode. Numeric, alphanumeric, and
+// Kanji segments may only cover contiguous runs of eligible runes (the inner
+// loop breaks at the first ineligible rune); byte mode accepts any rune.
+// Multi-byte runes are counted in bytes in byte mode, so the DP never splits
+// a rune.
+//
+// ok is false when no segmentation exists, which happens only when the model
+// leaves out byte mode (Micro M1 and M2) and the text contains a rune the
+// remaining modes cannot encode.
+func segmentWith(text string, sc segmentCost) (segs []segment, bits int, ok bool) {
 	runes := []rune(text)
 	n := len(runes)
 	if n == 0 {
 		// Match the pre-segmentation empty-input behaviour: a single
 		// zero-length numeric segment (numeric keeps size math consistent).
-		return []segment{{mode: ModeNumeric, text: ""}}
+		return []segment{{mode: ModeNumeric, text: ""}}, sc.headerBits(ModeNumeric), true
 	}
 
 	// Prefix arrays for O(1) eligibility checks and byte counting.
@@ -108,9 +142,13 @@ func segmentText(text string, v Version) []segment {
 	}
 	dp[0] = 0
 
-	modes := [...]Mode{ModeNumeric, ModeAlphanumeric, ModeByte, ModeKanji}
+	// Header cost per allowed mode, computed once outside the O(n^2) loops.
+	header := make(map[Mode]int, len(sc.modes))
+	for _, m := range sc.modes {
+		header[m] = sc.headerBits(m)
+	}
 	for i := 1; i <= n; i++ {
-		for _, m := range modes {
+		for _, m := range sc.modes {
 			for j := i - 1; j >= 0; j-- {
 				// Eligibility: a numeric/alphanumeric segment can only cover a
 				// contiguous run of eligible runes. The first ineligible rune
@@ -143,7 +181,7 @@ func segmentText(text string, v Version) []segment {
 				default: // ModeByte
 					payload = (byteLen[i] - byteLen[j]) * 8
 				}
-				cost := dp[j] + 4 + m.CharCountBits(v) + payload
+				cost := dp[j] + header[m] + payload
 				if cost < dp[i] {
 					dp[i] = cost
 					backStart[i] = j
@@ -154,8 +192,11 @@ func segmentText(text string, v Version) []segment {
 		}
 	}
 
+	if dp[n] == inf {
+		return nil, 0, false
+	}
+
 	// Reconstruct segments back to front.
-	var segs []segment
 	for i := n; i > 0; {
 		j := backStart[i]
 		segs = append(segs, segment{mode: backMode[i], text: string(runes[j:i])})
@@ -165,5 +206,5 @@ func segmentText(text string, v Version) []segment {
 	for l, r := 0, len(segs)-1; l < r; l, r = l+1, r-1 {
 		segs[l], segs[r] = segs[r], segs[l]
 	}
-	return segs
+	return segs, dp[n], true
 }
