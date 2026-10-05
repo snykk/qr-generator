@@ -90,9 +90,9 @@ Milestones land sequentially. **Checkpoint A** (after MQ5) round-trips every Mic
 
 ### MQ4 — Matrix, Masks, and Options `(L)`
 
-- [ ] The Micro matrix: finder, separator, timing, format reservation, placement without the column-6 skip, single-copy format writer, and four-mask selection.
-- [ ] `WithMicro`, `WithMicroVersion`, the EC-set and quiet-zone-set flags, and validation.
-- [ ] Golden tests: our encoder pinned to zint's type and mask reproduces every zint symbol module for module, and our automatic choices of type and mask match zint's for the default EC level.
+- [x] The Micro matrix: finder, separator, timing, format reservation, placement without the column-6 skip, single-copy format writer, and four-mask selection.
+- [x] `WithMicro`, `WithMicroVersion`, the EC-set and quiet-zone-set flags, and validation.
+- [x] Golden tests: our encoder pinned to zint's type and mask reproduces every zint symbol module for module, and our automatic choices of type and mask match zint's for the default EC level.
 
 ### MQ5 — Matrix Decoder and Round Trips `(M)`
 

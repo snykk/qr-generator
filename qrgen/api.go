@@ -143,10 +143,11 @@ func EncodeTerminal(text string, opts ...Option) (string, error) {
 
 // Matrix returns the underlying boolean module grid of the encoded QR
 // symbol, where true means a dark module. The matrix is square with side
-// length 21 + 4*(version-1) and already includes functional patterns, data
-// bits, the chosen mask, and format/version info — it is the final scannable
-// symbol, ready to be rendered to any target (SVG, terminal, custom raster,
-// …) by the caller.
+// length 21 + 4*(version-1), or 11, 13, 15, or 17 for a Micro QR symbol
+// ([WithMicro]), and already includes functional patterns, data bits, the
+// chosen mask, and format/version info — it is the final scannable symbol,
+// ready to be rendered to any target (SVG, terminal, custom raster, …) by the
+// caller.
 //
 // All options accepted by [Encode] also work here, although the rendering
 // options ([WithModuleSize], [WithQuietZone], [WithColors]) have no effect
@@ -199,6 +200,9 @@ func EncodeStructuredAppend(text string, parts int, opts ...Option) ([][]byte, e
 	}
 	if o.eci != ECINone {
 		return nil, fmt.Errorf("qrgen: structured append does not support WithECI in this version")
+	}
+	if o.micro {
+		return nil, fmt.Errorf("qrgen: Micro QR does not support structured append")
 	}
 
 	chunks := splitRunes(text, parts)

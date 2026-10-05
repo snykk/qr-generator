@@ -9,8 +9,10 @@
 package qrgen
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"image/png"
 	"strings"
 	"testing"
 )
@@ -191,5 +193,143 @@ func TestMicroCandidatesOrder(t *testing.T) {
 		if got := names(microCandidates(c.force, c.ec, c.ecSet)); got != c.want {
 			t.Errorf("force=%v ec=%v set=%v: %q, want %q", c.force, c.ec, c.ecSet, got, c.want)
 		}
+	}
+}
+
+// TestMicroFormatInfoTable checks every Micro format word against the table in
+// docs/theory/26-micro-qr.md section 7, which matches segno's precomputed
+// FORMAT_INFO_MICRO.
+func TestMicroFormatInfoTable(t *testing.T) {
+	want := [8][4]uint32{
+		{0x4445, 0x4172, 0x4E2B, 0x4B1C}, // M1
+		{0x55AE, 0x5099, 0x5FC0, 0x5AF7}, // M2-L
+		{0x6793, 0x62A4, 0x6DFD, 0x68CA}, // M2-M
+		{0x7678, 0x734F, 0x7C16, 0x7921}, // M3-L
+		{0x06DE, 0x03E9, 0x0CB0, 0x0987}, // M3-M
+		{0x1735, 0x1202, 0x1D5B, 0x186C}, // M4-L
+		{0x2508, 0x203F, 0x2F66, 0x2A51}, // M4-M
+		{0x34E3, 0x31D4, 0x3E8D, 0x3BBA}, // M4-Q
+	}
+	for num := range want {
+		for mask := range want[num] {
+			if got := microFormatInfo(num, mask); got != want[num][mask] {
+				t.Errorf("%v mask %d: %04X, want %04X", microSymbols[num], mask, got, want[num][mask])
+			}
+		}
+	}
+}
+
+// TestBCHFormatWordMatchesQRTable runs the BCH routine Micro uses through QR's
+// payloads and XOR mask, and requires it to reproduce QR's precomputed table:
+// one implementation, checked against data it did not produce.
+func TestBCHFormatWordMatchesQRTable(t *testing.T) {
+	for ec := ECLevelL; ec <= ECLevelH; ec++ {
+		for mask := 0; mask < numMasks; mask++ {
+			got := bchFormatWord(uint32(ec.formatBits())<<3|uint32(mask)) ^ 0x5412
+			if want := uint32(formatInfo(ec, mask)); got != want {
+				t.Errorf("%v mask %d: %04X, want %04X", ec, mask, got, want)
+			}
+		}
+	}
+}
+
+// TestMicroMatrixLayout checks the function patterns of every Micro version.
+func TestMicroMatrixLayout(t *testing.T) {
+	for v := M1; v <= M4; v++ {
+		m := newMicroMatrix(v)
+		m.placeMicroFunctionPatterns()
+		n := v.Size()
+		if got, want := m.dataAreaCells(), n*n-2*n-63; got != want {
+			t.Errorf("%v: %d data cells, want %d", v, got, want)
+		}
+		// Finder corner, ring, and centre; separator on row 7 and column 7.
+		for _, c := range []struct {
+			r, col int
+			dark   bool
+		}{{0, 0, true}, {1, 1, false}, {3, 3, true}, {7, 0, false}, {0, 7, false}, {7, 7, false}} {
+			if m.get(c.r, c.col) != c.dark || !m.isReserved(c.r, c.col) {
+				t.Errorf("%v: finder/separator module (%d,%d) wrong", v, c.r, c.col)
+			}
+		}
+		// Timing along row 0 and column 0, dark at even indices from 8.
+		for i := 8; i < n; i++ {
+			if m.get(0, i) != (i%2 == 0) || m.get(i, 0) != (i%2 == 0) {
+				t.Errorf("%v: timing module %d wrong", v, i)
+			}
+		}
+		// The 15 format cells are reserved; (0,8) and (8,0) belong to timing.
+		for i := 1; i <= 8; i++ {
+			if !m.isReserved(i, 8) || !m.isReserved(8, i) {
+				t.Errorf("%v: format cell at index %d not reserved", v, i)
+			}
+		}
+	}
+}
+
+// TestMicroOptionValidation covers the options Micro QR rejects.
+func TestMicroOptionValidation(t *testing.T) {
+	cases := []struct {
+		name string
+		opts []Option
+		want string
+	}{
+		{"WithVersion", []Option{WithMicro(), WithVersion(2)}, "use WithMicroVersion"},
+		{"bad version", []Option{WithMicroVersion(MicroVersion(5))}, "invalid Micro QR version"},
+		{"ECI", []Option{WithMicro(), WithECI(ECIUTF8)}, "does not support ECI"},
+		{"logo", []Option{WithMicro(), WithLogo(Logo{Image: nil})}, "WithLogo is not supported"},
+		{"level H", []Option{WithMicro(), WithECLevel(ECLevelH)}, "no error-correction level H"},
+		{"mask 4", []Option{WithMicro(), WithMask(4)}, "0..3"},
+	}
+	for _, c := range cases {
+		_, err := Matrix("1", c.opts...)
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: err = %v, want mention of %q", c.name, err, c.want)
+		}
+	}
+	if _, err := EncodeStructuredAppend("12345", 2, WithMicro()); err == nil || !strings.Contains(err.Error(), "structured append") {
+		t.Errorf("structured append: err = %v", err)
+	}
+}
+
+// TestMicroQuietZone checks the 2-module default and that WithQuietZone wins.
+func TestMicroQuietZone(t *testing.T) {
+	cases := []struct {
+		opts []Option
+		want int // pixels per side at the default 8 px per module
+	}{
+		{[]Option{WithMicro()}, (11 + 2*2) * 8},
+		{[]Option{WithMicro(), WithQuietZone(4)}, (11 + 2*4) * 8},
+		{nil, (21 + 2*4) * 8}, // QR keeps its 4-module default
+	}
+	for _, c := range cases {
+		data, err := Encode("1", c.opts...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		img, err := png.Decode(bytes.NewReader(data))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := img.Bounds().Dx(); got != c.want {
+			t.Errorf("opts %d: width %d px, want %d", len(c.opts), got, c.want)
+		}
+	}
+}
+
+// TestMicroRenderers checks that the SVG and terminal renderers accept Micro
+// symbols unchanged, since they only read the module grid.
+func TestMicroRenderers(t *testing.T) {
+	svg, err := EncodeSVG("HELLO", WithMicro())
+	if err != nil || !bytes.Contains(svg, []byte("<svg")) {
+		t.Errorf("EncodeSVG: %v", err)
+	}
+	term, err := EncodeTerminal("12345", WithMicro())
+	if err != nil {
+		t.Fatalf("EncodeTerminal: %v", err)
+	}
+	// M1 is 11 modules plus 2 quiet modules each side; the half-block renderer
+	// packs two module rows per line.
+	if got, want := strings.Count(term, "\n"), (11+2*2+1)/2; got != want {
+		t.Errorf("terminal output has %d lines, want %d", got, want)
 	}
 }

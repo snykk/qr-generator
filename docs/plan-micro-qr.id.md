@@ -90,9 +90,9 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah MQ5) me-round-trip setia
 
 ### MQ4 — Matriks, Mask, dan Option `(L)`
 
-- [ ] Matriks Micro: finder, separator, timing, reservasi format, penempatan tanpa lompatan kolom 6, writer format satu salinan, dan pemilihan empat mask.
-- [ ] `WithMicro`, `WithMicroVersion`, flag EC-set dan quiet-zone-set, serta validasi.
-- [ ] Test golden: encoder kita yang dipaku ke tipe dan mask milik zint mereproduksi setiap simbol zint modul demi modul, dan pilihan otomatis tipe dan mask kita cocok dengan zint untuk level EC default.
+- [x] Matriks Micro: finder, separator, timing, reservasi format, penempatan tanpa lompatan kolom 6, writer format satu salinan, dan pemilihan empat mask.
+- [x] `WithMicro`, `WithMicroVersion`, flag EC-set dan quiet-zone-set, serta validasi.
+- [x] Test golden: encoder kita yang dipaku ke tipe dan mask milik zint mereproduksi setiap simbol zint modul demi modul, dan pilihan otomatis tipe dan mask kita cocok dengan zint untuk level EC default.
 
 ### MQ5 — Decoder Matriks dan Round Trip `(M)`
 

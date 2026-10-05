@@ -154,3 +154,95 @@ func TestMicroAutoSelect(t *testing.T) {
 		}
 	}
 }
+
+// forceOpts returns options that force a fixture's symbol type, and its mask
+// when withMask is set. M1 takes no level: an explicit one is an error there.
+func (g microGolden) forceOpts(withMask bool) []Option {
+	opts := []Option{WithMicroVersion(g.version)}
+	if !g.m1 {
+		opts = append(opts, WithECLevel(g.ec))
+	}
+	if withMask {
+		opts = append(opts, WithMask(g.mask))
+	}
+	return opts
+}
+
+// diffModules counts the modules where two grids differ, or -1 if their sizes
+// differ.
+func diffModules(a, b [][]bool) int {
+	if len(a) != len(b) {
+		return -1
+	}
+	d := 0
+	for r := range a {
+		if len(a[r]) != len(b[r]) {
+			return -1
+		}
+		for c := range a[r] {
+			if a[r][c] != b[r][c] {
+				d++
+			}
+		}
+	}
+	return d
+}
+
+// TestMicroGoldenMatrices forces each fixture's symbol type and mask and
+// requires our symbol to match zint's module for module: finder, separator,
+// timing, the single format copy, placement, and masking.
+func TestMicroGoldenMatrices(t *testing.T) {
+	for _, g := range loadMicroGoldens(t) {
+		got, err := Matrix(g.text, g.forceOpts(true)...)
+		if err != nil {
+			t.Errorf("%s mask %d %q: %v", g.typ, g.mask, g.text, err)
+			continue
+		}
+		if d := diffModules(got, g.grid); d != 0 {
+			t.Errorf("%s mask %d %q: %d modules differ from zint", g.typ, g.mask, g.text, d)
+		}
+	}
+}
+
+// TestMicroGoldenAutoMask forces only the symbol type and checks that our mask
+// evaluation (highest edge score, lowest mask on a tie) picks zint's mask.
+func TestMicroGoldenAutoMask(t *testing.T) {
+	for _, g := range loadMicroGoldens(t) {
+		m, mask, err := buildMatrix(g.text, resolveOptions(g.forceOpts(false)...))
+		if err != nil {
+			t.Errorf("%s %q: %v", g.typ, g.text, err)
+			continue
+		}
+		if mask != g.mask {
+			t.Errorf("%s %q: chose mask %d, zint chose %d", g.typ, g.text, mask, g.mask)
+			continue
+		}
+		if d := diffModules(m.modules, g.grid); d != 0 {
+			t.Errorf("%s %q: same mask but %d modules differ", g.typ, g.text, d)
+		}
+	}
+}
+
+// TestMicroGoldenFullAuto encodes with WithMicro alone (plus the EC level asked
+// of zint) and requires zint's exact symbol, so type selection, bit stream,
+// layout, and mask choice all agree end to end. The explicit-L M1 case is the
+// documented divergence and is skipped here (TestMicroAutoSelect pins it).
+func TestMicroGoldenFullAuto(t *testing.T) {
+	for _, g := range loadMicroGoldens(t) {
+		opts := []Option{WithMicro()}
+		if g.ecReq != "-" {
+			if g.m1 {
+				continue
+			}
+			opts = append(opts, WithECLevel(ecLevelByName[g.ecReq]))
+		}
+		got, err := Matrix(g.text, opts...)
+		if err != nil {
+			t.Errorf("ec=%s %q: %v", g.ecReq, g.text, err)
+			continue
+		}
+		if d := diffModules(got, g.grid); d != 0 {
+			t.Errorf("ec=%s %q: differs from zint's %s (%d modules)", g.ecReq, g.text, g.typ, d)
+		}
+	}
+}
