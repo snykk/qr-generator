@@ -453,3 +453,70 @@ func TestRunEncodeDefaultRemainsPNG(t *testing.T) {
 		t.Fatalf("default output was not a PNG: %v", err)
 	}
 }
+
+// runPNG runs the encoder with cfg into a temporary PNG and returns its bytes.
+func runPNG(t *testing.T, cfg cliConfig) []byte {
+	t.Helper()
+	cfg.out = filepath.Join(t.TempDir(), "out.png")
+	if err := run(cfg, strings.NewReader(""), &bytes.Buffer{}); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	data, err := os.ReadFile(cfg.out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+func pngSide(t *testing.T, data []byte) int {
+	t.Helper()
+	img, err := png.Decode(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("png decode: %v", err)
+	}
+	return img.Bounds().Dx()
+}
+
+// TestRunUnsetDefaultsKeepQROutput pins the meaning of the new flag defaults:
+// an empty -ec and a -quiet-zone of -1 must give exactly the PNG that the old
+// explicit defaults (M and 4) gave, so QR output is unchanged.
+func TestRunUnsetDefaultsKeepQROutput(t *testing.T) {
+	unset := runPNG(t, cliConfig{text: "HELLO WORLD", moduleSize: 8, ec: "", quietZone: -1, mask: -1})
+	explicit := runPNG(t, cliConfig{text: "HELLO WORLD", moduleSize: 8, ec: "M", quietZone: 4, mask: -1})
+	if !bytes.Equal(unset, explicit) {
+		t.Error("unset -ec/-quiet-zone produced a different PNG from explicit M and 4")
+	}
+}
+
+// TestRunMicroDefaults: -micro alone picks M1 for a short number and Micro's
+// 2-module quiet zone, so the PNG is (11 + 2*2) * 8 = 120 pixels wide.
+func TestRunMicroDefaults(t *testing.T) {
+	data := runPNG(t, cliConfig{text: "12345", moduleSize: 8, quietZone: -1, mask: -1, micro: true})
+	if got := pngSide(t, data); got != 120 {
+		t.Errorf("width %d px, want 120 (M1 with a 2-module quiet zone)", got)
+	}
+}
+
+// TestRunMicroVersion: -micro-version (any case) forces the version, here M3
+// with level L: (15 + 2*2) * 8 = 152 pixels.
+func TestRunMicroVersion(t *testing.T) {
+	data := runPNG(t, cliConfig{text: "HELLO", moduleSize: 8, ec: "L", quietZone: -1, mask: -1, microVersion: "m3"})
+	if got := pngSide(t, data); got != 152 {
+		t.Errorf("width %d px, want 152 (M3 with a 2-module quiet zone)", got)
+	}
+}
+
+// TestRunMicroErrors covers an unknown -micro-version and a level Micro QR
+// does not have.
+func TestRunMicroErrors(t *testing.T) {
+	cases := map[string]cliConfig{
+		"bad version": {text: "1", moduleSize: 8, quietZone: -1, mask: -1, microVersion: "M5"},
+		"level H":     {text: "1", moduleSize: 8, quietZone: -1, mask: -1, micro: true, ec: "H"},
+	}
+	for name, cfg := range cases {
+		cfg.out = filepath.Join(t.TempDir(), "x.png")
+		if err := run(cfg, strings.NewReader(""), &bytes.Buffer{}); err == nil {
+			t.Errorf("%s: expected an error", name)
+		}
+	}
+}

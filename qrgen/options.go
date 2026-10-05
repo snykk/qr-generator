@@ -35,6 +35,16 @@ type options struct {
 	eci ECI // ECINone = no ECI header (byte mode treated as UTF-8)
 
 	logo *Logo // nil = no logo overlay
+
+	micro        bool         // encode a Micro QR Code instead of a QR Code
+	microVersion MicroVersion // 0 = auto-select the smallest fitting Micro symbol
+
+	// ecSet and quietZoneSet record whether the caller chose these explicitly.
+	// QR ignores them; Micro QR needs them because its defaults differ: an
+	// unset level lets the encoder pick the smallest symbol (including the
+	// detection-only M1), and an unset quiet zone is Micro's 2 modules.
+	ecSet        bool
+	quietZoneSet bool
 }
 
 // defaultOptions returns the spec-conformant defaults.
@@ -64,6 +74,10 @@ func resolveOptions(opts ...Option) *options {
 	// after all options so it is order-independent.
 	if o.logo != nil && o.ec < ECLevelH {
 		o.ec = ECLevelH
+	}
+	// Micro QR's spec quiet zone is 2 modules; an explicit WithQuietZone wins.
+	if o.micro && !o.quietZoneSet {
+		o.quietZone = microQuietZone
 	}
 	return &o
 }
@@ -104,6 +118,30 @@ func (o *options) validate() error {
 	if o.eci != ECINone && o.eci != ECILatin1 && o.eci != ECIUTF8 {
 		return fmt.Errorf("qrgen: unsupported ECI %d (only ECIUTF8=26 and ECILatin1=3 are supported)", int(o.eci))
 	}
+	if o.micro {
+		return o.validateMicro()
+	}
+	return nil
+}
+
+// validateMicro rejects the options Micro QR cannot honour, each with its own
+// message rather than a confusing failure further down.
+func (o *options) validateMicro() error {
+	switch {
+	case o.version != 0:
+		return fmt.Errorf("qrgen: WithVersion selects a QR Code version; use WithMicroVersion for Micro QR")
+	case o.microVersion != 0 && !o.microVersion.IsValid():
+		return fmt.Errorf("qrgen: invalid Micro QR version %v (want M1..M4)", o.microVersion)
+	case o.eci != ECINone:
+		return fmt.Errorf("qrgen: Micro QR does not support ECI")
+	case o.logo != nil:
+		// Checked before the EC level: a logo forces level H, which Micro lacks.
+		return fmt.Errorf("qrgen: WithLogo is not supported with Micro QR (a logo needs EC level H, which Micro QR does not have)")
+	case o.ecSet && o.ec == ECLevelH:
+		return fmt.Errorf("qrgen: Micro QR has no error-correction level H")
+	case o.mask >= numMicroMasks:
+		return fmt.Errorf("qrgen: invalid mask %d for Micro QR (want -1 for auto, or 0..3)", o.mask)
+	}
 	return nil
 }
 
@@ -111,7 +149,7 @@ func (o *options) validate() error {
 // recovery). Higher levels (Q, H) survive more damage at the cost of less
 // payload capacity per version.
 func WithECLevel(ec ECLevel) Option {
-	return func(o *options) { o.ec = ec }
+	return func(o *options) { o.ec, o.ecSet = ec, true }
 }
 
 // WithVersion forces the QR version (1..40). The default (0) auto-picks the
@@ -139,7 +177,29 @@ func WithModuleSize(px int) Option {
 // Default 4, which is the spec minimum. Larger quiet zones improve scan
 // reliability when the QR is printed close to other elements.
 func WithQuietZone(modules int) Option {
-	return func(o *options) { o.quietZone = modules }
+	return func(o *options) { o.quietZone, o.quietZoneSet = modules, true }
+}
+
+// WithMicro makes the encoder produce a Micro QR Code (versions M1 to M4)
+// instead of a QR Code, choosing the smallest Micro symbol that holds the
+// text. It applies to Encode, EncodeToFile, EncodeSVG, EncodeSVGToFile,
+// EncodeTerminal, and Matrix.
+//
+// With no WithECLevel, the encoder picks the smallest symbol and prefers level
+// M over L within a version, which may give the detection-only M1 for short
+// numeric text. An explicit level restricts the choice to symbols offering it
+// (L and M from M2, Q only in M4; Micro QR has no H) and never yields M1. The
+// quiet zone defaults to Micro's 2 modules. Micro QR does not support
+// WithVersion, WithECI, WithLogo, or structured append, and its masks are
+// 0..3. See docs/theory/26-micro-qr.md.
+func WithMicro() Option {
+	return func(o *options) { o.micro = true }
+}
+
+// WithMicroVersion is WithMicro with the version forced to v (M1..M4). The
+// encoder fails if the text does not fit v at the requested level.
+func WithMicroVersion(v MicroVersion) Option {
+	return func(o *options) { o.micro, o.microVersion = true, v }
 }
 
 // WithColors sets the foreground (dark) and background (light) module

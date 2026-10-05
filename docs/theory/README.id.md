@@ -71,6 +71,10 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 25. [Multi-Symbol Decoding](25-multi-symbol-decoding.id.md) — membaca setiap simbol QR dalam satu gambar: kenapa detektor connected-component sudah meng-enumerasi semua finder, mengelompokkannya jadi triple valid disjoint dengan pitch modul bersama dan geometri right-isosceles, kenapa keberhasilan decode (bukan geometri) harus jadi penentu klaim agar triple cross-symbol pada grid same-size tak bisa mencuri finder nyata, memakai ulang pipeline projektif per-simbol, menurunkan garis luar tiap simbol dari homography-nya, semantik reading-order dan skip-per-simbol, serta batas yang jujur.
 
+### Micro QR Code (v0.15.0)
+
+26. [Micro QR Code](26-micro-qr.id.md) — saudara kecil QR di standar yang sama: delapan tipe simbol M1 sampai M4 dan kapasitasnya, mode indicator dan lebar count yang lebih pendek, aturan terminator dan padding termasuk half codeword 4 bit di M1 dan M3, satu blok Reed-Solomon (hanya deteksi di M1), tata letak satu finder dengan timing di baris 0 dan kolom 0, satu salinan format information dengan XOR mask sendiri, penempatan tanpa lompatan kolom 6, empat mask dengan aturan skor tepi tertinggi, perbandingan langkah demi langkah dengan QR, dan bit stream contoh yang dicek terhadap zint.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -100,20 +104,21 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 08-rendering.id.md                     | `qrgen/render_png.go`              |
 | 09-data-tables.id.md                   | `qrgen/version.go`, `qrgen/formatinfo.go`, `qrgen/matrix.go` |
 | 10-worked-example.id.md                | golden test fixture di `qrgen/testdata/` |
-| 11-rs-decoding.id.md                   | `qrgen/rs_decode.go` (direncanakan, D3)       |
-| 12-image-processing.id.md              | `qrgen/decode_image.go` (direncanakan, D8–D12)|
-| 13-decoder-pipeline.id.md              | `qrgen/decode.go` (direncanakan, D7 + D12)    |
-| 14-adaptive-thresholding.id.md         | `qrgen/decode_image_sauvola.go` (direncanakan, T2 + T3) |
-| 15-rotation-handling.id.md             | `qrgen/decode_image.go` (direncanakan, R2: `orderFinderTriple`) |
+| 11-rs-decoding.id.md                   | `qrgen/rs_decode.go`       |
+| 12-image-processing.id.md              | `qrgen/decode_image.go`|
+| 13-decoder-pipeline.id.md              | `qrgen/decode.go`    |
+| 14-adaptive-thresholding.id.md         | `qrgen/decode_image_sauvola.go` |
+| 15-rotation-handling.id.md             | `qrgen/decode_image.go` (`orderFinderTriple`) |
 | 16-svg-rendering.id.md                 | `qrgen/render_svg.go` |
 | 17-optimal-segmentation.id.md          | `qrgen/segment.go` |
-| 18-payload-formats.id.md               | `qrgen/payload.go` (direncanakan, P3) |
-| 19-terminal-rendering.id.md            | `qrgen/render_terminal.go` (direncanakan, TR3) |
-| 20-eci-segments.id.md                  | `qrgen/eci.go` (direncanakan, ECI3) |
-| 21-structured-append.id.md             | `qrgen/structured_append.go` (direncanakan, SA3) |
-| 22-kanji-mode.id.md                    | `qrgen/kanji.go` (direncanakan, K3) |
-| 23-logo-embedding.id.md                | `qrgen/logo.go` (direncanakan, L3) |
+| 18-payload-formats.id.md               | `qrgen/payload.go` |
+| 19-terminal-rendering.id.md            | `qrgen/render_terminal.go` |
+| 20-eci-segments.id.md                  | `qrgen/eci.go` |
+| 21-structured-append.id.md             | `qrgen/structured_append.go` |
+| 22-kanji-mode.id.md                    | `qrgen/kanji.go` |
+| 23-logo-embedding.id.md                | `qrgen/logo.go` |
 | 24-arbitrary-angle-detection.id.md     | `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go` |
-| 25-multi-symbol-decoding.id.md          | `qrgen/decode_multi.go` (direncanakan, MS4), `qrgen/decode_finder_cc.go` |
+| 25-multi-symbol-decoding.id.md          | `qrgen/decode_multi.go`, `qrgen/decode_finder_cc.go` |
+| 26-micro-qr.id.md                       | `qrgen/micro.go`, `qrgen/micro_encode.go`, `qrgen/micro_matrix.go`, `qrgen/micro_decode.go` |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.

@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-05
+
+This release adds **Micro QR Code**, the last symbology in ISO/IEC 18004 this library did not produce: all eight symbol types (M1 to M4 at every EC level they define) through every encoder and renderer, and matrix-level decoding. It was validated against implementations that share none of our code rather than against our own round trips: zint for byte-exact goldens and zxing-cpp as an independent decoder.
+
+### Added
+
+- `WithMicro()` and `WithMicroVersion(MicroVersion)`, with constants `M1` to `M4`: `Encode`, `EncodeToFile`, `EncodeSVG`, `EncodeSVGToFile`, `EncodeTerminal`, and `Matrix` produce Micro QR Codes. With no `WithECLevel` the encoder takes the smallest symbol and prefers M over L within a version, which can give the detection-only M1; an explicit level restricts the choice to symbols offering it (L and M from M2, Q only in M4, no H) and never yields M1, which corrects nothing. The quiet zone defaults to Micro's 2 modules. `WithVersion`, `WithECI`, `WithLogo`, masks above 3, and structured append are rejected with specific errors, and text that does not fit M4 returns an `ErrCapacityExceeded` error instead of a QR symbol.
+- `DecodeMatrix` reads Micro grids (11, 13, 15, 17 modules), recognised by size: the single format copy within BCH's 3-bit budget among the symbol types of that size, the single Reed-Solomon block (detection only in M1, which rejects rather than corrects any error), and Micro's field widths.
+- CLI: `-micro` and `-micro-version M1..M4`; `-mask` accepts 0..3 for Micro QR.
+- New reference doc `docs/theory/26-micro-qr.md` (English plus Indonesian), plan doc `docs/plan-micro-qr.md` (plus Indonesian) with milestones MQ1..MQ6, and a runnable example `examples/encode/micro`.
+
+### Changed
+
+- CLI: `-ec` and `-quiet-zone` now default to unset (`""` and `-1`) and are passed to the library only when given, so Micro QR can apply its own defaults. QR output is byte-identical to before.
+- Internals: the segmentation DP takes a cost model (`segmentWith`) and the zigzag placement walk is shared (`placeBits`); both leave QR output unchanged, as the third-party QR fixtures from v0.14.1 confirm.
+- Docs: stale planned marks are dropped from the theory code map, `DecodeMatrix`'s documentation no longer describes image decoding as planned, and the README introduction lists all four data modes.
+
+### Validated
+
+- 34 zint symbols across all eight types and four modes are committed as text fixtures in `qrgen/testdata/thirdparty/micro_symbols.txt`. Our final message stream matches each one bit for bit; our symbols match module for module with the type and mask forced, with only the type forced (including four genuine mask ties, broken toward the lowest mask as zint does), and fully automatically; and `DecodeMatrix` reads all of them.
+- zxing-cpp reads 156 of 156 symbols from a sweep of our output across every type, mask, and mode, and decodes the empty M1 symbol without error to empty content.
+- Planting a format strip mirrored in both the writer and the reader left every self round-trip test passing while the zint goldens reported 65 failures: the self-consistency trap these fixtures exist to catch.
+- Hand-derived worked examples, the standard's `01234567` example with its EC codewords (`86 0D 22 AE 30`), error correction to each type's full capacity, M1 refusing a single flipped module, and format damage within the 3-bit budget are tested. `go test -race ./...` clean.
+
 ## [0.14.1] - 2026-10-05
 
 This patch fixes a format-information layout bug present since v0.1: the first of the two format-information copies was written and read bit-reversed. Upgrading is recommended for anyone decoding QR codes produced by other software, and for anyone relying on the redundancy of the symbols this library produces.
@@ -373,7 +397,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/snykk/qr-generator/releases/tag/v0.15.0
 [0.14.1]: https://github.com/snykk/qr-generator/releases/tag/v0.14.1
 [0.14.0]: https://github.com/snykk/qr-generator/releases/tag/v0.14.0
 [0.13.0]: https://github.com/snykk/qr-generator/releases/tag/v0.13.0
