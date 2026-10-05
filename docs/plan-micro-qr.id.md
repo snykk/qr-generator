@@ -62,7 +62,7 @@ Pembacaan encoder (mode.go, version.go, segment.go, encode.go, matrix.go, mask.g
 ## 5. Keputusan desain
 
 - **API lewat option.** `WithMicro()` memilih simbol Micro terkecil yang muat; `WithMicroVersion(v MicroVersion)` memaksa satu tipe, dengan `type MicroVersion int` dan konstanta `M1`..`M4`. Satu cabang di `buildMatrix` memberi dukungan Micro ke `Encode`, `EncodeToFile`, `EncodeSVG`, `EncodeSVGToFile`, `EncodeTerminal`, dan `Matrix`. `validate` menolak, dengan error yang spesifik, `WithVersion` bersama Micro, `WithECI`, `WithLogo` (yang akan memaksa level H yang tidak dimiliki Micro), level EC H, level EC Q di bawah M4, mask di atas 3, dan `EncodeStructuredAppend` bersama Micro.
-- **Kebijakan EC, termasuk M1.** Option mendapat flag yang mencatat apakah level EC diset secara eksplisit. Kalau tidak, M1 boleh dipilih untuk data numeric yang pendek dan level default M berlaku untuk sisanya (M2-M, M3-M, M4-M), sesuai pilihan otomatis zint. Level eksplisit memilih di antara tipe yang menawarkannya: L memberi M2-L sampai M4-L, M memberi M2-M sampai M4-M, Q hanya M4-Q, dan H adalah error. M1 hanya menyediakan deteksi error, jadi ia tak pernah dipilih ketika pemanggil meminta level koreksi.
+- **Kebijakan EC, termasuk M1.** Option mendapat flag yang mencatat apakah level EC diset secara eksplisit. Kalau tidak, simbol terkecil yang menang dan, di dalam satu version, M didahulukan dari L: urutannya M1, M2-M, M2-L, M3-M, M3-L, M4-M, M4-L, tidak pernah Q. Itu persis pilihan otomatis zint, diukur lewat probe seperti sembilan digit (M2-L, bukan M3-M) dan 35 digit (M4-L). Level eksplisit hanya memilih tipe yang menawarkannya: L memberi M2-L sampai M4-L, M memberi M2-M sampai M4-M, Q hanya M4-Q, dan H adalah error. M1 hanya menyediakan deteksi error, jadi ia tak pernah dipilih untuk level eksplisit. zint tetap memilih M1 untuk L yang eksplisit; itulah satu-satunya perbedaan yang disengaja darinya, dan dikunci di test.
 - **Tidak ada fallback diam-diam.** Kalau data tidak muat di M4 pada level yang diminta, encoder mengembalikan error kapasitas khusus Micro, bukan diam-diam menghasilkan simbol QR penuh.
 - **Quiet zone.** Micro default ke quiet zone 2 modul sesuai spec; `WithQuietZone` yang eksplisit tetap menang. Ini butuh flag "sudah diset", karena sentinel negatif akan merusak penolakan quiet zone negatif yang sudah ada.
 - **Input kosong.** Valid di M1 menurut spec (count nol), dan inilah satu-satunya kasus M1 punya pad codeword penuh. zint menolak input kosong, jadi kasus ini dicek terhadap bit stream yang diturunkan dengan tangan dan round trip kita sendiri, bukan golden.
@@ -83,10 +83,10 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah MQ5) me-round-trip setia
 
 ### MQ3 — Tabel, Segmentasi, dan Bit Stream `(L)`
 
-- [ ] `MicroVersion`, tabel tipe simbol, serta tabel mode, lebar count, dan terminator.
-- [ ] Suntikkan cost model (mode yang diizinkan dan bit header) ke DP segmentasi, mempertahankan `segmentText` sebagai wrapper QR, dan laporkan ketidak-feasible-an.
-- [ ] `encodeMicroText`: pemilihan version dan EC, segmen, terminator, padding dengan half codeword, dan stream data-plus-EC yang bit-exact.
-- [ ] Test: bit stream turunan tangan, dan data codeword yang dibaca dari simbol zint.
+- [x] `MicroVersion`, tabel tipe simbol, serta tabel mode, lebar count, dan terminator.
+- [x] Suntikkan cost model (mode yang diizinkan dan bit header) ke DP segmentasi, mempertahankan `segmentText` sebagai wrapper QR, dan laporkan ketidak-feasible-an.
+- [x] `encodeMicroText`: pemilihan version dan EC, segmen, terminator, padding dengan half codeword, dan stream data-plus-EC yang bit-exact.
+- [x] Test: bit stream turunan tangan, dan data codeword yang dibaca dari simbol zint.
 
 ### MQ4 — Matriks, Mask, dan Option `(L)`
 

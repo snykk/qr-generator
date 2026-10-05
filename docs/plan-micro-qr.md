@@ -62,7 +62,7 @@ A read of the encoder (mode.go, version.go, segment.go, encode.go, matrix.go, ma
 ## 5. Design decisions
 
 - **API by options.** `WithMicro()` selects the smallest Micro symbol that fits; `WithMicroVersion(v MicroVersion)` forces one, with `type MicroVersion int` and constants `M1`..`M4`. One branch in `buildMatrix` gives Micro to `Encode`, `EncodeToFile`, `EncodeSVG`, `EncodeSVGToFile`, `EncodeTerminal`, and `Matrix`. `validate` rejects, with specific errors, `WithVersion` together with Micro, `WithECI`, `WithLogo` (it would force the H level Micro lacks), EC level H, EC level Q below M4, a mask above 3, and `EncodeStructuredAppend` with Micro.
-- **EC policy, including M1.** The options gain a flag recording whether the EC level was set explicitly. When it was not, M1 is eligible for short numeric data and the default level M applies otherwise (M2-M, M3-M, M4-M), which matches zint's automatic choices. An explicit level selects among the types that offer it: L gives M2-L to M4-L, M gives M2-M to M4-M, Q gives M4-Q only, and H is an error. M1 provides error detection only, so it is never chosen when the caller asked for a correction level.
+- **EC policy, including M1.** The options gain a flag recording whether the EC level was set explicitly. When it was not, the smallest symbol wins and, within a version, M is preferred over L: the order is M1, M2-M, M2-L, M3-M, M3-L, M4-M, M4-L, never Q. That is exactly zint's automatic choice, measured on probes such as nine digits (M2-L, not M3-M) and 35 digits (M4-L). An explicit level selects only the types that offer it: L gives M2-L to M4-L, M gives M2-M to M4-M, Q gives M4-Q only, and H is an error. M1 provides error detection only, so it is never chosen for an explicit level. zint does pick M1 for an explicit L; that is the one deliberate divergence from it, pinned in the tests.
 - **No silent fallback.** If the data does not fit M4 at the requested level, the encoder returns a Micro-specific capacity error instead of quietly producing a full QR symbol.
 - **Quiet zone.** Micro defaults to the spec's 2-module quiet zone; an explicit `WithQuietZone` still wins. This needs a "set" flag, since a negative sentinel would break the existing rejection of negative quiet zones.
 - **Empty input.** Valid in M1 under the spec (a zero count), and the one case where M1 has a full pad codeword. zint refuses empty input, so this case is checked against a hand-derived bit stream and our own round trip rather than a golden.
@@ -83,10 +83,10 @@ Milestones land sequentially. **Checkpoint A** (after MQ5) round-trips every Mic
 
 ### MQ3 — Tables, Segmentation, and Bit Stream `(L)`
 
-- [ ] `MicroVersion`, the symbol-type table, and the mode, count-width, and terminator tables.
-- [ ] Inject the cost model (allowed modes and header bits) into the segmentation DP, keeping `segmentText` as the QR wrapper, and report infeasibility.
-- [ ] `encodeMicroText`: version and EC selection, segments, terminator, padding with the half codeword, and the bit-exact data-plus-EC stream.
-- [ ] Tests: the hand-derived bit streams, and data codewords read from zint symbols.
+- [x] `MicroVersion`, the symbol-type table, and the mode, count-width, and terminator tables.
+- [x] Inject the cost model (allowed modes and header bits) into the segmentation DP, keeping `segmentText` as the QR wrapper, and report infeasibility.
+- [x] `encodeMicroText`: version and EC selection, segments, terminator, padding with the half codeword, and the bit-exact data-plus-EC stream.
+- [x] Tests: the hand-derived bit streams, and data codewords read from zint symbols.
 
 ### MQ4 — Matrix, Masks, and Options `(L)`
 
