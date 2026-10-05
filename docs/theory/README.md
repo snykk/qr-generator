@@ -117,6 +117,6 @@ Additional references appear at the end of each document.
 | 23-logo-embedding.md                | `qrgen/logo.go` |
 | 24-arbitrary-angle-detection.md     | `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go` |
 | 25-multi-symbol-decoding.md         | `qrgen/decode_multi.go`, `qrgen/decode_finder_cc.go` |
-| 26-micro-qr.md                      | `qrgen/micro.go`, `qrgen/micro_encode.go`, `qrgen/micro_matrix.go`, `qrgen/micro_decode.go` (planned, MQ3–MQ5) |
+| 26-micro-qr.md                      | `qrgen/micro.go`, `qrgen/micro_encode.go`, `qrgen/micro_matrix.go`, `qrgen/micro_decode.go` |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.

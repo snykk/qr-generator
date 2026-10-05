@@ -104,10 +104,10 @@ Milestones land sequentially. **Checkpoint A** (after MQ5) round-trips every Mic
 
 ### MQ6 — Polish & Release `(S)`
 
-- [ ] README (encoding section, scope, limitations, roadmap), `examples/encode/micro`, and CLI flags.
-- [ ] `CHANGELOG.md` `v0.15.0` entry, left unstaged for the release branch.
-- [ ] Drop the planned mark from the doc 26 row of the theory code map, so it does not go stale the way rows 11 to 25 did.
-- [ ] `go test -race ./...` clean, gofmt-clean.
+- [x] README (encoding section, scope, limitations, roadmap), `examples/encode/micro`, and CLI flags.
+- [x] `CHANGELOG.md` `v0.15.0` entry, left unstaged for the release branch.
+- [x] Drop the planned mark from the doc 26 row of the theory code map, so it does not go stale the way rows 11 to 25 did.
+- [x] `go test -race ./...` clean, gofmt-clean.
 
 ## 7. Validation strategy
 
@@ -156,7 +156,9 @@ examples/encode/micro/main.go
 
 ## 11. Open Questions
 
-- **Constant names.** `M1`..`M4` read naturally as `qrgen.M2`; `MicroM1`..`MicroM4` would be more explicit. Proposed: `M1`..`M4`.
-- **Empty input.** Follow the spec (valid in M1) or follow zint (reject)? Proposed: follow the spec.
-- **CLI shape.** A `-micro` switch plus `-micro-version M1..M4`, or a single `-version` that also accepts `M1`..`M4`? Decide in MQ6.
-- **Image detection.** Schedule Micro detection in photographs as its own milestone after v0.15.0.
+All four were resolved during the milestone:
+
+- **Constant names.** Resolved: `M1`..`M4`, reading naturally as `qrgen.M2`.
+- **Empty input.** Resolved: follow the spec. An empty string encodes as M1 with a zero count; zint refuses to generate it, but zxing-cpp decodes our symbol without error to empty content.
+- **CLI shape.** Resolved in MQ6: `-micro` plus `-micro-version M1..M4`, mirroring `WithMicro` and `WithMicroVersion`; `-version` stays QR-only. `-ec` and `-quiet-zone` now default to unset, so Micro's defaults can apply while QR output stays byte-identical.
+- **Image detection.** Still open: locating Micro symbols in photographs (one finder plus timing patterns) is a candidate milestone after v0.15.0.

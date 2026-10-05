@@ -119,6 +119,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 23-logo-embedding.id.md                | `qrgen/logo.go` |
 | 24-arbitrary-angle-detection.id.md     | `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go` |
 | 25-multi-symbol-decoding.id.md          | `qrgen/decode_multi.go`, `qrgen/decode_finder_cc.go` |
-| 26-micro-qr.id.md                       | `qrgen/micro.go`, `qrgen/micro_encode.go`, `qrgen/micro_matrix.go`, `qrgen/micro_decode.go` (direncanakan, MQ3–MQ5) |
+| 26-micro-qr.id.md                       | `qrgen/micro.go`, `qrgen/micro_encode.go`, `qrgen/micro_matrix.go`, `qrgen/micro_decode.go` |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.

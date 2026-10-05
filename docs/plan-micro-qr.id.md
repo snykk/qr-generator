@@ -104,10 +104,10 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah MQ5) me-round-trip setia
 
 ### MQ6 — Polish & Rilis `(S)`
 
-- [ ] README (bagian encoding, scope, limitations, roadmap), `examples/encode/micro`, dan flag CLI.
-- [ ] Entri `v0.15.0` di `CHANGELOG.md`, dibiarkan unstaged untuk release branch.
-- [ ] Hapus tanda direncanakan dari baris dokumen 26 di peta kode theory, agar tidak basi seperti baris 11 sampai 25.
-- [ ] `go test -race ./...` bersih, gofmt bersih.
+- [x] README (bagian encoding, scope, limitations, roadmap), `examples/encode/micro`, dan flag CLI.
+- [x] Entri `v0.15.0` di `CHANGELOG.md`, dibiarkan unstaged untuk release branch.
+- [x] Hapus tanda direncanakan dari baris dokumen 26 di peta kode theory, agar tidak basi seperti baris 11 sampai 25.
+- [x] `go test -race ./...` bersih, gofmt bersih.
 
 ## 7. Strategi validasi
 
@@ -156,7 +156,9 @@ examples/encode/micro/main.go
 
 ## 11. Pertanyaan Terbuka
 
-- **Nama konstanta.** `M1`..`M4` terbaca natural sebagai `qrgen.M2`; `MicroM1`..`MicroM4` lebih eksplisit. Usulan: `M1`..`M4`.
-- **Input kosong.** Ikuti spec (valid di M1) atau ikuti zint (tolak)? Usulan: ikuti spec.
-- **Bentuk CLI.** Switch `-micro` plus `-micro-version M1..M4`, atau satu `-version` yang juga menerima `M1`..`M4`? Diputuskan di MQ6.
-- **Deteksi gambar.** Jadwalkan deteksi Micro di dalam foto sebagai milestone tersendiri setelah v0.15.0.
+Keempatnya terjawab selama milestone:
+
+- **Nama konstanta.** Terjawab: `M1`..`M4`, terbaca natural sebagai `qrgen.M2`.
+- **Input kosong.** Terjawab: ikuti spec. String kosong di-encode sebagai M1 dengan count nol; zint menolak membuatnya, tetapi zxing-cpp men-decode simbol kita tanpa error menjadi konten kosong.
+- **Bentuk CLI.** Terjawab di MQ6: `-micro` plus `-micro-version M1..M4`, mencerminkan `WithMicro` dan `WithMicroVersion`; `-version` tetap khusus QR. `-ec` dan `-quiet-zone` kini default-nya belum diset, sehingga default Micro bisa berlaku sementara output QR tetap identik byte-for-byte.
+- **Deteksi gambar.** Masih terbuka: menemukan simbol Micro di dalam foto (satu finder plus timing pattern) adalah kandidat milestone setelah v0.15.0.
