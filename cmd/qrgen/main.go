@@ -54,6 +54,9 @@ type cliConfig struct {
 	version    int
 	mask       int
 	invert     bool
+
+	micro        bool   // encode a Micro QR Code instead of a QR Code
+	microVersion string // "M1".."M4" forces a Micro version and implies micro
 }
 
 func main() {
@@ -64,12 +67,14 @@ func main() {
 	flag.StringVar(&cfg.out, "out", "", "output path; default qr.png/qr.svg for encode, stdout for decode. Use \"-\" to force stdout")
 	flag.StringVar(&cfg.format, "format", "", "encode mode: output format png, svg, terminal, or ascii; default png, inferred as svg from a .svg -out extension")
 	flag.IntVar(&cfg.moduleSize, "size", 8, "encode mode: module size in pixels")
-	flag.StringVar(&cfg.ec, "ec", "M", "encode mode: error-correction level L, M, Q, or H")
+	flag.StringVar(&cfg.ec, "ec", "", "encode mode: error-correction level L, M, Q, or H; unset means M for QR Code, and for Micro QR the smallest symbol at M or L (M1 for short numbers)")
 	flag.StringVar(&cfg.fg, "fg", "", "encode mode: foreground hex colour (e.g. #102E57); default black")
 	flag.StringVar(&cfg.bg, "bg", "", "encode mode: background hex colour (e.g. #FFF8E7); default white")
-	flag.IntVar(&cfg.quietZone, "quiet-zone", 4, "encode mode: modules of background around the symbol")
+	flag.IntVar(&cfg.quietZone, "quiet-zone", -1, "encode mode: modules of background around the symbol (-1 = 4 for QR Code, 2 for Micro QR)")
 	flag.IntVar(&cfg.version, "version", 0, "encode mode: force QR version 1..40 (0 = auto)")
-	flag.IntVar(&cfg.mask, "mask", -1, "encode mode: force mask 0..7 (-1 = auto)")
+	flag.IntVar(&cfg.mask, "mask", -1, "encode mode: force mask 0..7, or 0..3 for Micro QR (-1 = auto)")
+	flag.BoolVar(&cfg.micro, "micro", false, "encode mode: produce a Micro QR Code (M1..M4) instead of a QR Code")
+	flag.StringVar(&cfg.microVersion, "micro-version", "", "encode mode: force Micro QR version M1..M4 (implies -micro)")
 	flag.BoolVar(&cfg.invert, "invert", false, "encode mode: invert terminal/ascii output for dark-background terminals")
 
 	flag.Usage = func() {
@@ -90,6 +95,8 @@ func main() {
 		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"HELLO\" -format ascii")
 		fmt.Fprintln(flag.CommandLine.Output(), "  echo -n \"HELLO\" | qrgen -out hello.png")
 		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"HELLO\" -out - > qr.png")
+		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"12345\" -micro -out micro.png")
+		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"HELLO\" -micro-version M2 -ec L -format terminal")
 		fmt.Fprintln(flag.CommandLine.Output(), "")
 		fmt.Fprintln(flag.CommandLine.Output(), "Decode examples:")
 		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -decode -in qr.png")
@@ -126,15 +133,29 @@ func runEncode(cfg cliConfig, stdin io.Reader, stdout io.Writer) error {
 		return err
 	}
 
-	ec, err := parseECLevel(cfg.ec)
-	if err != nil {
-		return err
+	// The EC level and quiet zone are passed only when set: Micro QR's
+	// defaults differ from QR's (an unset level lets the encoder choose the
+	// smallest symbol; the quiet zone is 2 modules), and the library can only
+	// apply them if the CLI does not fill in QR's values first.
+	opts := []qrgen.Option{qrgen.WithModuleSize(cfg.moduleSize)}
+	if strings.TrimSpace(cfg.ec) != "" {
+		ec, err := parseECLevel(cfg.ec)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, qrgen.WithECLevel(ec))
 	}
-
-	opts := []qrgen.Option{
-		qrgen.WithECLevel(ec),
-		qrgen.WithModuleSize(cfg.moduleSize),
-		qrgen.WithQuietZone(cfg.quietZone),
+	if cfg.quietZone != -1 {
+		opts = append(opts, qrgen.WithQuietZone(cfg.quietZone))
+	}
+	if cfg.microVersion != "" {
+		mv, err := parseMicroVersion(cfg.microVersion)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, qrgen.WithMicroVersion(mv))
+	} else if cfg.micro {
+		opts = append(opts, qrgen.WithMicro())
 	}
 	if cfg.version > 0 {
 		opts = append(opts, qrgen.WithVersion(qrgen.Version(cfg.version)))
@@ -278,6 +299,21 @@ func parseECLevel(s string) (qrgen.ECLevel, error) {
 		return qrgen.ECLevelH, nil
 	}
 	return 0, fmt.Errorf("invalid EC level %q (want L, M, Q, or H)", s)
+}
+
+// parseMicroVersion parses a -micro-version value, "M1" to "M4" in any case.
+func parseMicroVersion(s string) (qrgen.MicroVersion, error) {
+	switch strings.ToUpper(strings.TrimSpace(s)) {
+	case "M1":
+		return qrgen.M1, nil
+	case "M2":
+		return qrgen.M2, nil
+	case "M3":
+		return qrgen.M3, nil
+	case "M4":
+		return qrgen.M4, nil
+	}
+	return 0, fmt.Errorf("invalid Micro QR version %q (want M1, M2, M3, or M4)", s)
 }
 
 // parseHexColor accepts #RRGGBB and #RRGGBBAA (with or without the leading
