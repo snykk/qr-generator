@@ -201,13 +201,22 @@ func (m *matrix) reserveVersionInfoArea() {
 // dataAreaBits == v.DataCodewords(ec) * 8 + v.RemainderBits(); short streams
 // return an error. The MSB of each byte is written first.
 func (m *matrix) placeData(stream []byte, remainderBits int) error {
+	return m.placeBits(stream, len(stream)*8+remainderBits, 6)
+}
+
+// placeBits is the zigzag walk shared by QR and Micro QR: two-module-wide
+// columns from the right edge, upward first and reversing at each edge, writing
+// the first totalBits bits of stream into the unreserved modules. QR steps
+// over skipCol = 6, its vertical timing column; Micro QR passes -1, since its
+// column 6 below the finder holds data and its timing sits on column 0, which
+// the walk never reaches.
+func (m *matrix) placeBits(stream []byte, totalBits, skipCol int) error {
 	n := m.size
-	totalBits := len(stream)*8 + remainderBits
 	bitIdx := 0
 	upward := true
 
 	for col := n - 1; col > 0; col -= 2 {
-		if col == 6 {
+		if col == skipCol {
 			col--
 		}
 		for i := 0; i < n; i++ {

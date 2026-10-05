@@ -7,7 +7,7 @@
 
 A pure-Go QR code generator **and decoder** implemented from scratch, following **ISO/IEC 18004:2015**, with no runtime dependencies beyond the Go standard library.
 
-The encoder produces scannable PNG output for every QR version (1–40), every error-correction level (L/M/Q/H), and the three text-mode payloads (numeric, alphanumeric, byte). The decoder closes the loop: given a PNG, a JPEG, or a raw `image.Image`, it runs binarisation, finder-pattern detection, perspective transform, alignment refinement, Reed–Solomon error correction, and segment parsing to return the original string. The library is shipped together with a thin CLI (`cmd/qrgen`).
+The encoder produces scannable PNG output for every QR version (1–40), every error-correction level (L/M/Q/H), and all four data modes (numeric, alphanumeric, byte, Kanji), and as of v0.15 also Micro QR Code (M1–M4). The decoder closes the loop: given a PNG, a JPEG, or a raw `image.Image`, it runs binarisation, finder-pattern detection, perspective transform, alignment refinement, Reed–Solomon error correction, and segment parsing to return the original string. The library is shipped together with a thin CLI (`cmd/qrgen`).
 
 ## Contents
 
@@ -187,6 +187,20 @@ svg, err := qrgen.EncodeSVG("https://example.com", qrgen.WithLogo(qrgen.Logo{Ima
 
 The logo is centred, clear of the corner finder patterns, scaled to a fraction of the symbol width (`Logo.Scale`, default 0.2), and drawn on a background pad (`Logo.Background`, `Logo.Padding`). Keep it modest — much past a quarter of the width and even EC-H cannot recover it. The PNG bakes the logo into the raster (with an in-tree resampler, so still zero dependencies); the SVG embeds it as a self-contained base64 data URI. See [docs/theory/23-logo-embedding.md](docs/theory/23-logo-embedding.md) and the demo in [examples/encode/logo](examples/encode/logo/main.go).
 
+## Micro QR Code
+
+Micro QR Code is the small sibling of QR Code in the same standard: one finder pattern, a 2-module quiet zone, and symbols of 11 to 17 modules. Its smallest version, M1, holds five digits in about a quarter of the area of the smallest QR symbol. Ask for one with `WithMicro`, which picks the smallest symbol that fits, or force a version with `WithMicroVersion`; every encode function and `Matrix` accept them:
+
+```go
+data, err := qrgen.Encode("12345", qrgen.WithMicro())                       // M1, 11x11
+svg, err := qrgen.EncodeSVG("HELLO", qrgen.WithMicroVersion(qrgen.M3))       // M3, 15x15
+grid, err := qrgen.Matrix("HELLO", qrgen.WithMicro(), qrgen.WithECLevel(qrgen.ECLevelQ)) // M4-Q
+```
+
+Without `WithECLevel` the encoder takes the smallest symbol and prefers level M over L within a version, which can give the detection-only M1 for short numbers. An explicit level restricts the choice to the symbols that offer it (L and M from M2, Q only in M4; Micro QR has no H) and never yields M1, which corrects nothing. Micro QR has no ECI, structured append, or logo support, and its masks run 0..3; those options are rejected with a specific error. If the text does not fit M4 the encoder returns an `ErrCapacityExceeded` error rather than quietly producing a full QR symbol.
+
+`DecodeMatrix` recognises Micro symbols by size and decodes them, but locating Micro symbols in images is not supported yet. The encoder was validated module for module against zint and read by zxing-cpp's independent decoder; see [docs/theory/26-micro-qr.md](docs/theory/26-micro-qr.md) and the demo in [examples/encode/micro](examples/encode/micro/main.go).
+
 ## Decoding QR codes
 
 `qrgen.DecodeBytes` reads PNG, JPEG, or GIF bytes back into the original text:
@@ -242,6 +256,10 @@ qrgen -text "HELLO" -format svg -out - > qr.svg
 qrgen -text "https://example.com" -format terminal
 qrgen -text "https://example.com" -format terminal -invert   # dark-background terminal
 qrgen -text "https://example.com" -format ascii              # ASCII fallback
+
+# Micro QR: the smallest symbol that fits, or a forced version and level.
+qrgen -text "12345" -micro -out micro.png
+qrgen -text "HELLO" -micro-version M2 -ec L -format terminal
 ```
 
 **Decoding:**
@@ -272,11 +290,13 @@ Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: �
 | `EncodeTerminal(text, opts...) (string, error)` | Text → multi-line block-character string for printing to a terminal. |
 | `EncodeStructuredAppend(text, parts, opts...) ([][]byte, error)` | Text → a set of `parts` (2..16) linked PNG symbols. |
 | `Matrix(text, opts...) ([][]bool, error)` | Text → raw boolean module grid for custom rendering. |
-| `WithECLevel(ec)` | Error-correction level (`ECLevelL`, `ECLevelM`, `ECLevelQ`, `ECLevelH`). Default `M`. |
+| `WithECLevel(ec)` | Error-correction level (`ECLevelL`, `ECLevelM`, `ECLevelQ`, `ECLevelH`). Default `M`; for Micro QR, unset means the smallest symbol at M or L. |
 | `WithVersion(v)` | Force QR version `1..40`. Default `0` (auto-select smallest fitting). |
-| `WithMask(k)` | Force mask pattern `0..7`. Default `-1` (auto, lowest-penalty). |
+| `WithMicro()` | Produce a Micro QR Code (M1..M4), choosing the smallest symbol that fits. |
+| `WithMicroVersion(v)` | Produce a Micro QR Code at version `M1`..`M4`. |
+| `WithMask(k)` | Force mask pattern `0..7`, or `0..3` for Micro QR. Default `-1` (auto: lowest penalty for QR, highest edge score for Micro). |
 | `WithModuleSize(px)` | Pixels per module. Default `8`. |
-| `WithQuietZone(modules)` | Module margin around the symbol. Default `4` (spec minimum). |
+| `WithQuietZone(modules)` | Module margin around the symbol. Default `4`, or `2` for Micro QR (each the spec minimum). |
 | `WithColors(fg, bg)` | Custom foreground/background `color.Color`. Default black-on-white. |
 | `WithTerminalInvert(bool)` | Invert `EncodeTerminal` polarity for dark-background terminals. |
 | `WithTerminalASCII(bool)` | Render `EncodeTerminal` with a double-width ASCII fallback instead of half-block glyphs. |
@@ -300,7 +320,7 @@ Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: �
 |---|---|
 | `Decode(img image.Image) (string, error)` | Image → text. Runs the full image pipeline. |
 | `DecodeBytes(data []byte) (string, error)` | PNG / JPEG / GIF bytes → text. Convenience wrapper around `Decode`. |
-| `DecodeMatrix(grid [][]bool) (string, error)` | Boolean module grid → text. Skips the image pipeline. |
+| `DecodeMatrix(grid [][]bool) (string, error)` | Boolean module grid → text. Skips the image pipeline. Also reads Micro QR grids (11, 13, 15, 17 modules). |
 | `DecodeAll(img image.Image) ([]Result, error)` | Image → every QR symbol in it, each a `Result` (text, corners, finder centres, version), in reading order. |
 | `DecodeAllBytes(data []byte) ([]Result, error)` | PNG / JPEG / GIF bytes → all symbols. Convenience wrapper around `DecodeAll`. |
 | `DecodeStructuredAppend(symbols [][]byte) (string, error)` | A set of structured-append symbols (any order) → reassembled text. |
@@ -335,10 +355,11 @@ In scope as of v0.2.0:
 - Optional ECI character-set declaration for byte mode (`ECIUTF8`, `ECILatin1`; as of v0.9).
 - Structured append: split a long message across up to 16 linked symbols and reassemble them (as of v0.10).
 - Centred logo overlay on PNG and SVG with an automatic EC-H bump (as of v0.12).
+- Micro QR Code, M1 to M4 at every EC level they define, through every encoder and renderer, plus matrix-level decoding (as of v0.15).
 - Image decoding (PNG / JPEG / GIF / `image.Image`) with binarisation, finder detection, perspective transform, and alignment refinement.
 - Matrix decoding from `[][]bool` for callers that already have a clean grid.
 
-Still out of scope (kept open as roadmap items): Micro QR, JPEG/PDF renderers, decoding at near-grazing angles beyond about 55 degrees of tilt.
+Still out of scope (kept open as roadmap items): locating Micro QR symbols in images, rMQR, JPEG/PDF renderers, decoding at near-grazing angles beyond about 55 degrees of tilt.
 
 ## Limitations
 
@@ -346,7 +367,7 @@ The library covers the encoder and the decoder end-to-end as of v0.2.0; the foll
 
 - **ECI limited to UTF-8 and Latin-1.** `WithECI` (v0.9) declares a byte-mode character set with an explicit ECI header, but only `ECIUTF8` and `ECILatin1` are supported, since they are the only charsets transcodable with the standard library; other code pages such as Shift-JIS would need an external dependency. Without `WithECI` the encoder emits, and the decoder reads, byte mode as UTF-8 — a deliberate deviation from the spec's ISO-8859-1 default that matches real-world scanners.
 - **Kanji is JIS X 0208 only.** Kanji mode (v0.11) encodes the JIS X 0208 character set at 13 bits per character, automatically and mixed with the other modes; characters outside JIS X 0208 (JIS X 0212, most emoji) stay in byte mode. The density gain over UTF-8 byte mode is about 1.8x (13 versus 24 bits per BMP kanji), not the 4x an earlier version of this note claimed.
-- **No Micro QR or rMQR.** Only the standard 40-version family is supported.
+- **Micro QR decodes from a matrix only, and there is no rMQR.** `WithMicro` (v0.15) encodes every Micro type and `DecodeMatrix` reads Micro grids, but `Decode`, `DecodeBytes`, and `DecodeAll` still need the three finder patterns of a QR symbol, so they do not find Micro symbols in images yet. Rectangular Micro QR (rMQR, ISO/IEC 23941) is not supported. With an explicit `WithECLevel(ECLevelL)` the Micro encoder never picks M1, where zint does; M1 only detects errors, so it cannot provide level L.
 - **Structured-append is opt-in and PNG-only.** `EncodeStructuredAppend` (v0.10) splits a long message across 2..16 linked symbols and `DecodeStructuredAppend` reassembles them, but the encoder returns PNG bytes only (no SVG or terminal variant yet), takes an explicit part count rather than auto-sizing, and does not combine with `WithECI`. A single `Encode` still caps at one symbol (V40 ~2,953 bytes in byte mode at EC-L).
 - **Logo size is the caller's responsibility.** `WithLogo` (v0.12) forces EC-H and defaults to a safe ~20%-width logo, but it does not stop an oversized logo from exceeding the recovery budget; keep the logo modest and clear of the corner finder patterns.
 - **Arbitrary-angle decoding is bounded.** v0.4 handles the axis-aligned rotations and soft tilts to ~30 degrees; v0.13 adds a projective connected-component fallback that reads real perspective tilt reliably to ~35–40 degrees across orientations and up to ~55 degrees at favourable rotations. Beyond ~55–60 degrees the finder patterns themselves stop being detectable, so near-grazing angles, heavy blur, and glare that breaks a finder's nesting still fail.
@@ -362,7 +383,7 @@ Candidates for future minor releases (post-v0.2.0):
 - **Encoding completeness:** complete — the numeric, alphanumeric, byte, and Kanji data modes plus ECI. (Mixed-mode segmentation shipped in v0.6, ECI in v0.9, Kanji in v0.11.)
 - **More payload builders:** calendar event (VEVENT), crypto/EPC payment, MeCard. (Wi-Fi, vCard, mailto, tel, SMS, and geo shipped in v0.7.)
 - **Logo embedding:** shipped in v0.12 — a centred logo with an automatic EC-H bump on PNG and SVG.
-- **Micro QR & rMQR:** smaller form factors for short payloads.
+- **Micro QR & rMQR:** Micro QR encoding and matrix decoding shipped in v0.15; next are locating Micro symbols in images (one finder plus timing patterns) and rectangular Micro QR (rMQR, ISO/IEC 23941).
 - **Structured-append extensions:** auto part-count, SVG/terminal output, and ECI combination. (Core PNG structured-append shipped in v0.10.)
 - **Decoder robustness:** pushing tilt past ~55 degrees (sub-pixel corner refinement, alignment-grid sampling), tunable Sauvola parameters (k, window) plus morphological cleanup so heavier within-symbol contrast loss can also be recovered.
 - **Performance:** reduce allocations on the hot encode and decode paths.
