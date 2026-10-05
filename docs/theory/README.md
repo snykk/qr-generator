@@ -98,20 +98,20 @@ Additional references appear at the end of each document.
 | 08-rendering.md                     | `qrgen/render_png.go`              |
 | 09-data-tables.md                   | `qrgen/version.go`, `qrgen/formatinfo.go`, `qrgen/matrix.go` |
 | 10-worked-example.md                | golden test fixtures under `qrgen/testdata/` |
-| 11-rs-decoding.md                   | `qrgen/rs_decode.go` (planned, D3)            |
-| 12-image-processing.md              | `qrgen/decode_image.go` (planned, D8–D12)     |
-| 13-decoder-pipeline.md              | `qrgen/decode.go` (planned, D7 + D12)         |
-| 14-adaptive-thresholding.md         | `qrgen/decode_image_sauvola.go` (planned, T2 + T3) |
-| 15-rotation-handling.md             | `qrgen/decode_image.go` (planned, R2: `orderFinderTriple`) |
+| 11-rs-decoding.md                   | `qrgen/rs_decode.go`            |
+| 12-image-processing.md              | `qrgen/decode_image.go`     |
+| 13-decoder-pipeline.md              | `qrgen/decode.go`         |
+| 14-adaptive-thresholding.md         | `qrgen/decode_image_sauvola.go` |
+| 15-rotation-handling.md             | `qrgen/decode_image.go` (`orderFinderTriple`) |
 | 16-svg-rendering.md                 | `qrgen/render_svg.go` |
 | 17-optimal-segmentation.md          | `qrgen/segment.go` |
-| 18-payload-formats.md               | `qrgen/payload.go` (planned, P3) |
-| 19-terminal-rendering.md            | `qrgen/render_terminal.go` (planned, TR3) |
-| 20-eci-segments.md                  | `qrgen/eci.go` (planned, ECI3) |
-| 21-structured-append.md             | `qrgen/structured_append.go` (planned, SA3) |
-| 22-kanji-mode.md                    | `qrgen/kanji.go` (planned, K3) |
-| 23-logo-embedding.md                | `qrgen/logo.go` (planned, L3) |
+| 18-payload-formats.md               | `qrgen/payload.go` |
+| 19-terminal-rendering.md            | `qrgen/render_terminal.go` |
+| 20-eci-segments.md                  | `qrgen/eci.go` |
+| 21-structured-append.md             | `qrgen/structured_append.go` |
+| 22-kanji-mode.md                    | `qrgen/kanji.go` |
+| 23-logo-embedding.md                | `qrgen/logo.go` |
 | 24-arbitrary-angle-detection.md     | `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go` |
-| 25-multi-symbol-decoding.md         | `qrgen/decode_multi.go` (planned, MS4), `qrgen/decode_finder_cc.go` |
+| 25-multi-symbol-decoding.md         | `qrgen/decode_multi.go`, `qrgen/decode_finder_cc.go` |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.
