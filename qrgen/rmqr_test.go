@@ -282,3 +282,147 @@ func TestRMQRHeightOption(t *testing.T) {
 		}
 	}
 }
+
+// TestRMQRRoundTrip encodes texts in every mode, mixed modes, and ECI, at
+// every version and both levels where they fit, and decodes them back.
+func TestRMQRRoundTrip(t *testing.T) {
+	texts := []string{"7", "HELLO RMQR", "hello, rmqr!", "点茗", "Order 66: ship 1200 units", "Grüße 日本"}
+	for v := R7x43; v <= R17x139; v++ {
+		for _, ec := range []ECLevel{ECLevelM, ECLevelH} {
+			for _, text := range texts {
+				grid, err := Matrix(text, WithRMQRVersion(v), WithECLevel(ec))
+				if errors.Is(err, ErrCapacityExceeded) {
+					continue
+				}
+				if err != nil {
+					t.Fatalf("%v-%v %q: %v", v, ec, text, err)
+				}
+				if got, err := DecodeMatrix(grid); err != nil || got != text {
+					t.Errorf("%v-%v %q: decoded (%q, %v)", v, ec, text, got, err)
+				}
+			}
+		}
+	}
+	for _, eci := range []ECI{ECIUTF8, ECILatin1} {
+		grid, err := Matrix("Grüße", WithRMQR(), WithECI(eci))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, err := DecodeMatrix(grid); err != nil || got != "Grüße" {
+			t.Errorf("ECI %d: decoded (%q, %v)", eci, got, err)
+		}
+	}
+}
+
+// rmqrDataModules lists a symbol's data modules in placement order, so a test
+// can find the modules of a given codeword: bits 8k to 8k+7 of the stream.
+func rmqrDataModules(v RMQRVersion) [][2]int {
+	m := newRMQRMatrix(v)
+	m.placeRMQRFunctionPatterns()
+	var out [][2]int
+	h, w := m.rows(), m.cols()
+	upward := true
+	for col := w - 2; col > 0; col -= 2 {
+		for i := range h {
+			row := i
+			if upward {
+				row = h - 1 - i
+			}
+			for c := range 2 {
+				if !m.isReserved(row, col-c) {
+					out = append(out, [2]int{row, col - c})
+				}
+			}
+		}
+		upward = !upward
+	}
+	return out
+}
+
+// TestRMQRErrorCorrection flips one bit in each of t codewords of a
+// single-block symbol, t being half its EC codewords, and expects a clean
+// decode; one more damaged codeword must fail.
+func TestRMQRErrorCorrection(t *testing.T) {
+	for _, c := range []struct {
+		v    RMQRVersion
+		ec   ECLevel
+		text string
+	}{
+		{R11x43, ECLevelM, "ERROR CORRECTION"},
+		{R7x139, ECLevelM, "rectangular micro qr code"},
+		{R13x27, ECLevelH, "12345"},
+	} {
+		sym := rmqrSymbol{version: c.v, lvl: map[ECLevel]int{ECLevelM: 0, ECLevelH: 1}[c.ec]}
+		info := sym.info()
+		if info.blocks[sym.lvl] != 1 {
+			t.Fatalf("%v: want a single-block symbol", sym)
+		}
+		capacity := (info.codewords - info.data[sym.lvl]) / 2
+		mods := rmqrDataModules(c.v)
+		for _, damaged := range []int{capacity, capacity + 1} {
+			grid, err := Matrix(c.text, WithRMQRVersion(c.v), WithECLevel(c.ec))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for k := range damaged {
+				r, col := mods[8*k+3][0], mods[8*k+3][1]
+				grid[r][col] = !grid[r][col]
+			}
+			got, err := DecodeMatrix(grid)
+			if damaged == capacity && (err != nil || got != c.text) {
+				t.Errorf("%v with %d damaged codewords: (%q, %v), want %q", sym, damaged, got, err, c.text)
+			}
+			if damaged > capacity && !errors.Is(err, ErrTooManyErrors) {
+				t.Errorf("%v with %d damaged codewords: (%q, %v), want ErrTooManyErrors", sym, damaged, got, err)
+			}
+		}
+	}
+}
+
+// TestRMQRFormatCopyDamage: either format copy alone names the level, so a
+// symbol survives one copy damaged beyond repair, but not both.
+func TestRMQRFormatCopyDamage(t *testing.T) {
+	const text = "FORMAT COPIES"
+	for _, damage := range []struct {
+		name         string
+		finder, sub  int // bits flipped in each copy
+		wantReadable bool
+	}{
+		{"both intact", 0, 0, true},
+		{"finder copy within budget", 3, 0, true},
+		{"finder copy destroyed", 9, 0, true},
+		{"sub-pattern copy destroyed", 0, 9, true},
+		{"both destroyed", 9, 9, false},
+	} {
+		grid, err := Matrix(text, WithRMQRVersion(R13x43), WithECLevel(ECLevelH))
+		if err != nil {
+			t.Fatal(err)
+		}
+		h, w := len(grid), len(grid[0])
+		for i := range damage.finder {
+			r, c := rmqrFormatModuleFinder(i)
+			grid[r][c] = !grid[r][c]
+		}
+		for i := range damage.sub {
+			r, c := rmqrFormatModuleSub(i, h, w)
+			grid[r][c] = !grid[r][c]
+		}
+		got, err := DecodeMatrix(grid)
+		if damage.wantReadable && (err != nil || got != text) {
+			t.Errorf("%s: (%q, %v), want %q", damage.name, got, err, text)
+		}
+		if !damage.wantReadable && !errors.Is(err, ErrFormatUnreadable) {
+			t.Errorf("%s: (%q, %v), want ErrFormatUnreadable", damage.name, got, err)
+		}
+	}
+}
+
+func TestDecodeMatrixRejectsUnknownRectangle(t *testing.T) {
+	grid := make([][]bool, 10)
+	for i := range grid {
+		grid[i] = make([]bool, 30)
+	}
+	if _, err := DecodeMatrix(grid); err == nil {
+		t.Error("10 by 30 grid: no error")
+	}
+}

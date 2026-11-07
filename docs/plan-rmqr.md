@@ -87,9 +87,9 @@ Milestones land sequentially. **Checkpoint A** (after RQ5) round-trips every rMQ
 
 ### RQ5 — Matrix Decoder and Round Trips `(M)`
 
-- [ ] `decodeRMQRMatrix` and the `DecodeMatrix` dispatch by shape.
-- [ ] Tests: decode every zint golden, round-trip our encoder across versions, levels, and modes, correct errors up to each block's capacity, and survive damage to one format copy.
-- [ ] One-off check, reported in the commit: zxing-cpp reads our rendered rMQR PNGs.
+- [x] `decodeRMQRMatrix` and the `DecodeMatrix` dispatch by shape.
+- [x] Tests: decode every zint golden, round-trip our encoder across versions, levels, and modes, correct errors up to each block's capacity, and survive damage to one format copy.
+- [x] One-off check, reported in the commit: zxing-cpp reads our rendered rMQR PNGs.
 
 ### Checkpoint A — every rMQR type round-trips and matches zint.
 
@@ -149,5 +149,5 @@ examples/encode/rmqr/main.go
 
 ## 11. Open Questions
 
-- **The public API.** The proposal is `WithRMQR`, `WithRMQRVersion` with constants named after the standard (`R7x43` to `R17x139`), and `WithRMQRHeight` for a fixed height. To confirm before RQ4.
-- **Disagreeing format copies.** The proposal takes the nearer of the two decoded words; requiring both to agree would be stricter but would throw away the redundancy the second copy exists for. To settle in RQ5 against damaged-copy tests.
+- **The public API.** Resolved before RQ3: `WithRMQR`, `WithRMQRVersion` with constants named after the standard (`R7x43` to `R17x139`), and `WithRMQRHeight` for a fixed height, as proposed.
+- **Disagreeing format copies.** Resolved in RQ5: the nearer copy wins, each matched against the two words of the version the grid's shape gives, so a symbol reads with either copy destroyed and fails only when both are.

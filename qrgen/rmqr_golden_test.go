@@ -204,3 +204,16 @@ func TestRMQRGoldenMatrices(t *testing.T) {
 		}
 	}
 }
+
+// TestRMQRGoldenDecode: DecodeMatrix reads every zint symbol, so our decoder
+// agrees with an encoder that shares none of its code.
+func TestRMQRGoldenDecode(t *testing.T) {
+	for _, g := range loadRMQRGoldens(t) {
+		if g.auto {
+			continue
+		}
+		if got, err := DecodeMatrix(g.grid); err != nil || got != g.text {
+			t.Errorf("%v-%v %s: got (%q, %v), want %q", g.version, g.ec, g.note, got, err, g.text)
+		}
+	}
+}

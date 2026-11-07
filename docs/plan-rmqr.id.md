@@ -87,9 +87,9 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah RQ5) me-round-trip setia
 
 ### RQ5 — Decoder Matriks dan Round Trip `(M)`
 
-- [ ] `decodeRMQRMatrix` dan dispatch `DecodeMatrix` berdasarkan bentuk.
-- [ ] Test: decode setiap golden zint, round-trip encoder kita lintas versi, level, dan mode, koreksi error sampai kapasitas tiap blok, dan bertahan saat satu salinan format rusak.
-- [ ] Cek sekali jalan, dilaporkan di commit: zxing-cpp membaca PNG rMQR yang kita render.
+- [x] `decodeRMQRMatrix` dan dispatch `DecodeMatrix` berdasarkan bentuk.
+- [x] Test: decode setiap golden zint, round-trip encoder kita lintas versi, level, dan mode, koreksi error sampai kapasitas tiap blok, dan bertahan saat satu salinan format rusak.
+- [x] Cek sekali jalan, dilaporkan di commit: zxing-cpp membaca PNG rMQR yang kita render.
 
 ### Checkpoint A — setiap tipe rMQR bisa round-trip dan cocok dengan zint.
 
@@ -149,5 +149,5 @@ examples/encode/rmqr/main.go
 
 ## 11. Pertanyaan Terbuka
 
-- **API publik.** Usulannya adalah `WithRMQR`, `WithRMQRVersion` dengan konstanta yang dinamai sesuai standar (`R7x43` sampai `R17x139`), dan `WithRMQRHeight` untuk tinggi yang ditetapkan. Dikonfirmasi sebelum RQ4.
-- **Salinan format yang tidak sepakat.** Usulannya mengambil yang lebih dekat dari dua word hasil decode; mensyaratkan keduanya sepakat akan lebih ketat tetapi membuang redundansi yang menjadi alasan salinan kedua ada. Diputuskan di RQ5 lewat test salinan yang rusak.
+- **API publik.** Terjawab sebelum RQ3: `WithRMQR`, `WithRMQRVersion` dengan konstanta yang dinamai sesuai standar (`R7x43` sampai `R17x139`), dan `WithRMQRHeight` untuk tinggi yang ditetapkan, sesuai usulan.
+- **Salinan format yang tidak sepakat.** Terjawab di RQ5: salinan yang lebih dekat yang menang, masing-masing dicocokkan dengan dua word milik versi yang ditentukan bentuk grid, sehingga simbol tetap terbaca saat salah satu salinan rusak total dan baru gagal kalau keduanya rusak.
