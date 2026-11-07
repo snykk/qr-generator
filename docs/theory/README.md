@@ -127,6 +127,6 @@ Additional references appear at the end of each document.
 | 25-multi-symbol-decoding.md         | `qrgen/decode_multi.go`, `qrgen/decode_finder_cc.go` |
 | 26-micro-qr.md                      | `qrgen/micro.go`, `qrgen/micro_encode.go`, `qrgen/micro_matrix.go`, `qrgen/micro_decode.go` |
 | 27-micro-qr-detection.md            | `qrgen/decode_micro.go`, `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go`, `qrgen/decode_multi.go` |
-| 28-rmqr.md                          | `qrgen/rmqr.go`, `qrgen/rmqr_encode.go`, `qrgen/rmqr_matrix.go`, `qrgen/rmqr_decode.go` (planned, RQ3–RQ5) |
+| 28-rmqr.md                          | `qrgen/rmqr.go`, `qrgen/rmqr_encode.go`, `qrgen/rmqr_matrix.go`, `qrgen/rmqr_decode.go` |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.

@@ -129,6 +129,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 25-multi-symbol-decoding.id.md          | `qrgen/decode_multi.go`, `qrgen/decode_finder_cc.go` |
 | 26-micro-qr.id.md                       | `qrgen/micro.go`, `qrgen/micro_encode.go`, `qrgen/micro_matrix.go`, `qrgen/micro_decode.go` |
 | 27-micro-qr-detection.id.md             | `qrgen/decode_micro.go`, `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go`, `qrgen/decode_multi.go` |
-| 28-rmqr.id.md                           | `qrgen/rmqr.go`, `qrgen/rmqr_encode.go`, `qrgen/rmqr_matrix.go`, `qrgen/rmqr_decode.go` (direncanakan, RQ3–RQ5) |
+| 28-rmqr.id.md                           | `qrgen/rmqr.go`, `qrgen/rmqr_encode.go`, `qrgen/rmqr_matrix.go`, `qrgen/rmqr_decode.go` |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.

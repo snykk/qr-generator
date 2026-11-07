@@ -95,10 +95,10 @@ Milestones land sequentially. **Checkpoint A** (after RQ5) round-trips every rMQ
 
 ### RQ6 — Polish & Release `(S)`
 
-- [ ] CLI flags mirroring the options, README (encoding section, API table, scope, limitations, roadmap), and `examples/encode/rmqr`.
-- [ ] `CHANGELOG.md` `v0.17.0` entry, left unstaged for the release branch.
-- [ ] The theory code-map row for doc 28, without a planned mark.
-- [ ] `go test -race ./...` clean, gofmt-clean.
+- [x] CLI flags mirroring the options, README (encoding section, API table, scope, limitations, roadmap), and `examples/encode/rmqr`.
+- [x] `CHANGELOG.md` `v0.17.0` entry, left unstaged for the release branch.
+- [x] The theory code-map row for doc 28, without a planned mark.
+- [x] `go test -race ./...` clean, gofmt-clean.
 
 ## 7. Validation strategy
 

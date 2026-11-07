@@ -168,7 +168,7 @@ Tata letak di bagian 6 dibangun sebagai model dan dibandingkan dengan simbol zin
 
 ## 13. Penunjuk implementasi
 
-Direncanakan di RQ3 sampai RQ5 (lihat `docs/plan-rmqr.md`):
+Dibangun di RQ3 sampai RQ5 (lihat `docs/plan-rmqr.md`):
 
 - `qrgen/rmqr.go`: `RMQRVersion` dan tabel di bagian 2.
 - `qrgen/rmqr_encode.go`: cost model untuk DP segmentasi, `encodeRMQRText`, padding, dan interleaving blok.

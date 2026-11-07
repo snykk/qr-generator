@@ -168,7 +168,7 @@ The layout of section 6 was built as a model and compared with zint's symbols fo
 
 ## 13. Implementation pointers
 
-Planned in RQ3 to RQ5 (see `docs/plan-rmqr.md`):
+Built in RQ3 to RQ5 (see `docs/plan-rmqr.md`):
 
 - `qrgen/rmqr.go`: `RMQRVersion` and the tables of section 2.
 - `qrgen/rmqr_encode.go`: the cost model for the segmentation DP, `encodeRMQRText`, padding, and block interleaving.

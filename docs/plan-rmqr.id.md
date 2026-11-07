@@ -95,10 +95,10 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah RQ5) me-round-trip setia
 
 ### RQ6 — Polish & Rilis `(S)`
 
-- [ ] Flag CLI yang mencerminkan option, README (bagian encoding, tabel API, scope, limitations, roadmap), dan `examples/encode/rmqr`.
-- [ ] Entri `v0.17.0` di `CHANGELOG.md`, dibiarkan unstaged untuk release branch.
-- [ ] Baris peta kode theory untuk dokumen 28, tanpa tanda direncanakan.
-- [ ] `go test -race ./...` bersih, gofmt bersih.
+- [x] Flag CLI yang mencerminkan option, README (bagian encoding, tabel API, scope, limitations, roadmap), dan `examples/encode/rmqr`.
+- [x] Entri `v0.17.0` di `CHANGELOG.md`, dibiarkan unstaged untuk release branch.
+- [x] Baris peta kode theory untuk dokumen 28, tanpa tanda direncanakan.
+- [x] `go test -race ./...` bersih, gofmt bersih.
 
 ## 7. Strategi validasi
 
