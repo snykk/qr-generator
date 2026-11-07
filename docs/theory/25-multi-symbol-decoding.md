@@ -8,7 +8,7 @@ The v0.14 decoder reads every QR symbol present in one image, not just the first
 
 Finding a QR symbol starts with its three finder patterns. The v0.13 connected-component detector (doc 24) labels the binarised image and matches every dark-ring / light-ring / dark-centre nesting with 7:5:3 bounding-box sides. That matcher is not limited to one symbol: `finderNestings` returns **every** finder ring in the image. A photo with four QR codes yields (about) twelve finder candidates.
 
-The single-symbol pipeline then throws most of that away. `findFinderQuadTriple` keeps the candidates, and `bestFinderTripleIdx` selects the one triple with the lowest geometric cost — the single best right-isosceles arrangement — and decodes it. Everything needed to read all four codes was already computed; the pipeline simply collapsed to one at the last selection step. Multi-symbol decoding is therefore not a new detector. It is a different *selection*: instead of the single best triple, find **all disjoint valid triples**, and decode each through the unchanged per-symbol pipeline.
+The single-symbol pipeline then throws most of that away. `bestFinderQuadTriple` keeps the candidates, and `bestFinderTripleIdx` selects the one triple with the lowest geometric cost — the single best right-isosceles arrangement — and decodes it. Everything needed to read all four codes was already computed; the pipeline simply collapsed to one at the last selection step. Multi-symbol decoding is therefore not a new detector. It is a different *selection*: instead of the single best triple, find **all disjoint valid triples**, and decode each through the unchanged per-symbol pipeline.
 
 ## 2. The grouping problem
 
@@ -30,7 +30,7 @@ That attempt cap must **scale with the finder count**. A grid of many same-size 
 
 ## 4. Reusing the per-symbol pipeline
 
-Once a triple is grouped and ordered, decoding it is exactly what the single-symbol projective path already does: estimate the version from the finder-quad edge length, trial candidate versions, fit the twelve-corner projective homography, sample the module grid, and Reed-Solomon decode (doc 24). The milestone factors that body out of `decodeProjectiveFromBitmap` into a helper, `decodeOneQuadTriple`, so both the single-symbol path and the multi-symbol loop call the identical per-symbol code. The helper surfaces the winning version and homography, which the single-symbol path discarded but the public result needs (section 5).
+Once a triple is grouped and ordered, decoding it is exactly what the single-symbol projective path already does: estimate the version from the finder-quad edge length, trial candidate versions, fit the twelve-corner projective homography, sample the module grid, and Reed-Solomon decode (doc 24). The milestone factors that body out of the single-symbol projective path into a helper, `decodeOneQuadTriple`, so both the single-symbol path and the multi-symbol loop call the identical per-symbol code. The helper surfaces the winning version and homography, which the single-symbol path discarded but the public result needs (section 5).
 
 Because each symbol carries its own finder pitch into its own homography and version trial, symbols of different sizes and different tilts coexist in one image with no interference: grouping keeps each triple's three finders at one pitch, and everything downstream is per-triple.
 
@@ -65,8 +65,8 @@ Reassembling a structured-append set from one composite image is out of scope: `
 Planned in MS3/MS4 (see `docs/plan-multi-symbol-decoding.md`):
 
 - `qrgen/decode_finder_cc.go`: `groupFinderTriples` (enumerate, gate by `orderFinderTriple` and a measured cost ceiling, sort, index-based disjoint claim) and `allFinderQuadTriples`.
-- `qrgen/decode_image.go`: `decodeOneQuadTriple(bm, tq) (text, Version, homography, error)`, extracted from `decodeProjectiveFromBitmap` with no behaviour change.
-- `qrgen/decode_multi.go`: the `Result` type with `Bounds()`, the symbol-corner derivation from the homography, and the public `DecodeAll` / `DecodeAllBytes`.
+- `qrgen/decode_image.go`: `decodeOneQuadTriple(bm, tq) (text, Version, homography, error)`, extracted from the single-symbol projective path with no behaviour change.
+- `qrgen/decode_multi.go`: the `Result` type with `Bounds()`, the symbol-corner derivation from the homography, and the public `DecodeAll` / `DecodeAllBytes`. Since v0.16 the loop also tries every unclaimed finder as a Micro QR symbol (doc 27), reported through `Result.MicroVersion`.
 - Tests composite several rendered symbols onto one canvas and cross-check the `gozxing` `multi/qrcode` reader.
 
 ## References

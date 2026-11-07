@@ -75,6 +75,10 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 26. [Micro QR Code](26-micro-qr.id.md) — saudara kecil QR di standar yang sama: delapan tipe simbol M1 sampai M4 dan kapasitasnya, mode indicator dan lebar count yang lebih pendek, aturan terminator dan padding termasuk half codeword 4 bit di M1 dan M3, satu blok Reed-Solomon (hanya deteksi di M1), tata letak satu finder dengan timing di baris 0 dan kolom 0, satu salinan format information dengan XOR mask sendiri, penempatan tanpa lompatan kolom 6, empat mask dengan aturan skor tepi tertinggi, perbandingan langkah demi langkah dengan QR, dan bit stream contoh yang dicek terhadap zint.
 
+### Deteksi Micro QR (v0.16.0)
+
+27. [Deteksi Micro QR](27-micro-qr-detection.id.md) — menemukan simbol Micro di gambar dari satu finder pattern: apa yang ditentukan empat sudut finder dan ambiguitas seperempat putaran yang tersisa, orientasi dari modul timing terdalam, membaca format information sebelum ukuran diketahui dan kenapa format word yang valid adalah bukti yang lemah, cek silang ukuran terhadap timing pattern, error ekstrapolasi dan mencari ulang sudut-sudut jauh, gerbang false positive yang berujung di Reed-Solomon, di mana pencarian ini masuk ke pipeline setelah QR, dan zxing-cpp sebagai prior art.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -120,5 +124,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 24-arbitrary-angle-detection.id.md     | `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go` |
 | 25-multi-symbol-decoding.id.md          | `qrgen/decode_multi.go`, `qrgen/decode_finder_cc.go` |
 | 26-micro-qr.id.md                       | `qrgen/micro.go`, `qrgen/micro_encode.go`, `qrgen/micro_matrix.go`, `qrgen/micro_decode.go` |
+| 27-micro-qr-detection.id.md             | `qrgen/decode_micro.go`, `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go`, `qrgen/decode_multi.go` |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.

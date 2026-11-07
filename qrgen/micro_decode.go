@@ -69,20 +69,29 @@ func decodeMicroMatrix(grid [][]bool) (string, error) {
 // distance 7, so two words can never both lie within the budget.
 func readMicroFormatInfo(m *matrix, v MicroVersion) (microSymbol, int, error) {
 	var word uint32
-	for i := 0; i < 8; i++ {
-		if m.modules[i+1][8] {
+	for i := 0; i < 15; i++ {
+		if r, c := microFormatModule(i); m.modules[r][c] {
 			word |= 1 << uint(i)
 		}
 	}
-	for i := 8; i < 15; i++ {
-		if m.modules[8][15-i] {
-			word |= 1 << uint(i)
-		}
+	sym, mask, dist := nearestMicroFormat(word, v)
+	if dist > microFormatBudget {
+		return microSymbol{}, 0, ErrFormatUnreadable
 	}
+	return sym, mask, nil
+}
+
+// nearestMicroFormat returns the symbol type and mask whose format word is
+// nearest to word, with the Hamming distance between them. With v set, only
+// v's symbol types are considered, which is how the matrix reader makes the
+// symbol number agree with the grid size; with v zero, all 32 words are,
+// which is what the image-side reader needs before it knows the size. Ties go
+// to the first word in symbol-number, then mask, order.
+func nearestMicroFormat(word uint32, v MicroVersion) (microSymbol, int, int) {
 	bestDist, bestMask := 16, 0
 	var best microSymbol
 	for _, s := range microSymbols {
-		if s.version != v {
+		if v != 0 && s.version != v {
 			continue
 		}
 		for mask := 0; mask < numMicroMasks; mask++ {
@@ -91,10 +100,7 @@ func readMicroFormatInfo(m *matrix, v MicroVersion) (microSymbol, int, error) {
 			}
 		}
 	}
-	if bestDist > microFormatBudget {
-		return microSymbol{}, 0, ErrFormatUnreadable
-	}
-	return best, bestMask, nil
+	return best, bestMask, bestDist
 }
 
 // readMicroStream walks the data modules in placement order (the walk of

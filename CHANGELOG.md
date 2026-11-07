@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-07
+
+This release finds **Micro QR Code symbols in images**: `Decode`, `DecodeBytes`, the CLI's `-decode`, and `DecodeAll` now locate a Micro symbol from its single finder pattern, completing the Micro QR support that v0.15 began with the encoder and the matrix decoder. As with v0.15, it was validated against implementations that share none of our code: zint's symbols rendered into images, and zxing-cpp's reader on the same scenes.
+
+### Added
+
+- `Decode`, `DecodeBytes`, and the CLI's `-decode` read Micro QR symbols from images. When no QR symbol decodes, each finder pattern is tried as the single finder of a Micro symbol: its four corners fix a homography up to a quarter turn, the two innermost timing modules pick the turn, the format information, read before the size is known and decoded against all 32 Micro words, names the version, and a cross-check over the timing patterns and both quiet-zone modules confirms the size. The outline is then refined from the far timing modules and a line fit of the symbol's four outer edges before the grid is sampled and decoded.
+- `DecodeAll` reports Micro symbols next to QR symbols: after the QR triples have claimed their finders, every unclaimed finder is tried as a Micro finder. `Result` gains `MicroVersion`, zero for QR symbols; a Micro result has `Version` zero and its one finder in `Finders[0]`.
+- New reference doc `docs/theory/27-micro-qr-detection.md` (English plus Indonesian), plan doc `docs/plan-micro-qr-detection.md` (plus Indonesian) with milestones MD1..MD7, and a runnable example `examples/decode/micro`; `examples/decode/multi` prints the Micro version of Micro results.
+
+### Changed
+
+- Errors: on total failure `Decode` still returns the error of its first (affine) attempt, except that a convincing Micro symbol, meaning an exact timing pattern with unreadable format information or a located symbol whose data fails, reports its own `ErrFormatUnreadable` or `ErrTooManyErrors` instead of `ErrFinderNotFound`.
+- Internals: the connected-component attempt labels each binarisation once and uses its finders for the QR triple first and the Micro search second; the Micro format layout lives in one helper shared by the writer and both readers; and `sampleMatrix` reads modules through a helper that treats non-finite projections as light. QR is always tried first on each binarisation, and every existing test passes unchanged.
+- Docs: theory docs 24 and 25 follow the renamed internal functions, and the README covers Micro detection in the decoding section, the API tables, scope, limitations, and roadmap.
+
+### Validated
+
+- All 34 zint Micro symbols, rendered into images, decode at every quarter turn from 8 pixels per module down to 1, at any in-plane rotation (measured every 5 degrees) at 3, 4, and 5 pixels per module, under perspective tilt to 60 degrees at 10 pixels per module, 55 at 5, and 45 at 4, and with quiet zones from 0 to 4 modules.
+- zxing-cpp 2.3.0, run on the same 1,836 synthetic scenes, returns the same text wherever both read and never a different one; it reads 5 rotated scenes at 2 pixels per module and 14 at 65 degrees of tilt that we do not, and misses 92 and 306 that we read. On composites mixing QR and Micro symbols it finds the same symbols, each as the same kind, as `DecodeAll`.
+- No QR finder decodes as Micro: across every finder of 224 QR symbols, the few that pass the timing cross-check are rejected by Reed-Solomon, and none of 96 QR symbols with a finder wiped out decodes as Micro or reports a Micro error.
+- The geometric refinements were measured, not assumed: over 612 small rotated renderings of the zint symbols, the finder homography alone decodes 192, the far-corner refinement 380, and the edge fit 502. `go test -race ./...` clean.
+
 ## [0.15.0] - 2026-10-05
 
 This release adds **Micro QR Code**, the last symbology in ISO/IEC 18004 this library did not produce: all eight symbol types (M1 to M4 at every EC level they define) through every encoder and renderer, and matrix-level decoding. It was validated against implementations that share none of our code rather than against our own round trips: zint for byte-exact goldens and zxing-cpp as an independent decoder.
@@ -397,7 +420,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/snykk/qr-generator/releases/tag/v0.16.0
 [0.15.0]: https://github.com/snykk/qr-generator/releases/tag/v0.15.0
 [0.14.1]: https://github.com/snykk/qr-generator/releases/tag/v0.14.1
 [0.14.0]: https://github.com/snykk/qr-generator/releases/tag/v0.14.0

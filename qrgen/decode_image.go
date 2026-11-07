@@ -749,13 +749,7 @@ func sampleMatrix(bm *bitmap, h homography, n int) [][]bool {
 	for r := range n {
 		grid[r] = make([]bool, n)
 		for c := range n {
-			px, py := h.apply(float64(c), float64(r))
-			ix := int(math.Round(px))
-			iy := int(math.Round(py))
-			if ix < 0 || iy < 0 || ix >= bm.width || iy >= bm.height {
-				continue
-			}
-			grid[r][c] = bm.get(ix, iy)
+			grid[r][c] = moduleDark(bm, h, c, r)
 		}
 	}
 	return grid
@@ -766,32 +760,25 @@ func sampleMatrix(bm *bitmap, h homography, n int) [][]bool {
 // 1:1:3:1:1 line scanner and the three-finder-centre homography, which is
 // optimal for upright and rotated symbols and unchanged from before. If that
 // fails to produce a decodable grid -- the signature of perspective tilt, whose
-// foreshortening an affine map cannot undo -- it falls back to the projective
-// pipeline, which locates the finders by connected components and fits a
-// homography from their corners. The affine attempt's error is preferred on
-// total failure so existing error messages are unchanged.
+// foreshortening an affine map cannot undo, or of a Micro symbol, which has a
+// single finder -- it falls back to the connected-component attempt, which
+// tries the projective QR pipeline and then the Micro search on the same
+// finders (decodeCCFromBitmap). The affine attempt's error is preferred on
+// total failure so existing error messages are unchanged, except that a
+// convincing Micro symbol's own error is reported when the affine attempt
+// found no finder triple at all.
 //
-// See docs/theory/24-arbitrary-angle-detection.md.
+// See docs/theory/24-arbitrary-angle-detection.md and
+// docs/theory/27-micro-qr-detection.md.
 func decodeImage(img image.Image) (string, error) {
-	grid, err := imageToGrid(img)
-	if err == nil {
-		if text, derr := DecodeMatrix(grid); derr == nil {
-			return text, nil
-		} else {
-			err = derr
-		}
-	}
-	// Attempt 2: the projective connected-component pipeline for tilted symbols.
-	if text, perr := decodeImageProjective(img); perr == nil {
-		return text, nil
-	}
-	return "", err
+	text, _, err := decodeImageWhich(img)
+	return text, err
 }
 
-// decodeImageWhich mirrors decodeImage but also reports which pipeline decoded
-// the symbol: "affine" (the line-scan fast path) or "projective" (the tilt
-// fallback). Package-internal, used by the arbitrary-angle tests to assert the
-// projective path is what carries steeply tilted symbols.
+// decodeImageWhich is decodeImage that also reports which pipeline decoded the
+// symbol: "affine" (the line-scan fast path), "projective" (the tilt fallback),
+// or "micro" (a Micro QR symbol). Package-internal, used by the tests to assert
+// which path carries a given image.
 func decodeImageWhich(img image.Image) (text, path string, err error) {
 	grid, aerr := imageToGrid(img)
 	if aerr == nil {
@@ -801,8 +788,16 @@ func decodeImageWhich(img image.Image) (text, path string, err error) {
 			aerr = derr
 		}
 	}
-	if t, perr := decodeImageProjective(img); perr == nil {
-		return t, "projective", nil
+	cc := decodeImageCC(img)
+	if cc.path != "" {
+		return cc.text, cc.path, nil
+	}
+	// A Micro symbol whose timing pattern checks out but whose format or data
+	// cannot be read is better described by its own error than by "finder
+	// patterns not found"; weaker Micro evidence keeps the affine error, since
+	// QR finders often pass the first Micro gates (theory doc 27, section 8).
+	if errors.Is(aerr, ErrFinderNotFound) && cc.microStage >= microStageTimed {
+		return "", "", cc.microErr
 	}
 	return "", "", aerr
 }
@@ -829,41 +824,62 @@ func imageToGrid(img image.Image) ([][]bool, error) {
 	return grid, err
 }
 
-// decodeImageProjective is the tilt-tolerant decode: it binarises, locates the
-// finder patterns by connected-component analysis, fits a projective homography
-// from their twelve outer corners, and decodes. It is the fallback decodeImage
-// reaches when the affine pipeline cannot decode a perspective-distorted
-// symbol. Binarisation reuses the Otsu/Sauvola dispatch, with a reactive
-// Sauvola retry if the first binarisation yields no decode.
+// ccOutcome is the result of the connected-component attempt: the decoded text
+// and the path that produced it ("projective" for a QR symbol, "micro" for a
+// Micro symbol), or, when nothing decoded (path empty), how far the Micro
+// search got and its error, which decodeImageWhich's error contract reads.
+type ccOutcome struct {
+	text, path string
+	microStage microStage
+	microErr   error
+}
+
+// decodeImageCC is the connected-component attempt decodeImage falls back to:
+// it binarises with the Otsu/Sauvola dispatch (Sauvola for a unimodal
+// histogram, otherwise Otsu with a reactive Sauvola retry when Otsu decodes
+// nothing) and runs decodeCCFromBitmap on each binarisation it tries. On total
+// failure it returns the outcome whose Micro search got furthest, Otsu's on a
+// tie.
 //
-// See docs/theory/24-arbitrary-angle-detection.md.
-func decodeImageProjective(img image.Image) (string, error) {
+// See docs/theory/24-arbitrary-angle-detection.md and
+// docs/theory/27-micro-qr-detection.md.
+func decodeImageCC(img image.Image) ccOutcome {
 	pixels, w, h := imageToGrayscale(img)
 	t, eta := otsuThreshold(pixels)
 
 	if eta < etaMin {
-		return decodeProjectiveFromBitmap(sauvolaBinariseFromGray(pixels, w, h))
+		return decodeCCFromBitmap(sauvolaBinariseFromGray(pixels, w, h))
 	}
-	if text, err := decodeProjectiveFromBitmap(otsuBinariseFromGray(pixels, w, h, t)); err == nil {
-		return text, nil
+	first := decodeCCFromBitmap(otsuBinariseFromGray(pixels, w, h, t))
+	if first.path != "" {
+		return first
 	}
-	return decodeProjectiveFromBitmap(sauvolaBinariseFromGray(pixels, w, h)) // reactive Sauvola
+	second := decodeCCFromBitmap(sauvolaBinariseFromGray(pixels, w, h)) // reactive Sauvola
+	if second.path != "" || second.microStage > first.microStage {
+		return second
+	}
+	return first
 }
 
-// decodeProjectiveFromBitmap runs the projective geometry and decode on a
-// binarised bitmap: locate and order the finder quads, then, because the
-// version cannot be read reliably from a foreshortened symbol, trial candidate
-// versions in order of proximity to a corner-based estimate. For each it fits
-// the corner homography, samples the grid, and attempts a decode; Reed-Solomon
-// validation makes the first successful decode the right version. Returns the
-// first decoded text, or the last decode error.
-func decodeProjectiveFromBitmap(bm *bitmap) (string, error) {
-	tq, err := findFinderQuadTriple(bm)
-	if err != nil {
-		return "", err
+// decodeCCFromBitmap runs the connected-component attempt on one binarised
+// bitmap. It labels the bitmap once and uses the finder quads twice. First the
+// projective QR pipeline: the best-fitting finder triple, decoded by the
+// version trial of decodeOneQuadTriple, because a foreshortened symbol cannot
+// report its version reliably. Then, only if that does not decode, each quad
+// as the finder of a Micro symbol (decodeMicroFromQuads), so a Micro candidate
+// never preempts a QR triple on the same bitmap.
+func decodeCCFromBitmap(bm *bitmap) ccOutcome {
+	quads := allFinderQuads(bm)
+	if tq, err := bestFinderQuadTriple(quads); err == nil {
+		if text, _, _, derr := decodeOneQuadTriple(bm, tq); derr == nil {
+			return ccOutcome{text: text, path: "projective"}
+		}
 	}
-	text, _, _, derr := decodeOneQuadTriple(bm, tq)
-	return text, derr
+	text, stage, err := decodeMicroFromQuads(bm, quads)
+	if err == nil {
+		return ccOutcome{text: text, path: "micro", microStage: stage}
+	}
+	return ccOutcome{microStage: stage, microErr: err}
 }
 
 // decodeOneQuadTriple decodes a single ordered finder-quad triple. Because a
@@ -872,8 +888,8 @@ func decodeProjectiveFromBitmap(bm *bitmap) (string, error) {
 // homography for each, samples the grid, and returns the first Reed-Solomon
 // valid decode together with the winning version and homography -- which the
 // multi-symbol path uses to locate the symbol. Returns the last decode error if
-// no version decodes. Shared by the single-symbol path (decodeProjectiveFromBitmap)
-// and the multi-symbol grouping loop so both decode a triple identically.
+// no version decodes. Shared by the single-symbol path (decodeCCFromBitmap) and
+// the multi-symbol grouping loop so both decode a triple identically.
 func decodeOneQuadTriple(bm *bitmap, tq finderTripleQuad) (string, Version, homography, error) {
 	lastErr := error(ErrInvalidVersion)
 	for _, v := range candidateVersions(estimateVersionQuad(tq)) {
