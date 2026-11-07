@@ -37,6 +37,17 @@ func newMatrix(v Version) *matrix {
 	return m
 }
 
+// rows and cols are the matrix height and width in modules. QR and Micro QR
+// matrices are square (both equal size); rMQR matrices are not, so code shared
+// by all three reads these rather than size.
+func (m *matrix) rows() int { return len(m.modules) }
+func (m *matrix) cols() int {
+	if len(m.modules) == 0 {
+		return 0
+	}
+	return len(m.modules[0])
+}
+
 func (m *matrix) get(row, col int) bool        { return m.modules[row][col] }
 func (m *matrix) set(row, col int, dark bool)  { m.modules[row][col] = dark }
 func (m *matrix) isReserved(row, col int) bool { return m.reserved[row][col] }
@@ -71,7 +82,7 @@ func (m *matrix) placeSingleFinder(r0, c0 int) {
 	for dr := -1; dr <= 7; dr++ {
 		for dc := -1; dc <= 7; dc++ {
 			r, c := r0+dr, c0+dc
-			if r < 0 || r >= m.size || c < 0 || c >= m.size {
+			if r < 0 || r >= m.rows() || c < 0 || c >= m.cols() {
 				continue
 			}
 			inFinder := dr >= 0 && dr <= 6 && dc >= 0 && dc <= 6
@@ -201,21 +212,23 @@ func (m *matrix) reserveVersionInfoArea() {
 // dataAreaBits == v.DataCodewords(ec) * 8 + v.RemainderBits(); short streams
 // return an error. The MSB of each byte is written first.
 func (m *matrix) placeData(stream []byte, remainderBits int) error {
-	return m.placeBits(stream, len(stream)*8+remainderBits, 6)
+	return m.placeBits(stream, len(stream)*8+remainderBits, 6, m.cols()-1)
 }
 
-// placeBits is the zigzag walk shared by QR and Micro QR: two-module-wide
-// columns from the right edge, upward first and reversing at each edge, writing
-// the first totalBits bits of stream into the unreserved modules. QR steps
-// over skipCol = 6, its vertical timing column; Micro QR passes -1, since its
-// column 6 below the finder holds data and its timing sits on column 0, which
-// the walk never reaches.
-func (m *matrix) placeBits(stream []byte, totalBits, skipCol int) error {
-	n := m.size
+// placeBits is the zigzag walk shared by QR, Micro QR, and rMQR: two-module-wide
+// column pairs from firstCol leftward, upward first and reversing at each edge,
+// writing the first totalBits bits of stream into the unreserved modules. QR
+// and Micro QR start at the rightmost column; rMQR starts one column in, since
+// its rightmost column holds only function patterns, and starting there would
+// pair every column with the wrong neighbour. QR steps over skipCol = 6, its
+// vertical timing column; Micro QR and rMQR pass -1, since their column 6 holds
+// data (docs/theory/26-micro-qr.md and 28-rmqr.md, section 8).
+func (m *matrix) placeBits(stream []byte, totalBits, skipCol, firstCol int) error {
+	n := m.rows()
 	bitIdx := 0
 	upward := true
 
-	for col := n - 1; col > 0; col -= 2 {
+	for col := firstCol; col > 0; col -= 2 {
 		if col == skipCol {
 			col--
 		}
@@ -277,10 +290,10 @@ func (m *matrix) clone() *matrix {
 	out := &matrix{
 		size:     m.size,
 		version:  m.version,
-		modules:  make([][]bool, m.size),
-		reserved: make([][]bool, m.size),
+		modules:  make([][]bool, m.rows()),
+		reserved: make([][]bool, m.rows()),
 	}
-	for i := 0; i < m.size; i++ {
+	for i := range m.modules {
 		out.modules[i] = append([]bool(nil), m.modules[i]...)
 		out.reserved[i] = append([]bool(nil), m.reserved[i]...)
 	}

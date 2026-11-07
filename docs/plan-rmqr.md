@@ -80,10 +80,10 @@ Milestones land sequentially. **Checkpoint A** (after RQ5) round-trips every rMQ
 
 ### RQ4 — Rectangular Matrix, Layout, and Options `(L)`
 
-- [ ] Row and column counts in `matrix`; the renderers, `Matrix`, `applyMask`, and `placeBits` use them, with QR and Micro output unchanged.
-- [ ] The rMQR layout, the two format copies, placement from the second column, and the fixed mask.
-- [ ] The options of section 5 and their validation.
-- [ ] Golden tests: our encoder forced to zint's version and level reproduces every zint symbol module for module, and our automatic choices match zint's.
+- [x] Row and column counts in `matrix`; the renderers, `Matrix`, `applyMask`, and `placeBits` use them, with QR and Micro output unchanged.
+- [x] The rMQR layout, the two format copies, placement from the second column, and the fixed mask.
+- [x] The options of section 5 and their validation.
+- [x] Golden tests: our encoder forced to zint's version and level reproduces every zint symbol module for module, and our automatic choices match zint's.
 
 ### RQ5 — Matrix Decoder and Round Trips `(M)`
 

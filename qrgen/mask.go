@@ -42,8 +42,8 @@ func maskCondition(k, row, col int) bool {
 // left untouched. Calling applyMask twice with the same k restores the matrix
 // because XOR is its own inverse.
 func (m *matrix) applyMask(k int) {
-	for r := 0; r < m.size; r++ {
-		for c := 0; c < m.size; c++ {
+	for r := 0; r < m.rows(); r++ {
+		for c := 0; c < m.cols(); c++ {
 			if m.reserved[r][c] {
 				continue
 			}

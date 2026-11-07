@@ -9,8 +9,10 @@
 package qrgen
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"image/png"
 	"strings"
 	"testing"
 )
@@ -166,5 +168,117 @@ func TestRMQREncodeErrors(t *testing.T) {
 	sym, _, err := encodeRMQRText(strings.Repeat("9", 30), 0, 7, ECLevelM, true, ECINone)
 	if err != nil || sym.version != R7x77 {
 		t.Errorf("30 digits at height 7: %v, %v; want R7x77-M", sym, err)
+	}
+}
+
+// TestRMQRLayoutDataModules: after the function patterns and format areas are
+// reserved, every version leaves exactly its codewords' bits plus its
+// remainder bits for data, the table of docs/theory/28-rmqr.md section 2.
+func TestRMQRLayoutDataModules(t *testing.T) {
+	for v := R7x43; v <= R17x139; v++ {
+		m := newRMQRMatrix(v)
+		m.placeRMQRFunctionPatterns()
+		free := 0
+		for r := range m.rows() {
+			for c := range m.cols() {
+				if !m.isReserved(r, c) {
+					free++
+				}
+			}
+		}
+		info := rmqrVersions[v-1]
+		if want := 8*info.codewords + info.remainder; free != want {
+			t.Errorf("%v: %d data modules, want %d", v, free, want)
+		}
+	}
+}
+
+func TestRMQROptionValidation(t *testing.T) {
+	cases := []struct {
+		name string
+		opts []Option
+	}{
+		{"with WithVersion", []Option{WithRMQR(), WithVersion(2)}},
+		{"with WithMicro", []Option{WithRMQR(), WithMicro()}},
+		{"with WithMask", []Option{WithRMQR(), WithMask(4)}},
+		{"with WithLogo", []Option{WithRMQR(), WithLogo(Logo{})}},
+		{"level L", []Option{WithRMQR(), WithECLevel(ECLevelL)}},
+		{"level Q", []Option{WithRMQR(), WithECLevel(ECLevelQ)}},
+		{"height 8", []Option{WithRMQRHeight(8)}},
+		{"version 33", []Option{WithRMQRVersion(33)}},
+		{"version and height disagree", []Option{WithRMQRVersion(R11x27), WithRMQRHeight(7)}},
+	}
+	for _, c := range cases {
+		if _, err := Encode("HELLO", c.opts...); err == nil {
+			t.Errorf("%s: no error", c.name)
+		}
+	}
+	if _, err := EncodeStructuredAppend(strings.Repeat("A", 40), 2, WithRMQR()); err == nil {
+		t.Error("structured append with rMQR: no error")
+	}
+	// ECI is part of rMQR.
+	if _, err := Encode("Grüße", WithRMQR(), WithECI(ECIUTF8)); err != nil {
+		t.Errorf("rMQR with ECI: %v", err)
+	}
+}
+
+// TestRMQRRenderers: every renderer produces a rectangle of the symbol's
+// width and height plus the 2-module quiet zone.
+func TestRMQRRenderers(t *testing.T) {
+	const text = "RECTANGULAR"
+	grid, err := Matrix(text, WithRMQRVersion(R7x59))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(grid) != 7 || len(grid[0]) != 59 {
+		t.Fatalf("Matrix: %dx%d, want 7x59", len(grid), len(grid[0]))
+	}
+	pngBytes, err := Encode(text, WithRMQRVersion(R7x59), WithModuleSize(3))
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, err := png.Decode(bytes.NewReader(pngBytes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b := img.Bounds(); b.Dx() != 3*(59+4) || b.Dy() != 3*(7+4) {
+		t.Errorf("PNG %dx%d, want %dx%d", b.Dx(), b.Dy(), 3*63, 3*11)
+	}
+	svg, err := EncodeSVG(text, WithRMQRVersion(R7x59), WithModuleSize(3))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(svg), `width="189" height="33" viewBox="0 0 63 11"`) {
+		t.Errorf("SVG header does not describe a 63x11 canvas:\n%s", strings.SplitN(string(svg), "\n", 3)[1])
+	}
+	term, err := EncodeTerminal(text, WithRMQRVersion(R7x59), WithTerminalASCII(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimRight(term, "\n"), "\n")
+	if len(lines) != 11 || len([]rune(lines[0])) != 2*63 {
+		t.Errorf("terminal: %d lines of %d cells, want 11 of %d", len(lines), len([]rune(lines[0])), 2*63)
+	}
+}
+
+// TestRMQRHeightOption: a fixed height picks the narrowest symbol of that
+// height, and the automatic choice the smallest area.
+func TestRMQRHeightOption(t *testing.T) {
+	for _, c := range []struct {
+		opts          []Option
+		height, width int
+	}{
+		{[]Option{WithRMQRHeight(7)}, 7, 43},
+		{[]Option{WithRMQRHeight(17)}, 17, 43},
+		{[]Option{WithRMQRHeight(13)}, 13, 27},
+		{[]Option{WithRMQR()}, 11, 27},
+	} {
+		grid, err := Matrix("12345", c.opts...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(grid) != c.height || len(grid[0]) != c.width {
+			t.Errorf("%dx%d, want %dx%d", len(grid), len(grid[0]), c.height, c.width)
+		}
 	}
 }

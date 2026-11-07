@@ -58,14 +58,15 @@ func renderTerminal(m *matrix, opts terminalOptions) string {
 	if m == nil {
 		return ""
 	}
-	dim := m.size + 2*opts.quietZone // padded side in modules
-	if dim <= 0 {
+	rows := m.rows() + 2*opts.quietZone // padded height in modules
+	cols := m.cols() + 2*opts.quietZone // padded width in modules
+	if rows <= 0 || cols <= 0 {
 		return ""
 	}
 	if opts.ascii {
-		return renderTerminalASCII(m, opts, dim)
+		return renderTerminalASCII(m, opts, rows, cols)
 	}
-	return renderTerminalHalfBlock(m, opts, dim)
+	return renderTerminalHalfBlock(m, opts, rows, cols)
 }
 
 // paintAt reports whether the padded cell (r, c) should be drawn as foreground
@@ -74,28 +75,28 @@ func renderTerminal(m *matrix, opts terminalOptions) string {
 // terminal reads the symbol with correct polarity. Cells outside the padded
 // grid — the implicit bottom half below an odd-sized symbol — are never
 // painted: they are terminal background, not part of the symbol or quiet zone.
-func (o terminalOptions) paintAt(m *matrix, r, c, dim int) bool {
-	if r < 0 || r >= dim || c < 0 || c >= dim {
+func (o terminalOptions) paintAt(m *matrix, r, c, rows, cols int) bool {
+	if r < 0 || r >= rows || c < 0 || c >= cols {
 		return false
 	}
 	dark := false
 	mr, mc := r-o.quietZone, c-o.quietZone
-	if mr >= 0 && mr < m.size && mc >= 0 && mc < m.size {
+	if mr >= 0 && mr < m.rows() && mc >= 0 && mc < m.cols() {
 		dark = m.modules[mr][mc]
 	}
 	return dark != o.invert
 }
 
 // renderTerminalHalfBlock walks the padded grid two rows at a time, choosing a
-// block glyph per column from the top/bottom paint pair. When dim is odd the
+// block glyph per column from the top/bottom paint pair. When rows is odd the
 // final row pairs with an out-of-grid bottom (paintAt returns false), so the
 // trailing row renders as a top-half glyph over a light bottom.
-func renderTerminalHalfBlock(m *matrix, opts terminalOptions, dim int) string {
+func renderTerminalHalfBlock(m *matrix, opts terminalOptions, rows, cols int) string {
 	var b strings.Builder
-	for r := 0; r < dim; r += 2 {
-		for c := 0; c < dim; c++ {
-			top := opts.paintAt(m, r, c, dim)
-			bottom := opts.paintAt(m, r+1, c, dim)
+	for r := 0; r < rows; r += 2 {
+		for c := 0; c < cols; c++ {
+			top := opts.paintAt(m, r, c, rows, cols)
+			bottom := opts.paintAt(m, r+1, c, rows, cols)
 			switch {
 			case top && bottom:
 				b.WriteRune(blockFull)
@@ -114,11 +115,11 @@ func renderTerminalHalfBlock(m *matrix, opts terminalOptions, dim int) string {
 
 // renderTerminalASCII renders one text row per module row, doubling width so a
 // module stays near-square without the half-block glyphs.
-func renderTerminalASCII(m *matrix, opts terminalOptions, dim int) string {
+func renderTerminalASCII(m *matrix, opts terminalOptions, rows, cols int) string {
 	var b strings.Builder
-	for r := 0; r < dim; r++ {
-		for c := 0; c < dim; c++ {
-			if opts.paintAt(m, r, c, dim) {
+	for r := 0; r < rows; r++ {
+		for c := 0; c < cols; c++ {
+			if opts.paintAt(m, r, c, rows, cols) {
 				b.WriteString(asciiDark)
 			} else {
 				b.WriteString(asciiLight)

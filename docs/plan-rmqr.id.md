@@ -80,10 +80,10 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah RQ5) me-round-trip setia
 
 ### RQ4 — Matriks Persegi Panjang, Tata Letak, dan Option `(L)`
 
-- [ ] Jumlah baris dan kolom di `matrix`; renderer, `Matrix`, `applyMask`, dan `placeBits` memakainya, dengan output QR dan Micro tidak berubah.
-- [ ] Tata letak rMQR, kedua salinan format, penempatan dari kolom kedua, dan mask tetap.
-- [ ] Option di bagian 5 dan validasinya.
-- [ ] Test golden: encoder kita yang dipaku ke versi dan level milik zint mereproduksi setiap simbol zint modul demi modul, dan pilihan otomatis kita cocok dengan pilihan zint.
+- [x] Jumlah baris dan kolom di `matrix`; renderer, `Matrix`, `applyMask`, dan `placeBits` memakainya, dengan output QR dan Micro tidak berubah.
+- [x] Tata letak rMQR, kedua salinan format, penempatan dari kolom kedua, dan mask tetap.
+- [x] Option di bagian 5 dan validasinya.
+- [x] Test golden: encoder kita yang dipaku ke versi dan level milik zint mereproduksi setiap simbol zint modul demi modul, dan pilihan otomatis kita cocok dengan pilihan zint.
 
 ### RQ5 — Decoder Matriks dan Round Trip `(M)`
 

@@ -177,3 +177,30 @@ func TestRMQRAutoSelect(t *testing.T) {
 		t.Errorf("checked %d auto records, want 545", n)
 	}
 }
+
+// TestRMQRGoldenMatrices: through the public Matrix API, our symbol forced to
+// each zint symbol's version and level reproduces it module for module, so
+// the layout, both format copies, placement, and the mask all agree.
+func TestRMQRGoldenMatrices(t *testing.T) {
+	for _, g := range loadRMQRGoldens(t) {
+		if g.auto {
+			continue
+		}
+		opts := []Option{WithRMQRVersion(g.version), WithECLevel(g.ec)}
+		if g.eci != ECINone {
+			opts = append(opts, WithECI(g.eci))
+		}
+		grid, err := Matrix(g.text, opts...)
+		if err != nil {
+			t.Errorf("%v-%v %q: %v", g.version, g.ec, g.text, err)
+			continue
+		}
+		if len(grid) != len(g.grid) || len(grid[0]) != len(g.grid[0]) {
+			t.Errorf("%v-%v %q: %dx%d grid, want %dx%d", g.version, g.ec, g.text, len(grid), len(grid[0]), len(g.grid), len(g.grid[0]))
+			continue
+		}
+		if n := diffModules(grid, g.grid); n != 0 {
+			t.Errorf("%v-%v %s %q: %d modules differ from zint", g.version, g.ec, g.note, g.text, n)
+		}
+	}
+}

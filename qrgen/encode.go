@@ -245,6 +245,9 @@ func writeSegment(bb *bitBuffer, s segment, v Version) {
 // format-info codeword. The returned matrix is the final, scannable QR symbol;
 // callers only need to render it to pixels.
 func buildMatrix(text string, opts *options) (*matrix, int, error) {
+	if opts.rmqr {
+		return buildRMQRMatrix(text, opts)
+	}
 	if opts.micro {
 		return buildMicroMatrix(text, opts)
 	}
