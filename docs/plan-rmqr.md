@@ -69,7 +69,7 @@ Milestones land sequentially. **Checkpoint A** (after RQ5) round-trips every rMQ
 
 ### RQ2 — Reference Doc `(S)`
 
-- [ ] `docs/theory/28-rmqr.md` (EN + ID): what rMQR is for; the 32 versions and their codeword, block, and remainder tables; modes and the per-version count widths; terminator and padding; error correction and interleaving; the layout, function pattern by function pattern; the two-copy format information with its BCH code and masks; placement from the second column; the fixed mask; rMQR against QR and Micro QR; and how the facts were checked. Plus the theory README entry and code-mapping row.
+- [x] `docs/theory/28-rmqr.md` (EN + ID): what rMQR is for; the 32 versions and their codeword, block, and remainder tables; modes and the per-version count widths; terminator and padding; error correction and interleaving; the layout, function pattern by function pattern; the two-copy format information with its BCH code and masks; placement from the second column; the fixed mask; rMQR against QR and Micro QR; and how the facts were checked. Plus the theory README entry and code-mapping row.
 
 ### RQ3 — Tables and Bit Stream `(L)`
 

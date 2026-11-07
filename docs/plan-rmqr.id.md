@@ -69,7 +69,7 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah RQ5) me-round-trip setia
 
 ### RQ2 — Dokumen Referensi `(S)`
 
-- [ ] `docs/theory/28-rmqr.md` (EN + ID): untuk apa rMQR dibuat; ke-32 versi beserta tabel codeword, blok, dan remainder-nya; mode dan lebar count per versi; terminator dan padding; error correction dan interleaving; tata letak, function pattern demi function pattern; format information dua salinan dengan kode BCH dan mask-nya; penempatan dari kolom kedua; mask tetap; rMQR dibanding QR dan Micro QR; dan bagaimana fakta-faktanya dicek. Plus entri README theory dan baris pemetaan kode.
+- [x] `docs/theory/28-rmqr.md` (EN + ID): untuk apa rMQR dibuat; ke-32 versi beserta tabel codeword, blok, dan remainder-nya; mode dan lebar count per versi; terminator dan padding; error correction dan interleaving; tata letak, function pattern demi function pattern; format information dua salinan dengan kode BCH dan mask-nya; penempatan dari kolom kedua; mask tetap; rMQR dibanding QR dan Micro QR; dan bagaimana fakta-faktanya dicek. Plus entri README theory dan baris pemetaan kode.
 
 ### RQ3 — Tabel dan Bit Stream `(L)`
 

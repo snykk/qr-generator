@@ -79,6 +79,10 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 27. [Deteksi Micro QR](27-micro-qr-detection.id.md) — menemukan simbol Micro di gambar dari satu finder pattern: apa yang ditentukan empat sudut finder dan ambiguitas seperempat putaran yang tersisa, orientasi dari modul timing terdalam, membaca format information sebelum ukuran diketahui dan kenapa format word yang valid adalah bukti yang lemah, cek silang ukuran terhadap timing pattern, error ekstrapolasi dan mencari ulang sudut-sudut jauh, gerbang false positive yang berujung di Reed-Solomon, di mana pencarian ini masuk ke pipeline setelah QR, dan zxing-cpp sebagai prior art.
 
+### rMQR Code (v0.17.0)
+
+28. [rMQR Code](28-rmqr.id.md) — anggota keluarga QR yang berbentuk persegi panjang (ISO/IEC 23941): 32 versi dari R7x43 sampai R17x139 beserta tabel codeword, blok, remainder, dan lebar count-nya, mode indicator 3 bit, terminator dan padding, error correction pada level M dan H dengan interleaving milik QR, tata letak dengan finder sub-pattern, corner pattern, timing di tepi, dan kolom alignment, dua salinan format 18 bit di bawah BCH(18,6) dengan mask masing-masing, penempatan dari kolom kedua, satu mask tetap, perbandingan dengan QR dan Micro QR, dan bit stream contoh yang dicek terhadap zint.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -125,5 +129,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 25-multi-symbol-decoding.id.md          | `qrgen/decode_multi.go`, `qrgen/decode_finder_cc.go` |
 | 26-micro-qr.id.md                       | `qrgen/micro.go`, `qrgen/micro_encode.go`, `qrgen/micro_matrix.go`, `qrgen/micro_decode.go` |
 | 27-micro-qr-detection.id.md             | `qrgen/decode_micro.go`, `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go`, `qrgen/decode_multi.go` |
+| 28-rmqr.id.md                           | `qrgen/rmqr.go`, `qrgen/rmqr_encode.go`, `qrgen/rmqr_matrix.go`, `qrgen/rmqr_decode.go` (direncanakan, RQ3–RQ5) |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.
