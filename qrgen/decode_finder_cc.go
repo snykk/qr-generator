@@ -477,16 +477,19 @@ func detectFinderQuads(bm *bitmap) ([]finderQuad, error) {
 	return quads, nil
 }
 
-// findFinderQuadTriple detects finder quads, selects the three whose centres
-// best fit a square symbol's right-isosceles geometry, and orders them
+// bestFinderQuadTriple selects, among detected finder quads, the three whose
+// centres best fit a square symbol's right-isosceles geometry, and orders them
 // (top-left, top-right, bottom-left) via the rotation-invariant finder ordering
-// while keeping each quad's corners.
-func findFinderQuadTriple(bm *bitmap) (finderTripleQuad, error) {
-	quads, err := detectFinderQuads(bm)
-	if err != nil {
-		return finderTripleQuad{}, err
+// while keeping each quad's corners. It returns ErrFinderNotFound for fewer
+// than three quads, and leaves the caller's slice as it was, so the Micro pass
+// can reuse the same quads.
+func bestFinderQuadTriple(all []finderQuad) (finderTripleQuad, error) {
+	if len(all) < 3 {
+		return finderTripleQuad{}, ErrFinderNotFound
 	}
+	quads := all
 	if len(quads) > maxCCCandidates {
+		quads = append([]finderQuad(nil), all...)
 		sort.Slice(quads, func(i, j int) bool {
 			return quads[i].center.moduleSize > quads[j].center.moduleSize
 		})

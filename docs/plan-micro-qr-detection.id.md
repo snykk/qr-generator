@@ -51,7 +51,7 @@ Pembacaan pipeline gambar (decode_image.go, decode_finder_cc.go, decode_multi.go
 - **Cek silang timing, bukan hitungan quiet zone.** Untuk ukuran yang diklaim, baris 0 dan kolom 0 dari indeks 7 sampai n harus terbaca: separator terang, timing yang berselang-seling dari gelap di 8 sampai gelap di n-1, lalu quiet zone terang di n, dengan toleransi kecil yang ditetapkan lewat pengukuran di MD3. Ini menolak sudut simbol QR (yang baris 0-nya di luar finder berisi data, bukan timing) dan ukuran yang salah, memakai struktur yang memang diletakkan standar di sana untuk keperluan itu. Hitungan quiet zone 2n/3 milik zxing-cpp disimpan sebagai cadangan kalau pengukuran menunjukkan perlu.
 - **Geometri, diputuskan lewat pengukuran.** Versi pertama menyampel lewat homografi finder pada ukuran n. MD5 mengukur di mana itu gagal di bawah rotasi, tilt, dan ukuran modul kecil, dan baru setelah itu menambahkan yang diperlukan: koreksi sudut setengah piksel, dan mencari ulang sudut kanan-atas dan kiri-bawah dari modul terakhir masing-masing timing pattern (indeks n-1 genap, jadi modul itu selalu gelap, dan quiet zone membatasinya di dua sisi), lalu fit ulang dengan `computeHomographyLS` atas sudut-sudut finder plus kedua sudut itu. Aturan mask Micro, yang mengutamakan modul gelap di baris dan kolom terakhir, membuat sudut kanan-bawah juga bisa ditemukan, kalau pengukuran memintanya.
 - **Reed-Solomon sebagai penentu akhir.** Kandidat hanya diterima kalau `decodeMicroMatrix` berhasil pada grid hasil sampel. M1 adalah kasus terlemah: dua EC codeword-nya yang hanya mendeteksi meloloskan sekitar 1 dari 65.536 word acak, dan itulah sebabnya gerbang-gerbang sebelumnya penting.
-- **Kontrak error.** Saat gagal total, `Decode` tetap mengembalikan error dari percobaan afin, sehingga setiap error yang ada tidak berubah, dengan satu pengecualian: ketika percobaan afin gagal karena tidak ada triple finder (`ErrFinderNotFound`) dan tahap Micro menemukan finder yang lolos gerbang orientasi, error Micro yang dikembalikan (`ErrFormatUnreadable`, `ErrTooManyErrors`, atau `ErrCorruptedPayload`), karena simbol Micro yang rusak bukanlah finder yang hilang.
+- **Kontrak error.** Saat gagal total, `Decode` tetap mengembalikan error dari percobaan afin, sehingga setiap error yang ada tidak berubah, dengan satu pengecualian: ketika percobaan afin gagal karena tidak ada triple finder (`ErrFinderNotFound`) dan tahap Micro menemukan finder yang meyakinkan sebagai bagian dari simbol Micro (timing pattern yang cocok persis dengan salah satu ukuran Micro sementara format information-nya tak terbaca, atau semua gerbang lolos dan hanya datanya yang gagal), error Micro yang dikembalikan (`ErrFormatUnreadable`, `ErrTooManyErrors`, atau `ErrCorruptedPayload`), karena simbol Micro yang rusak bukanlah finder yang hilang. Lolos gerbang orientasi saja tidak cukup: MD4 mengukur bahwa sekitar sepertiga finder QR lolos gerbang itu.
 - **`DecodeAll`.** Setelah claim loop QR, setiap finder quad yang belum diklaim dicoba sebagai finder Micro dan diklaim kalau berhasil. `Result` mendapat `MicroVersion MicroVersion`, nol untuk simbol QR; untuk simbol Micro `Version` bernilai nol, `Finders[0]` adalah pusat finder dan dua entri lainnya nol, dan `Corners` berasal dari homografi pada ukuran n, seperti untuk QR. Perubahan ini aditif dan membiarkan hasil QR tidak berubah (pertanyaan terbuka 1).
 - **Di luar cakupan:** simbol yang di-mirror, jalur line-scan (afin) untuk Micro, jalur cepat untuk gambar murni, decoding simbol Micro yang format information-nya tak terbaca, Micro di `DecodeStructuredAppend` (Micro tidak punya structured append), dan rMQR.
 
@@ -77,14 +77,15 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah MD5) membaca simbol Micr
 
 ### MD4 — Integrasi Pipeline `(M)`
 
-- [ ] Tahap Micro di percobaan connected-component, setelah triple QR, per binarisasi; `decodeImageWhich` melaporkan `"micro"`.
-- [ ] Kontrak error di bagian 5.
-- [ ] Test: `Decode` dan `DecodeBytes` membaca setiap simbol zint dan PNG kita sendiri untuk kedelapan tipe; `-decode` milik CLI membaca PNG Micro; finder pattern tunggal, gambar kosong, dan simbol QR yang rusak tidak menghasilkan teks Micro; fixture QR yang ada tetap ter-decode lewat jalur yang sama seperti sebelumnya.
+- [x] Tahap Micro di percobaan connected-component, setelah triple QR, per binarisasi; `decodeImageWhich` melaporkan `"micro"`.
+- [x] Kontrak error di bagian 5, serta doc comment `Decode` dan `DecodeMatrix`.
+- [x] Koreksi sudut setengah piksel, dimajukan dari MD5: dirender pada 3 piksel per modul, setiap simbol M4 dari zint gagal di cek silang timing tanpa koreksi itu.
+- [x] Test: `Decode` dan `DecodeBytes` membaca setiap simbol zint dan PNG kita sendiri untuk kedelapan tipe; `-decode` milik CLI membaca PNG Micro; finder pattern tunggal, gambar kosong, dan simbol QR yang rusak tidak menghasilkan teks Micro; fixture QR yang ada tetap ter-decode lewat jalur yang sama seperti sebelumnya.
 
 ### MD5 — Pengukuran Ketahanan `(M)`
 
 - [ ] Sweep informasional atas rotasi di bidang gambar, tilt perspektif (`warpTilt`), ukuran modul, dan lebar quiet zone, masing-masing mencatat tahap mana yang gagal.
-- [ ] Tambahkan koreksi setengah piksel dan penyempurnaan sudut jauh hanya di tempat sweep menunjukkan keduanya memperlebar rentang; assert rentang yang terbukti.
+- [ ] Tambahkan penyempurnaan sudut jauh hanya di tempat sweep menunjukkan ia memperlebar rentang (koreksi setengah piksel sudah masuk di MD4); assert rentang yang terbukti.
 - [ ] Cek sekali jalan dengan zxing-cpp pada scene yang sama, dilaporkan di commit: di mana ia membaca scene yang tidak bisa kita baca, celahnya didokumentasikan.
 
 ### Checkpoint A — `Decode` membaca simbol Micro dari gambar, dicek terhadap simbol zint dan reader zxing-cpp.
@@ -96,7 +97,7 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah MD5) membaca simbol Micr
 
 ### MD7 — Polish & Rilis `(S)`
 
-- [ ] README (bagian decoding, scope, limitations, roadmap), `examples/decode/micro`, serta doc comment `Decode` dan `DecodeMatrix`.
+- [ ] README (bagian decoding, scope, limitations, roadmap) dan `examples/decode/micro`.
 - [ ] Entri `v0.16.0` di `CHANGELOG.md`, dibiarkan unstaged untuk release branch.
 - [ ] Baris peta kode theory untuk dokumen 27, tanpa tanda direncanakan.
 - [ ] `go test -race ./...` bersih, gofmt bersih.
@@ -132,7 +133,7 @@ examples/decode/micro/main.go
 - **False positive.** Sudut simbol QR memuat finder pattern dengan bentuk yang persis sama. Menjalankan Micro hanya setelah QR gagal di bitmap yang sama, gerbang orientasi, cek silang timing, dan Reed-Solomon berdiri di antara sudut itu dan decode palsu. M1, dengan dua EC codeword yang hanya mendeteksi dan timing pattern 3 modul, adalah kasus terlemah dan mendapat test negatif khusus.
 - **Modul kecil.** Piksel sudut adalah pusat piksel, setengah piksel di dalam sudut luar yang sebenarnya; pada 2 piksel per modul itu sudah seperempat modul sebelum ekstrapolasi. Sweep ukuran modul yang memutuskan apakah perlu dikoreksi.
 - **Quiet zone yang sempit.** Micro hanya butuh quiet zone 2 modul, dan cek silang timing membaca modul pertama di luar simbol, jadi objek lain yang berjarak 2 modul tidak masalah, tetapi yang menempel pada simbol akan mengganggu. Didokumentasikan bersama rentangnya.
-- **Kontrak error.** Satu-satunya perubahan pada error yang dikembalikan hanya menyangkut gambar yang percobaan afinnya tidak menemukan triple finder tetapi punya finder Micro yang lolos gerbang orientasi; test yang ada mengunci sisanya.
+- **Kontrak error.** Satu-satunya perubahan pada error yang dikembalikan hanya menyangkut gambar yang percobaan afinnya tidak menemukan triple finder tetapi punya finder yang meyakinkan sebagai bagian dari simbol Micro; test yang ada mengunci sisanya, dan simbol QR yang satu finder-nya terhapus tetap dengan error-nya (MD4).
 - **Biaya.** Paling banyak `maxCCCandidates` (64) quad, empat rotasi masing-masing, beberapa lusin pembacaan modul per rotasi, dan sampling serta decode penuh hanya untuk kandidat yang lolos gerbang: tak berarti dibanding labelling, yang dipakai bersama dengan percobaan QR.
 
 ## 10. Referensi
@@ -145,6 +146,6 @@ examples/decode/micro/main.go
 ## 11. Pertanyaan Terbuka
 
 - **Micro di `Result`.** Usulannya menambah `MicroVersion MicroVersion` dan membiarkan `Finders[1]` dan `Finders[2]` nol untuk simbol Micro. Alternatifnya, tipe result terpisah untuk Micro, akan memecah loop setiap pemanggil menjadi dua. Dikonfirmasi sebelum MD6.
-- **Toleransi timing.** Terjawab di MD3: dua. Simbol yang bersih terbaca tanpa ketidakcocokan; pada setiap finder dari 224 simbol QR (version 1 sampai 7, semua level EC dan mask), penetapan yang sampai ke cek silang tidak cocok di 1 sampai 15 modul, dengan median 8, dan dua yang masuk toleransi ditolak oleh Reed-Solomon.
+- **Toleransi timing.** Terjawab di MD3: dua. Simbol yang bersih terbaca tanpa ketidakcocokan; pada setiap finder dari 224 simbol QR (version 1 sampai 7, semua level EC dan mask), penetapan yang sampai ke cek silang tidak cocok di 1 sampai 14 modul, dengan median 8, dan tiga yang masuk toleransi ditolak oleh Reed-Solomon.
 - **Penyempurnaan sudut jauh.** Apakah homografi finder saja bertahan di rentang yang ingin kita klaim, atau sudut dari ujung timing diperlukan; diukur di MD5.
-- **Kontrak error.** Apakah memunculkan error Micro, seperti usulan bagian 5, sepadan dengan satu pengecualian terhadap aturan "error afin yang menang"; dikonfirmasi di MD4.
+- **Kontrak error.** Terjawab di MD4: ya, tetapi hanya untuk bukti Micro yang meyakinkan. Lolos gerbang orientasi, yang dicapai sekitar sepertiga finder QR, ternyata terlalu lemah; timing pattern yang cocok persis dengan format information yang tak terbaca, atau simbol yang sudah ditemukan tetapi datanya gagal, dicapai kurang dari satu dari seratus finder QR, dan tidak satu pun dari 96 simbol QR yang satu finder-nya terhapus berubah error-nya.

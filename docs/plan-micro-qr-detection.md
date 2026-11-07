@@ -51,7 +51,7 @@ A read of the image pipeline (decode_image.go, decode_finder_cc.go, decode_multi
 - **Timing cross-check rather than a quiet-zone count.** For the claimed size, row 0 and column 0 from index 7 to n must read: light separator, timing alternating from dark at 8 to dark at n-1, then light quiet zone at n, within a small tolerance fixed by measurement in MD3. This rejects the corner of a QR symbol (whose row 0 beyond the finder is data, not timing) and a wrong size, using the structure the standard put there for that purpose. zxing-cpp's 2n/3 quiet-zone count stays in reserve in case the measurement shows a need.
 - **Geometry, decided by measurement.** The first version samples through the finder homography at size n. MD5 measures where that fails under rotation, tilt, and small module sizes, and only then adds what is needed: the half-pixel corner correction, and re-locating the top-right and bottom-left corners from the last module of each timing pattern (index n-1 is even, so that module is always dark, and the quiet zone bounds it on two sides), refitting with `computeHomographyLS` over the finder corners plus those two. The Micro mask rule, which favours dark modules on the last row and column, makes the bottom-right corner findable too, if the measurement asks for it.
 - **Reed-Solomon as the final arbiter.** A candidate is accepted only when `decodeMicroMatrix` succeeds on the sampled grid. M1 is the weak case: its two detection-only EC codewords let about 1 in 65,536 random words through, which is why the gates before it matter.
-- **Error contract.** On total failure `Decode` keeps returning the affine attempt's error, so every existing error is unchanged, with one exception: when the affine attempt failed for lack of a finder triple (`ErrFinderNotFound`) and the Micro pass found a finder that passed the orientation gate, the Micro error is returned instead (`ErrFormatUnreadable`, `ErrTooManyErrors`, or `ErrCorruptedPayload`), because a damaged Micro symbol is not a missing finder.
+- **Error contract.** On total failure `Decode` keeps returning the affine attempt's error, so every existing error is unchanged, with one exception: when the affine attempt failed for lack of a finder triple (`ErrFinderNotFound`) and the Micro pass found a finder that convincingly belongs to a Micro symbol (a timing pattern that matches a Micro size exactly while the format information is unreadable, or every gate passed with only the data failing), the Micro error is returned instead (`ErrFormatUnreadable`, `ErrTooManyErrors`, or `ErrCorruptedPayload`), because a damaged Micro symbol is not a missing finder. Passing the orientation gate is not enough: MD4 measured that about a third of QR finders pass it.
 - **`DecodeAll`.** After the QR claim loop, every unclaimed finder quad is tried as a Micro finder and claimed on success. `Result` gains `MicroVersion MicroVersion`, zero for QR symbols; for a Micro symbol `Version` is zero, `Finders[0]` is the finder centre and the other two entries are zero, and `Corners` comes from the homography at size n, as for QR. The change is additive and leaves QR results unchanged (open question 1).
 - **Out of scope:** mirrored symbols, a line-scan (affine) path for Micro, a pure-image fast path, decoding a Micro symbol whose format information is unreadable, Micro in `DecodeStructuredAppend` (Micro has no structured append), and rMQR.
 
@@ -77,14 +77,15 @@ Milestones land sequentially. **Checkpoint A** (after MD5) reads Micro symbols f
 
 ### MD4 — Pipeline Integration `(M)`
 
-- [ ] The Micro pass in the connected-component attempt, after the QR triple, per binarisation; `decodeImageWhich` reports `"micro"`.
-- [ ] The error contract of section 5.
-- [ ] Tests: `Decode` and `DecodeBytes` read every zint symbol and our own PNGs for all eight types; the CLI's `-decode` reads a Micro PNG; a lone finder pattern, a blank image, and damaged QR symbols produce no Micro text; existing QR fixtures still decode through the same path as before.
+- [x] The Micro pass in the connected-component attempt, after the QR triple, per binarisation; `decodeImageWhich` reports `"micro"`.
+- [x] The error contract of section 5, and the `Decode` and `DecodeMatrix` doc comments.
+- [x] The half-pixel corner correction, pulled forward from MD5: rendered at 3 pixels per module, every zint M4 symbol failed the timing cross-check without it.
+- [x] Tests: `Decode` and `DecodeBytes` read every zint symbol and our own PNGs for all eight types; the CLI's `-decode` reads a Micro PNG; a lone finder pattern, a blank image, and damaged QR symbols produce no Micro text; existing QR fixtures still decode through the same path as before.
 
 ### MD5 — Robustness Measurement `(M)`
 
 - [ ] Informational sweeps over in-plane rotation, perspective tilt (`warpTilt`), module size, and quiet-zone width, each logging which stage fails.
-- [ ] Add the half-pixel correction and the far-corner refinement only where the sweeps show they move the band; assert the band that holds.
+- [ ] Add the far-corner refinement only where the sweeps show it moves the band (the half-pixel correction landed in MD4); assert the band that holds.
 - [ ] One-off zxing-cpp check on the same scenes, reported in the commit: where it reads a scene we do not, the gap is documented.
 
 ### Checkpoint A — `Decode` reads Micro symbols from images, checked against zint symbols and zxing-cpp's reader.
@@ -96,7 +97,7 @@ Milestones land sequentially. **Checkpoint A** (after MD5) reads Micro symbols f
 
 ### MD7 — Polish & Release `(S)`
 
-- [ ] README (decoding section, scope, limitations, roadmap), `examples/decode/micro`, and the `Decode` and `DecodeMatrix` doc comments.
+- [ ] README (decoding section, scope, limitations, roadmap) and `examples/decode/micro`.
 - [ ] `CHANGELOG.md` `v0.16.0` entry, left unstaged for the release branch.
 - [ ] The theory code-map row for doc 27, without a planned mark.
 - [ ] `go test -race ./...` clean, gofmt-clean.
@@ -132,7 +133,7 @@ examples/decode/micro/main.go
 - **False positives.** The corner of a QR symbol contains a finder pattern of exactly the right shape. Running Micro only after QR fails on the same bitmap, the orientation gate, the timing cross-check, and Reed-Solomon stand between it and a bogus decode. M1, with two detection-only EC codewords and a 3-module timing pattern, is the weakest case and gets dedicated negative tests.
 - **Small modules.** Corner pixels are pixel centres, half a pixel inside the true outer corner; at 2 pixels per module that is a quarter of a module before extrapolation. The module-size sweep decides whether to correct it.
 - **The narrow quiet zone.** Micro needs only 2 modules of quiet zone, and the timing cross-check reads the first module past the symbol, so clutter 2 modules away is fine but clutter touching the symbol is not. Documented with the band.
-- **Error contract.** The one change in returned errors affects only images where the affine attempt found no finder triple but a Micro finder passed the orientation gate; existing tests pin the rest.
+- **Error contract.** The one change in returned errors affects only images where the affine attempt found no finder triple but a finder convincingly belongs to a Micro symbol; existing tests pin the rest, and QR symbols with a finder wiped out keep their errors (MD4).
 - **Cost.** At most `maxCCCandidates` (64) quads, four rotations each, a few dozen module reads per rotation, and a full sample and decode only for the candidates that pass the gates: negligible next to labelling, which is shared with the QR attempt.
 
 ## 10. References
@@ -145,6 +146,6 @@ examples/decode/micro/main.go
 ## 11. Open Questions
 
 - **Micro in `Result`.** The proposal adds `MicroVersion MicroVersion` and leaves `Finders[1]` and `Finders[2]` zero for a Micro symbol. The alternative, a separate result type for Micro, would split every caller's loop in two. To confirm before MD6.
-- **Timing tolerance.** Resolved in MD3: two. Clean symbols read with no disagreement; over every finder of 224 QR symbols (versions 1 to 7, every EC level and mask), the assignments that reached the cross-check disagreed in 1 to 15 modules, 8 at the median, and the two that fell within the tolerance were rejected by Reed-Solomon.
+- **Timing tolerance.** Resolved in MD3: two. Clean symbols read with no disagreement; over every finder of 224 QR symbols (versions 1 to 7, every EC level and mask), the assignments that reached the cross-check disagreed in 1 to 14 modules, 8 at the median, and the three that fell within the tolerance were rejected by Reed-Solomon.
 - **Far-corner refinement.** Whether the finder homography alone holds over the band we want to claim, or the timing-end corners are needed; measured in MD5.
-- **Error contract.** Whether surfacing the Micro error, as section 5 proposes, is worth the one exception to "the affine error wins"; to confirm in MD4.
+- **Error contract.** Resolved in MD4: yes, but only for convincing Micro evidence. Passing the orientation gate, which about a third of QR finders do, proved too weak; an exact timing pattern with unreadable format information, or a located symbol whose data fails, reaches fewer than one QR finder in a hundred, and none of 96 QR symbols with a finder wiped out changed its error.

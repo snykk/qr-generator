@@ -25,8 +25,8 @@ import (
 // cross-check may disagree with a Micro symbol of size n. Clean symbols read
 // with no disagreement. Measured over every finder of 224 QR symbols (versions
 // 1 to 7, every EC level and mask), the assignments that reached the
-// cross-check disagreed in 1 to 15 modules, 8 at the median; two fell within
-// this tolerance and Reed-Solomon rejected both (TestMicroIgnoresQRFinders;
+// cross-check disagreed in 1 to 14 modules, 8 at the median; three fell within
+// this tolerance and Reed-Solomon rejected all three (TestMicroIgnoresQRFinders;
 // theory doc 27, sections 5 and 7).
 const microTimingTolerance = 2
 
@@ -36,16 +36,44 @@ const microTimingTolerance = 2
 // downward.
 var finderRingCorners = [4][2]float64{{-0.5, -0.5}, {6.5, -0.5}, {6.5, 6.5}, {-0.5, 6.5}}
 
-// microStage records how far a finder got through the Micro gates, so that when
-// every candidate fails, the error of the one that got furthest is reported.
+// microStage records how far a finder got through the Micro gates, ordered by
+// how strongly it shows a Micro symbol is there, so that when every candidate
+// fails, the error of the most convincing one is reported. Only the last two
+// are strong evidence: a QR finder passes the timing test about one time in
+// three and then names a valid format word about half the time, but its
+// surroundings almost never read as a Micro timing pattern.
 type microStage int
 
 const (
 	microStageNone     microStage = iota // no assignment passed the timing test
-	microStageOriented                   // the timing test passed; the format word did not decode
-	microStageFormat                     // the format word decoded; the timing cross-check failed
+	microStageOriented                   // the timing test passed, and nothing after it
+	microStageFormat                     // the format word decoded, but the timing pattern disagrees with its size
+	microStageTimed                      // the timing pattern matches a Micro size, but the format word did not decode
 	microStageLocated                    // every gate passed; the outcome is the matrix decode's
 )
+
+// outerRingCorners returns a finder quad's corners corrected for the half-pixel
+// bias of extractQuadCorners. Each corner it reports is the centre of the
+// ring's outermost pixel, which lies inside the ring's true outer corner by up
+// to half a pixel on each axis. Moving each corner outward from the finder
+// centre to the boundary of its own pixel removes the bias exactly for an
+// upright ring, (0.5, 0.5), and for one turned 45 degrees, (0.5, 0), and
+// approximately in between. The bias is a scale error, so it grows with
+// distance from the finder: uncorrected, at 3 pixels per module it shifts the
+// far timing modules of an M4 symbol by a whole module (theory doc 27,
+// section 6). Only the Micro path applies it, so QR decoding is unchanged.
+func outerRingCorners(q finderQuad) [4][2]float64 {
+	out := q.corners
+	for i, p := range out {
+		dx, dy := p[0]-q.center.x, p[1]-q.center.y
+		m := math.Max(math.Abs(dx), math.Abs(dy))
+		if m == 0 {
+			continue
+		}
+		out[i] = [2]float64{p[0] + 0.5*dx/m, p[1] + 0.5*dy/m}
+	}
+	return out
+}
 
 // windCorners orders a convex quad's corners by angle about their centroid,
 // ascending in image coordinates (y down). For a symbol seen from the front
@@ -136,9 +164,11 @@ type microCandidate struct {
 // lies within the 3-bit budget of one of the 32 Micro words; and the timing
 // pattern agrees with the size that word names. Survivors are returned best
 // first (nearest format word, then fewest timing disagreements), with the
-// furthest stage any assignment reached.
+// furthest stage any assignment reached. An assignment whose format word does
+// not decode still counts as timed if its timing pattern matches some Micro
+// size: that is a Micro symbol with damaged format information.
 func locateMicro(bm *bitmap, q finderQuad) ([]microCandidate, microStage) {
-	corners := windCorners(q.corners)
+	corners := windCorners(outerRingCorners(q))
 	stage := microStageNone
 	var out []microCandidate
 	for k := range 4 {
@@ -152,6 +182,9 @@ func locateMicro(bm *bitmap, q finderQuad) ([]microCandidate, microStage) {
 		stage = max(stage, microStageOriented)
 		sym, _, dist := nearestMicroFormat(readMicroFormatWord(bm, hg), 0)
 		if dist > microFormatBudget {
+			if microTimingMatchesSomeSize(bm, hg, 0) {
+				stage = max(stage, microStageTimed)
+			}
 			continue
 		}
 		stage = max(stage, microStageFormat)
@@ -171,6 +204,18 @@ func locateMicro(bm *bitmap, q finderQuad) ([]microCandidate, microStage) {
 	return out, stage
 }
 
+// microTimingMatchesSomeSize reports whether the timing pattern seen through h
+// matches a Micro symbol of any of the four sizes with at most tol
+// disagreements.
+func microTimingMatchesSomeSize(bm *bitmap, h homography, tol int) bool {
+	for v := M1; v <= M4; v++ {
+		if microTimingMismatches(bm, h, v.Size()) <= tol {
+			return true
+		}
+	}
+	return false
+}
+
 // microStageError is the error reported for a finder that stopped before the
 // matrix decode, at stage s.
 func microStageError(s microStage) error {
@@ -178,9 +223,11 @@ func microStageError(s microStage) error {
 	case microStageNone:
 		return fmt.Errorf("%w: no Micro QR timing pattern beside the finder", ErrFinderNotFound)
 	case microStageOriented:
-		return fmt.Errorf("%w: Micro QR format information", ErrFormatUnreadable)
-	default:
+		return fmt.Errorf("%w: no Micro QR symbol at the finder", ErrFinderNotFound)
+	case microStageFormat:
 		return fmt.Errorf("%w: Micro QR timing pattern disagrees with the size its format information names", ErrFinderNotFound)
+	default:
+		return fmt.Errorf("%w: Micro QR format information", ErrFormatUnreadable)
 	}
 }
 
