@@ -39,6 +39,10 @@ type options struct {
 	micro        bool         // encode a Micro QR Code instead of a QR Code
 	microVersion MicroVersion // 0 = auto-select the smallest fitting Micro symbol
 
+	rmqr        bool        // encode an rMQR Code instead of a QR Code
+	rmqrVersion RMQRVersion // 0 = auto-select the smallest fitting rMQR symbol
+	rmqrHeight  int         // 0 = any height; else the fixed rMQR height in modules
+
 	// ecSet and quietZoneSet record whether the caller chose these explicitly.
 	// QR ignores them; Micro QR needs them because its defaults differ: an
 	// unset level lets the encoder pick the smallest symbol (including the
@@ -75,9 +79,13 @@ func resolveOptions(opts ...Option) *options {
 	if o.logo != nil && o.ec < ECLevelH {
 		o.ec = ECLevelH
 	}
-	// Micro QR's spec quiet zone is 2 modules; an explicit WithQuietZone wins.
+	// Micro QR's and rMQR's spec quiet zone is 2 modules; an explicit
+	// WithQuietZone wins.
 	if o.micro && !o.quietZoneSet {
 		o.quietZone = microQuietZone
+	}
+	if o.rmqr && !o.quietZoneSet {
+		o.quietZone = rmqrQuietZone
 	}
 	return &o
 }
@@ -118,8 +126,36 @@ func (o *options) validate() error {
 	if o.eci != ECINone && o.eci != ECILatin1 && o.eci != ECIUTF8 {
 		return fmt.Errorf("qrgen: unsupported ECI %d (only ECIUTF8=26 and ECILatin1=3 are supported)", int(o.eci))
 	}
+	if o.rmqr {
+		return o.validateRMQR()
+	}
 	if o.micro {
 		return o.validateMicro()
+	}
+	return nil
+}
+
+// validateRMQR rejects the options rMQR cannot honour, each with its own
+// message rather than a confusing failure further down.
+func (o *options) validateRMQR() error {
+	switch {
+	case o.micro:
+		return fmt.Errorf("qrgen: WithMicro and WithRMQR select different symbologies; use one")
+	case o.version != 0:
+		return fmt.Errorf("qrgen: WithVersion selects a QR Code version; use WithRMQRVersion for rMQR")
+	case o.rmqrVersion != 0 && !o.rmqrVersion.IsValid():
+		return fmt.Errorf("qrgen: invalid rMQR version %v (want R7x43..R17x139)", o.rmqrVersion)
+	case o.rmqrHeight != 0 && !validRMQRHeight(o.rmqrHeight):
+		return fmt.Errorf("qrgen: invalid rMQR height %d (want 7, 9, 11, 13, 15, or 17)", o.rmqrHeight)
+	case o.rmqrVersion != 0 && o.rmqrHeight != 0 && o.rmqrVersion.Height() != o.rmqrHeight:
+		return fmt.Errorf("qrgen: rMQR version %v is not %d modules tall", o.rmqrVersion, o.rmqrHeight)
+	case o.logo != nil:
+		// Checked before the EC level, which a logo forces to H.
+		return fmt.Errorf("qrgen: WithLogo is not supported with rMQR (a symbol 7 to 17 modules tall has no room for a logo)")
+	case o.ecSet && o.ec != ECLevelM && o.ec != ECLevelH:
+		return fmt.Errorf("qrgen: rMQR has no error-correction level %v (only M and H)", o.ec)
+	case o.mask != -1:
+		return fmt.Errorf("qrgen: WithMask is not supported with rMQR, which always uses one fixed mask")
 	}
 	return nil
 }
@@ -200,6 +236,37 @@ func WithMicro() Option {
 // encoder fails if the text does not fit v at the requested level.
 func WithMicroVersion(v MicroVersion) Option {
 	return func(o *options) { o.micro, o.microVersion = true, v }
+}
+
+// WithRMQR makes the encoder produce an rMQR Code (Rectangular Micro QR Code,
+// ISO/IEC 23941) instead of a QR Code: one of 32 rectangular symbols, 7 to 17
+// modules tall and 27 to 139 wide, choosing the smallest-area symbol that holds
+// the text. It applies to Encode, EncodeToFile, EncodeSVG, EncodeSVGToFile,
+// EncodeTerminal, and Matrix.
+//
+// rMQR has two error-correction levels, M and H. With no WithECLevel, the
+// encoder takes the smallest symbol that fits at M and uses H instead when the
+// text also fits at H in that symbol, as zint does; an explicit M or H picks
+// the smallest symbol at that level, and L or Q is an error. The quiet zone
+// defaults to rMQR's 2 modules. WithECI is supported; WithVersion, WithMask
+// (rMQR has one fixed mask), WithLogo, WithMicro, and structured append are
+// not. See docs/theory/28-rmqr.md.
+func WithRMQR() Option {
+	return func(o *options) { o.rmqr = true }
+}
+
+// WithRMQRVersion is WithRMQR with the version forced to v (R7x43..R17x139).
+// The encoder fails if the text does not fit v at the requested level.
+func WithRMQRVersion(v RMQRVersion) Option {
+	return func(o *options) { o.rmqr, o.rmqrVersion = true, v }
+}
+
+// WithRMQRHeight is WithRMQR with the height fixed to rows modules (7, 9, 11,
+// 13, 15, or 17): the encoder picks the narrowest symbol of that height that
+// holds the text, the case rMQR exists for, such as a label edge of a known
+// height.
+func WithRMQRHeight(rows int) Option {
+	return func(o *options) { o.rmqr, o.rmqrHeight = true, rows }
 }
 
 // WithColors sets the foreground (dark) and background (light) module

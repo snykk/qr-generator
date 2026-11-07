@@ -537,3 +537,58 @@ func TestRunMicroErrors(t *testing.T) {
 		}
 	}
 }
+
+// pngDims returns the width and height of a PNG.
+func pngDims(t *testing.T, data []byte) (int, int) {
+	t.Helper()
+	img, err := png.Decode(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("png decode: %v", err)
+	}
+	return img.Bounds().Dx(), img.Bounds().Dy()
+}
+
+// TestRunRMQR: -rmqr picks the smallest rMQR symbol, -rmqr-version (any case)
+// forces one, and -rmqr-height fixes the height; each PNG is the symbol plus
+// rMQR's 2-module quiet zone on every side, at 2 pixels per module.
+func TestRunRMQR(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  cliConfig
+		w, h int // modules, quiet zone included
+	}{
+		{"smallest", cliConfig{text: "12345", rmqr: true}, 27 + 4, 11 + 4},
+		{"forced version", cliConfig{text: "HELLO", rmqrVersion: "r7X59"}, 59 + 4, 7 + 4},
+		{"fixed height", cliConfig{text: "12345", rmqrHeight: 7}, 43 + 4, 7 + 4},
+	}
+	for _, c := range cases {
+		c.cfg.moduleSize, c.cfg.quietZone, c.cfg.mask = 2, -1, -1
+		w, h := pngDims(t, runPNG(t, c.cfg))
+		if w != 2*c.w || h != 2*c.h {
+			t.Errorf("%s: %dx%d px, want %dx%d", c.name, w, h, 2*c.w, 2*c.h)
+		}
+	}
+}
+
+// TestRunRMQRErrors covers an unknown -rmqr-version, a height rMQR does not
+// have, a level it does not have, a mask (rMQR's is fixed), and a version and
+// height that disagree.
+func TestRunRMQRErrors(t *testing.T) {
+	cases := map[string]cliConfig{
+		"bad version":     {text: "1", rmqrVersion: "R8x43"},
+		"bad height":      {text: "1", rmqrHeight: 8},
+		"level L":         {text: "1", rmqr: true, ec: "L"},
+		"mask":            {text: "1", rmqr: true, mask: 2},
+		"version, height": {text: "1", rmqrVersion: "R11x27", rmqrHeight: 7},
+	}
+	for name, cfg := range cases {
+		cfg.moduleSize, cfg.quietZone = 8, -1
+		if name != "mask" {
+			cfg.mask = -1
+		}
+		cfg.out = filepath.Join(t.TempDir(), "x.png")
+		if err := run(cfg, strings.NewReader(""), &bytes.Buffer{}); err == nil {
+			t.Errorf("%s: expected an error", name)
+		}
+	}
+}

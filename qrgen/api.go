@@ -161,7 +161,7 @@ func Matrix(text string, opts ...Option) ([][]bool, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make([][]bool, m.size)
+	out := make([][]bool, m.rows())
 	for i := range out {
 		out[i] = append([]bool(nil), m.modules[i]...)
 	}
@@ -203,6 +203,9 @@ func EncodeStructuredAppend(text string, parts int, opts ...Option) ([][]byte, e
 	}
 	if o.micro {
 		return nil, fmt.Errorf("qrgen: Micro QR does not support structured append")
+	}
+	if o.rmqr {
+		return nil, fmt.Errorf("qrgen: rMQR does not support structured append")
 	}
 
 	chunks := splitRunes(text, parts)

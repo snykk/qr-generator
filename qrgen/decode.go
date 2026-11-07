@@ -61,7 +61,10 @@ func DecodeBytes(data []byte) (string, error) {
 // some valid v in [1, 40], or 11, 13, 15, or 17 for a Micro QR symbol, which
 // is recognised by its size alone and decoded with Micro's own format
 // information, single Reed-Solomon block (detection only in M1), and field
-// widths (see docs/theory/26-micro-qr.md).
+// widths (see docs/theory/26-micro-qr.md). A rectangular grid, h rows of w
+// modules, is read as an rMQR symbol when h by w is one of its 32 sizes, with
+// the version taken from the shape and the level from the nearer of its two
+// format copies (see docs/theory/28-rmqr.md).
 //
 // The full pipeline runs in five stages (see docs/theory/13-decoder-pipeline.md):
 //
@@ -90,6 +93,12 @@ func DecodeMatrix(grid [][]bool) (string, error) {
 // its position/total/parity (nil otherwise). DecodeMatrix discards the metadata;
 // DecodeStructuredAppend uses it to reassemble a set.
 func decodeMatrixSA(grid [][]bool) (string, *saHeaderInfo, error) {
+	// rMQR symbols are rectangular and no QR or Micro QR symbol is, so a
+	// grid's shape alone routes it. rMQR has no structured append.
+	if len(grid) > 0 && len(grid[0]) != len(grid) {
+		text, err := decodeRMQRMatrix(grid)
+		return text, nil, err
+	}
 	// Micro QR sides (11..17, odd) never coincide with QR sides (21 + 4k), so
 	// the size alone routes the grid. Micro has no structured append.
 	if microVersionForSize(len(grid)) != 0 {

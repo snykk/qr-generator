@@ -245,6 +245,9 @@ func writeSegment(bb *bitBuffer, s segment, v Version) {
 // format-info codeword. The returned matrix is the final, scannable QR symbol;
 // callers only need to render it to pixels.
 func buildMatrix(text string, opts *options) (*matrix, int, error) {
+	if opts.rmqr {
+		return buildRMQRMatrix(text, opts)
+	}
 	if opts.micro {
 		return buildMicroMatrix(text, opts)
 	}
@@ -376,11 +379,16 @@ func encodeTextECI(text string, ec ECLevel, forceVersion Version, eci ECI) (data
 // stream. It errors if bb already exceeds capacity. Shared by the single-symbol
 // encoder and the structured-append symbol encoder.
 func padToCapacity(bb *bitBuffer, capacityBits int) ([]byte, error) {
+	return padToCapacityTerm(bb, capacityBits, 4)
+}
+
+// padToCapacityTerm is padToCapacity with a terminator of termBits zero bits:
+// 4 for QR, 3 for rMQR (docs/theory/28-rmqr.md section 4).
+func padToCapacityTerm(bb *bitBuffer, capacityBits, termBits int) ([]byte, error) {
 	remaining := capacityBits - bb.bits()
 	if remaining < 0 {
 		return nil, fmt.Errorf("qrgen: internal error: encoded length exceeds capacity by %d bits", -remaining)
 	}
-	termBits := 4
 	if remaining < termBits {
 		termBits = remaining
 	}
