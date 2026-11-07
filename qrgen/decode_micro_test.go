@@ -424,3 +424,190 @@ func TestMicroIgnoresQRFinders(t *testing.T) {
 		stages[microStageNone], stages[microStageOriented], stages[microStageFormat], stages[microStageTimed], stages[microStageLocated])
 	t.Logf("timing cross-check disagreements of QR finder assignments that reached it: %v", hist)
 }
+
+// microSweepGoldens picks one zint symbol per Micro version, the smallest type
+// of each, for the sweeps below.
+func microSweepGoldens(t *testing.T) []microGolden {
+	t.Helper()
+	var out []microGolden
+	seen := map[MicroVersion]bool{}
+	for _, g := range loadMicroGoldens(t) {
+		if !seen[g.version] {
+			seen[g.version] = true
+			out = append(out, g)
+		}
+	}
+	return out
+}
+
+// microSceneOutcome decodes img and reports "ok", or the furthest Micro stage
+// the connected-component attempt reached when it fails.
+func microSceneOutcome(img image.Image, want string) string {
+	text, path, err := decodeImageWhich(img)
+	switch {
+	case err == nil && text == want:
+		return "ok"
+	case err == nil:
+		return "WRONG via " + path
+	}
+	return fmt.Sprintf("stage %d", decodeImageCC(img).microStage)
+}
+
+// TestMicroDetectionSweep is an informational sweep, in the manner of
+// TestArbitraryAngleSweep: it logs, for one symbol per version, which in-plane
+// rotations decode at small module sizes and which perspective tilts decode at
+// 10 and 5 pixels per module, with the furthest stage reached on failure. It
+// does not assert; the band tests below do.
+func TestMicroDetectionSweep(t *testing.T) {
+	for _, g := range microSweepGoldens(t) {
+		for _, scale := range []int{2, 3} {
+			src := gridImage(g.grid, scale, 2)
+			var fails []string
+			for a := 0; a < 90; a += 10 {
+				if o := microSceneOutcome(rotateImage(src, float64(a)), g.text); o != "ok" {
+					fails = append(fails, fmt.Sprintf("%d deg (%s)", a, o))
+				}
+			}
+			t.Logf("%-5s %d px/module, rotations 0..80: failing %v", g.typ, scale, fails)
+		}
+		for _, scale := range []int{10, 5} {
+			src := gridImage(g.grid, scale, 4)
+			for _, rot := range []float64{0, 30} {
+				var fails []string
+				for _, tilt := range []float64{45, 55, 60, 65, 70} {
+					if o := microSceneOutcome(warpTilt(t, src, tilt, rot), g.text); o != "ok" {
+						fails = append(fails, fmt.Sprintf("%.0f deg (%s)", tilt, o))
+					}
+				}
+				t.Logf("%-5s %d px/module, rotation %.0f, tilts 45..70: failing %v", g.typ, scale, rot, fails)
+			}
+		}
+	}
+}
+
+// TestMicroRotationBand guards the measured rotation band: every zint symbol
+// decodes at any in-plane rotation from 3 pixels per module up (measured every
+// 5 degrees at 3, 4, and 5 pixels per module with no failure; asserted here at
+// three angles to keep the suite fast).
+func TestMicroRotationBand(t *testing.T) {
+	for _, g := range loadMicroGoldens(t) {
+		for _, scale := range []int{3, 5} {
+			src := gridImage(g.grid, scale, 2)
+			for _, a := range []float64{15, 45, 75} {
+				if o := microSceneOutcome(rotateImage(src, a), g.text); o != "ok" {
+					t.Errorf("%s %q at %d px/module rotated %.0f deg: %s", g.typ, g.text, scale, a, o)
+				}
+			}
+		}
+	}
+}
+
+// TestMicroTiltBand guards the measured tilt band: up to 60 degrees of
+// perspective tilt at 10 pixels per module, 55 at 5, and 45 at 4. Every zint
+// symbol was measured at these tilts under four in-plane rotations with no
+// failure; to keep the suite fast, one symbol per version is asserted across
+// the band and every symbol at its steepest point.
+func TestMicroTiltBand(t *testing.T) {
+	cases := []struct {
+		scale int
+		tilt  float64
+		rots  []float64
+	}{
+		{10, 60, []float64{0, 30}},
+		{5, 55, []float64{12, 45}},
+		{4, 45, []float64{0, 45}},
+	}
+	check := func(g microGolden, scale int, tilt, rot float64) {
+		src := gridImage(g.grid, scale, 4)
+		if o := microSceneOutcome(warpTilt(t, src, tilt, rot), g.text); o != "ok" {
+			t.Errorf("%s %q at %d px/module, tilt %.0f, rotation %.0f: %s", g.typ, g.text, scale, tilt, rot, o)
+		}
+	}
+	for _, g := range microSweepGoldens(t) {
+		for _, c := range cases {
+			for _, rot := range c.rots {
+				check(g, c.scale, c.tilt, rot)
+			}
+		}
+	}
+	for _, g := range loadMicroGoldens(t) {
+		check(g, 10, 60, 30)
+	}
+}
+
+// TestMicroRefinementValue measures what each geometric refinement adds. Over
+// every zint symbol rendered at 2 and 3 pixels per module and rotated in 10
+// degree steps, it counts the scenes that decode with the finder homography
+// alone, with the far-corner refinement added, and with one and two rounds of
+// the edge fit added, and requires every step to read at least as many scenes
+// as the one before it and the whole chain to read more than the finder
+// homography alone (theory doc 27, section 6).
+func TestMicroRefinementValue(t *testing.T) {
+	const levels = 4
+	var decoded [levels]int
+	total := 0
+	for _, g := range loadMicroGoldens(t) {
+		for _, scale := range []int{2, 3} {
+			src := gridImage(g.grid, scale, 2)
+			for a := 5; a < 90; a += 10 {
+				total++
+				img := rotateImage(src, float64(a))
+				pixels, w, h := imageToGrayscale(img)
+				th, _ := otsuThreshold(pixels)
+				bm := otsuBinariseFromGray(pixels, w, h, th)
+				var best [levels]bool
+				for _, q := range allFinderQuads(bm) {
+					corners := windCorners(outerRingCorners(q))
+					for k := range 4 {
+						hg, err := microFinderHomography(corners, k)
+						if err != nil || !moduleDark(bm, hg, 8, 0) || !moduleDark(bm, hg, 0, 8) {
+							continue
+						}
+						sym, _, dist := nearestMicroFormat(readMicroFormatWord(bm, hg), 0)
+						if dist > microFormatBudget {
+							continue
+						}
+						n := sym.version.Size()
+						chain := []homography{hg}
+						if refined, ok := refineMicroHomography(bm, hg, n); ok {
+							chain = append(chain, refined)
+							h := refined
+							for range 2 {
+								fitted, ok := edgeFitMicroHomography(bm, h, n)
+								if !ok {
+									break
+								}
+								chain, h = append(chain, fitted), fitted
+							}
+						}
+						for level := range levels {
+							for _, hv := range chain[:min(level+1, len(chain))] {
+								if microTimingMismatches(bm, hv, n) > microTimingTolerance {
+									continue
+								}
+								if text, err := decodeMicroMatrix(sampleMatrix(bm, hv, n)); err == nil && text == g.text {
+									best[level] = true
+								}
+							}
+						}
+					}
+				}
+				for level := range levels {
+					if best[level] {
+						decoded[level]++
+					}
+				}
+			}
+		}
+	}
+	t.Logf("of %d small rotated scenes: finder homography %d, + far corners %d, + edge fit %d, + second edge fit %d",
+		total, decoded[0], decoded[1], decoded[2], decoded[3])
+	for level := 1; level < levels; level++ {
+		if decoded[level] < decoded[level-1] {
+			t.Errorf("refinement step %d reads %d scenes, fewer than the %d before it", level, decoded[level], decoded[level-1])
+		}
+	}
+	if decoded[levels-1] <= decoded[0] {
+		t.Errorf("the refinements read %d scenes, no more than the finder homography's %d", decoded[levels-1], decoded[0])
+	}
+}

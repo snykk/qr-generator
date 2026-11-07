@@ -84,9 +84,9 @@ Milestones land sequentially. **Checkpoint A** (after MD5) reads Micro symbols f
 
 ### MD5 — Robustness Measurement `(M)`
 
-- [ ] Informational sweeps over in-plane rotation, perspective tilt (`warpTilt`), module size, and quiet-zone width, each logging which stage fails.
-- [ ] Add the far-corner refinement only where the sweeps show it moves the band (the half-pixel correction landed in MD4); assert the band that holds.
-- [ ] One-off zxing-cpp check on the same scenes, reported in the commit: where it reads a scene we do not, the gap is documented.
+- [x] Informational sweeps over in-plane rotation, perspective tilt (`warpTilt`), module size, and quiet-zone width, each logging which stage fails.
+- [x] The far-corner refinement plus two rounds of an edge fit of all four outer edges, which the sweeps showed are needed below 5 pixels per module (192 of 612 small rotated scenes decode with the finder homography alone, 502 with the full chain); the band that holds is asserted (the half-pixel correction landed in MD4).
+- [x] One-off zxing-cpp check on the same 1,836 scenes, reported in the commit and in theory doc 27, section 10: the only scenes it reads and we do not are 5 at 2 pixels per module and 14 at 65 degrees of tilt.
 
 ### Checkpoint A — `Decode` reads Micro symbols from images, checked against zint symbols and zxing-cpp's reader.
 
@@ -147,5 +147,5 @@ examples/decode/micro/main.go
 
 - **Micro in `Result`.** The proposal adds `MicroVersion MicroVersion` and leaves `Finders[1]` and `Finders[2]` zero for a Micro symbol. The alternative, a separate result type for Micro, would split every caller's loop in two. To confirm before MD6.
 - **Timing tolerance.** Resolved in MD3: two. Clean symbols read with no disagreement; over every finder of 224 QR symbols (versions 1 to 7, every EC level and mask), the assignments that reached the cross-check disagreed in 1 to 14 modules, 8 at the median, and the three that fell within the tolerance were rejected by Reed-Solomon.
-- **Far-corner refinement.** Whether the finder homography alone holds over the band we want to claim, or the timing-end corners are needed; measured in MD5.
+- **Far-corner refinement.** Resolved in MD5: needed, and not enough on its own. The finder homography alone failed at 3 to 5 pixels per module under rotation; the timing-end corners fixed most of that, and an edge fit of all four outer edges, which anchors the bottom-right corner through the dark modules the masking rule keeps on the last row and column, fixed the rest down to 3 pixels per module.
 - **Error contract.** Resolved in MD4: yes, but only for convincing Micro evidence. Passing the orientation gate, which about a third of QR finders do, proved too weak; an exact timing pattern with unreadable format information, or a located symbol whose data fails, reaches fewer than one QR finder in a hundred, and none of 96 QR symbols with a finder wiped out changed its error.
