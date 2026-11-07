@@ -69,11 +69,11 @@ Milestones land sequentially. **Checkpoint A** (after MD5) reads Micro symbols f
 
 ### MD3 — One-Finder Geometry `(L)`
 
-- [ ] `allFinderQuads`: every finder quad, with no minimum; `detectFinderQuads` keeps its contract on top of it.
-- [ ] Winding normalisation and the per-rotation homography from one finder quad.
-- [ ] The orientation gate; image-side format reading over all 32 words; the version and the timing cross-check, with its tolerance measured.
-- [ ] `decodeMicroQuad(bm, quad)`: the above, then `sampleMatrix` at size n and `decodeMicroMatrix`, returning the text, the version, and the homography.
-- [ ] Tests on painted bitmaps at the four right-angle rotations, and on every zint symbol rendered upright.
+- [x] `allFinderQuads`: every finder quad, with no minimum; `detectFinderQuads` keeps its contract on top of it.
+- [x] Winding normalisation and the per-rotation homography from one finder quad.
+- [x] The orientation gate; image-side format reading over all 32 words; the version and the timing cross-check, with its tolerance measured.
+- [x] `decodeMicroQuad(bm, quad)`: the above, then `sampleMatrix` at size n and `decodeMicroMatrix`, returning the text, the version, and the homography.
+- [x] Tests on painted bitmaps at the four right-angle rotations, and on every zint symbol rendered upright.
 
 ### MD4 — Pipeline Integration `(M)`
 
@@ -145,6 +145,6 @@ examples/decode/micro/main.go
 ## 11. Open Questions
 
 - **Micro in `Result`.** The proposal adds `MicroVersion MicroVersion` and leaves `Finders[1]` and `Finders[2]` zero for a Micro symbol. The alternative, a separate result type for Micro, would split every caller's loop in two. To confirm before MD6.
-- **Timing tolerance.** How many of the cross-checked timing modules may disagree; measured in MD3.
+- **Timing tolerance.** Resolved in MD3: two. Clean symbols read with no disagreement; over every finder of 224 QR symbols (versions 1 to 7, every EC level and mask), the assignments that reached the cross-check disagreed in 1 to 15 modules, 8 at the median, and the two that fell within the tolerance were rejected by Reed-Solomon.
 - **Far-corner refinement.** Whether the finder homography alone holds over the band we want to claim, or the timing-end corners are needed; measured in MD5.
 - **Error contract.** Whether surfacing the Micro error, as section 5 proposes, is worth the one exception to "the affine error wins"; to confirm in MD4.

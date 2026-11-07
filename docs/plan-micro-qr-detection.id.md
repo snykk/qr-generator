@@ -69,11 +69,11 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah MD5) membaca simbol Micr
 
 ### MD3 — Geometri Satu Finder `(L)`
 
-- [ ] `allFinderQuads`: setiap finder quad, tanpa batas minimum; `detectFinderQuads` mempertahankan kontraknya di atas fungsi itu.
-- [ ] Normalisasi winding dan homografi per rotasi dari satu finder quad.
-- [ ] Gerbang orientasi; pembacaan format sisi gambar atas ke-32 word; version dan cek silang timing, dengan toleransi yang diukur.
-- [ ] `decodeMicroQuad(bm, quad)`: semua langkah di atas, lalu `sampleMatrix` pada ukuran n dan `decodeMicroMatrix`, mengembalikan teks, version, dan homografi.
-- [ ] Test pada bitmap yang dilukis di empat rotasi kelipatan 90 derajat, dan pada setiap simbol zint yang dirender tegak.
+- [x] `allFinderQuads`: setiap finder quad, tanpa batas minimum; `detectFinderQuads` mempertahankan kontraknya di atas fungsi itu.
+- [x] Normalisasi winding dan homografi per rotasi dari satu finder quad.
+- [x] Gerbang orientasi; pembacaan format sisi gambar atas ke-32 word; version dan cek silang timing, dengan toleransi yang diukur.
+- [x] `decodeMicroQuad(bm, quad)`: semua langkah di atas, lalu `sampleMatrix` pada ukuran n dan `decodeMicroMatrix`, mengembalikan teks, version, dan homografi.
+- [x] Test pada bitmap yang dilukis di empat rotasi kelipatan 90 derajat, dan pada setiap simbol zint yang dirender tegak.
 
 ### MD4 — Integrasi Pipeline `(M)`
 
@@ -145,6 +145,6 @@ examples/decode/micro/main.go
 ## 11. Pertanyaan Terbuka
 
 - **Micro di `Result`.** Usulannya menambah `MicroVersion MicroVersion` dan membiarkan `Finders[1]` dan `Finders[2]` nol untuk simbol Micro. Alternatifnya, tipe result terpisah untuk Micro, akan memecah loop setiap pemanggil menjadi dua. Dikonfirmasi sebelum MD6.
-- **Toleransi timing.** Berapa banyak modul timing yang dicek silang boleh tidak cocok; diukur di MD3.
+- **Toleransi timing.** Terjawab di MD3: dua. Simbol yang bersih terbaca tanpa ketidakcocokan; pada setiap finder dari 224 simbol QR (version 1 sampai 7, semua level EC dan mask), penetapan yang sampai ke cek silang tidak cocok di 1 sampai 15 modul, dengan median 8, dan dua yang masuk toleransi ditolak oleh Reed-Solomon.
 - **Penyempurnaan sudut jauh.** Apakah homografi finder saja bertahan di rentang yang ingin kita klaim, atau sudut dari ujung timing diperlukan; diukur di MD5.
 - **Kontrak error.** Apakah memunculkan error Micro, seperti usulan bagian 5, sepadan dengan satu pengecualian terhadap aturan "error afin yang menang"; dikonfirmasi di MD4.

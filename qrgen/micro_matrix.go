@@ -75,17 +75,26 @@ func bchFormatWord(payload uint32) uint32 {
 	return payload<<10 | rem
 }
 
-// writeMicroFormatInfo places the single format copy: bit i (0..7) at
-// (i+1, 8), down column 8, and bit i (8..14) at (8, 15-i), left along row 8,
-// so bit 14 lands at (8, 1). This is QR's first-copy L with the same corner
-// but no timing gaps; getting it backwards would still round-trip internally
-// while every other reader failed (docs/theory/26-micro-qr.md section 7).
-func (m *matrix) writeMicroFormatInfo(word uint32) {
-	for i := 0; i < 8; i++ {
-		m.modules[i+1][8] = bitOf(word, i)
+// microFormatModule returns the (row, col) of bit i (0..14) of the single
+// format copy: bit i (0..7) at (i+1, 8), down column 8, and bit i (8..14) at
+// (8, 15-i), left along row 8, so bit 14 lands at (8, 1). This is QR's
+// first-copy L with the same corner but no timing gaps; getting it backwards
+// would still round-trip internally while every other reader failed
+// (docs/theory/26-micro-qr.md section 7). The writer, the matrix reader, and
+// the image-side reader all take the layout from here.
+func microFormatModule(i int) (row, col int) {
+	if i < 8 {
+		return i + 1, 8
 	}
-	for i := 8; i < 15; i++ {
-		m.modules[8][15-i] = bitOf(word, i)
+	return 8, 15 - i
+}
+
+// writeMicroFormatInfo places the single format copy at the positions given
+// by microFormatModule.
+func (m *matrix) writeMicroFormatInfo(word uint32) {
+	for i := 0; i < 15; i++ {
+		r, c := microFormatModule(i)
+		m.modules[r][c] = bitOf(word, i)
 	}
 }
 

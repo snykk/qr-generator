@@ -451,20 +451,28 @@ type finderTripleQuad struct {
 	tl, tr, bl finderQuad
 }
 
-// detectFinderQuads locates finder patterns by connected-component analysis and
+// allFinderQuads locates finder patterns by connected-component analysis and
 // returns each as a quad: its centre plus the four outer corners of its dark
 // ring. Corners come from the ring's own pixels, so they carry the perspective
-// distortion the projective homography then inverts.
-func detectFinderQuads(bm *bitmap) ([]finderQuad, error) {
+// distortion the projective homography then inverts. There is no minimum
+// count: a Micro symbol has a single finder (docs/theory/27-micro-qr-detection.md).
+func allFinderQuads(bm *bitmap) []finderQuad {
 	stats, labelOf := labelComponents(bm)
 	nests := finderNestings(stats)
-	if len(nests) < 3 {
-		return nil, ErrFinderNotFound
-	}
 	quads := make([]finderQuad, 0, len(nests))
 	for _, c := range nests {
 		corners := extractQuadCorners(labelOf, bm.width, stats[c.outer], c.outer)
 		quads = append(quads, finderQuad{center: c.center, corners: corners})
+	}
+	return quads
+}
+
+// detectFinderQuads is allFinderQuads for the QR paths, which need at least
+// three finders and return ErrFinderNotFound otherwise.
+func detectFinderQuads(bm *bitmap) ([]finderQuad, error) {
+	quads := allFinderQuads(bm)
+	if len(quads) < 3 {
+		return nil, ErrFinderNotFound
 	}
 	return quads, nil
 }
