@@ -66,7 +66,7 @@ Direncanakan di MS3/MS4 (lihat `docs/plan-multi-symbol-decoding.md`):
 
 - `qrgen/decode_finder_cc.go`: `groupFinderTriples` (enumerasi, gerbang oleh `orderFinderTriple` dan ceiling cost terukur, sort, klaim disjoint berbasis indeks) dan `allFinderQuadTriples`.
 - `qrgen/decode_image.go`: `decodeOneQuadTriple(bm, tq) (text, Version, homography, error)`, diekstrak dari jalur projektif single-symbol tanpa perubahan perilaku.
-- `qrgen/decode_multi.go`: tipe `Result` dengan `Bounds()`, penurunan sudut simbol dari homography, dan `DecodeAll` / `DecodeAllBytes` publik.
+- `qrgen/decode_multi.go`: tipe `Result` dengan `Bounds()`, penurunan sudut simbol dari homography, dan `DecodeAll` / `DecodeAllBytes` publik. Sejak v0.16 loop ini juga mencoba setiap finder yang belum diklaim sebagai simbol Micro QR (dokumen 27), yang dilaporkan lewat `Result.MicroVersion`.
 - Test mengomposit beberapa simbol yang di-render ke satu kanvas dan cross-check reader `multi/qrcode` milik `gozxing`.
 
 ## Referensi

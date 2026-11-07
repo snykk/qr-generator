@@ -92,8 +92,8 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah MD5) membaca simbol Micr
 
 ### MD6 — Micro di DecodeAll `(M)`
 
-- [ ] Tahap Micro atas finder quad yang belum diklaim di `decodeMultipleFromBitmap`, dan `Result.MicroVersion`.
-- [ ] Test pada scene komposit: beberapa simbol Micro berbeda version, Micro dan QR bersama, tile yang dirotasi, dan urutan baca; cek sekali jalan dengan zxing-cpp pada satu komposit.
+- [x] Tahap Micro atas finder quad yang belum diklaim di `decodeMultipleFromBitmap`, dan `Result.MicroVersion`; `examples/decode/multi` mencetak version Micro untuk hasil Micro.
+- [x] Test pada scene komposit: beberapa simbol Micro berbeda version, Micro dan QR bersama, tile yang dirotasi, dan urutan baca; cek sekali jalan dengan zxing-cpp pada tiga komposit, yang menemukan simbol yang sama dengan jenis yang sama.
 
 ### MD7 — Polish & Rilis `(S)`
 
@@ -145,7 +145,7 @@ examples/decode/micro/main.go
 
 ## 11. Pertanyaan Terbuka
 
-- **Micro di `Result`.** Usulannya menambah `MicroVersion MicroVersion` dan membiarkan `Finders[1]` dan `Finders[2]` nol untuk simbol Micro. Alternatifnya, tipe result terpisah untuk Micro, akan memecah loop setiap pemanggil menjadi dua. Dikonfirmasi sebelum MD6.
+- **Micro di `Result`.** Terjawab sebelum MD6: `Result` mendapat `MicroVersion MicroVersion`, nol untuk simbol QR; hasil Micro punya `Version` nol dan hanya `Finders[0]` yang terisi. Alternatifnya, tipe result terpisah untuk Micro, akan memecah loop setiap pemanggil menjadi dua.
 - **Toleransi timing.** Terjawab di MD3: dua. Simbol yang bersih terbaca tanpa ketidakcocokan; pada setiap finder dari 224 simbol QR (version 1 sampai 7, semua level EC dan mask), penetapan yang sampai ke cek silang tidak cocok di 1 sampai 14 modul, dengan median 8, dan tiga yang masuk toleransi ditolak oleh Reed-Solomon.
 - **Penyempurnaan sudut jauh.** Terjawab di MD5: diperlukan, dan tidak cukup sendirian. Homografi finder saja gagal pada 3 sampai 5 piksel per modul di bawah rotasi; sudut dari ujung timing memperbaiki sebagian besarnya, dan fit atas keempat tepi luar, yang menjangkar sudut kanan-bawah lewat modul gelap yang dijaga aturan masking di baris dan kolom terakhir, memperbaiki sisanya sampai 3 piksel per modul.
 - **Kontrak error.** Terjawab di MD4: ya, tetapi hanya untuk bukti Micro yang meyakinkan. Lolos gerbang orientasi, yang dicapai sekitar sepertiga finder QR, ternyata terlalu lemah; timing pattern yang cocok persis dengan format information yang tak terbaca, atau simbol yang sudah ditemukan tetapi datanya gagal, dicapai kurang dari satu dari seratus finder QR, dan tidak satu pun dari 96 simbol QR yang satu finder-nya terhapus berubah error-nya.

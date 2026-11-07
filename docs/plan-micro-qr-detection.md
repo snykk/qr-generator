@@ -92,8 +92,8 @@ Milestones land sequentially. **Checkpoint A** (after MD5) reads Micro symbols f
 
 ### MD6 — Micro in DecodeAll `(M)`
 
-- [ ] The Micro pass over unclaimed finder quads in `decodeMultipleFromBitmap`, and `Result.MicroVersion`.
-- [ ] Tests on composited scenes: several Micro symbols of different versions, Micro and QR together, rotated tiles, and reading order; a one-off zxing-cpp check on one composite.
+- [x] The Micro pass over unclaimed finder quads in `decodeMultipleFromBitmap`, and `Result.MicroVersion`; `examples/decode/multi` prints the Micro version for Micro results.
+- [x] Tests on composited scenes: several Micro symbols of different versions, Micro and QR together, rotated tiles, and reading order; a one-off zxing-cpp check on three composites, where it found the same symbols of the same kinds.
 
 ### MD7 — Polish & Release `(S)`
 
@@ -145,7 +145,7 @@ examples/decode/micro/main.go
 
 ## 11. Open Questions
 
-- **Micro in `Result`.** The proposal adds `MicroVersion MicroVersion` and leaves `Finders[1]` and `Finders[2]` zero for a Micro symbol. The alternative, a separate result type for Micro, would split every caller's loop in two. To confirm before MD6.
+- **Micro in `Result`.** Resolved before MD6: `Result` gains `MicroVersion MicroVersion`, zero for QR symbols; a Micro result has `Version` zero and only `Finders[0]` set. The alternative, a separate result type for Micro, would have split every caller's loop in two.
 - **Timing tolerance.** Resolved in MD3: two. Clean symbols read with no disagreement; over every finder of 224 QR symbols (versions 1 to 7, every EC level and mask), the assignments that reached the cross-check disagreed in 1 to 14 modules, 8 at the median, and the three that fell within the tolerance were rejected by Reed-Solomon.
 - **Far-corner refinement.** Resolved in MD5: needed, and not enough on its own. The finder homography alone failed at 3 to 5 pixels per module under rotation; the timing-end corners fixed most of that, and an edge fit of all four outer edges, which anchors the bottom-right corner through the dark modules the masking rule keeps on the last row and column, fixed the rest down to 3 pixels per module.
 - **Error contract.** Resolved in MD4: yes, but only for convincing Micro evidence. Passing the orientation gate, which about a third of QR finders do, proved too weak; an exact timing pattern with unreadable format information, or a located symbol whose data fails, reaches fewer than one QR finder in a hundred, and none of 96 QR symbols with a finder wiped out changed its error.

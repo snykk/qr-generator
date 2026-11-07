@@ -15,14 +15,16 @@ import (
 	"sort"
 )
 
-// decodedSymbol is one QR symbol recovered from a bitmap by the multi-symbol
-// grouping loop: its text plus the geometry needed to locate it (the winning
-// version and homography, and the ordered finder triple).
+// decodedSymbol is one symbol recovered from a bitmap by the multi-symbol
+// loop: its text plus the geometry needed to locate it (the winning version and
+// homography, and the ordered finder triple). For a Micro QR symbol, micro is
+// its version, v is zero, and tq.tl holds its single finder.
 type decodedSymbol struct {
-	text string
-	v    Version
-	hg   homography
-	tq   finderTripleQuad
+	text  string
+	v     Version
+	micro MicroVersion
+	hg    homography
+	tq    finderTripleQuad
 }
 
 // decodeMultipleFromBitmap finds and decodes every QR symbol in a binarised
@@ -37,10 +39,15 @@ type decodedSymbol struct {
 // them before the real symbols are reached. Triples that reuse an already
 // claimed finder are skipped without spending an attempt.
 //
-// See docs/theory/25-multi-symbol-decoding.md.
+// After the QR triples, every finder no QR symbol claimed is tried as the
+// single finder of a Micro QR symbol and claimed if it decodes, so a QR finder
+// is never offered to the Micro search once its symbol has decoded.
+//
+// See docs/theory/25-multi-symbol-decoding.md and
+// docs/theory/27-micro-qr-detection.md.
 func decodeMultipleFromBitmap(bm *bitmap) []decodedSymbol {
-	quads, err := detectFinderQuads(bm)
-	if err != nil {
+	quads := allFinderQuads(bm)
+	if len(quads) == 0 {
 		return nil
 	}
 	if len(quads) > maxCCCandidates {
@@ -76,6 +83,15 @@ func decodeMultipleFromBitmap(bm *bitmap) []decodedSymbol {
 		claimed[tr.tl], claimed[tr.tr], claimed[tr.bl] = true, true, true
 		out = append(out, decodedSymbol{text: text, v: v, hg: hg, tq: tq})
 	}
+	for i, q := range quads {
+		if claimed[i] {
+			continue
+		}
+		if text, mv, hg, _, err := decodeMicroQuad(bm, q); err == nil {
+			claimed[i] = true
+			out = append(out, decodedSymbol{text: text, micro: mv, hg: hg, tq: finderTripleQuad{tl: q}})
+		}
+	}
 	return out
 }
 
@@ -94,11 +110,17 @@ type Result struct {
 
 	// Finders are the centres of the three finder patterns in pixel
 	// coordinates: [0]=top-left, [1]=top-right, [2]=bottom-left. With Corners
-	// they pin down the symbol's orientation.
+	// they pin down the symbol's orientation. A Micro QR symbol has a single
+	// finder, in Finders[0]; the other two entries are zero.
 	Finders [3]image.Point
 
-	// Version is the decoded QR version, 1..40.
+	// Version is the decoded QR version, 1..40, and zero for a Micro QR
+	// symbol.
 	Version Version
+
+	// MicroVersion is the version of a Micro QR symbol, M1..M4, and zero for
+	// a QR symbol. It is the way to tell the two kinds apart.
+	MicroVersion MicroVersion
 }
 
 // Bounds returns the axis-aligned bounding rectangle of the symbol in
@@ -125,9 +147,10 @@ func (r Result) Bounds() image.Rectangle {
 	return image.Rect(minX, minY, maxX+1, maxY+1)
 }
 
-// DecodeAll finds and decodes every QR symbol present in img and returns one
-// Result per symbol that decoded successfully, in reading order (top to bottom,
-// then left to right by each symbol's top-left corner).
+// DecodeAll finds and decodes every QR and Micro QR symbol present in img and
+// returns one Result per symbol that decoded successfully, in reading order
+// (top to bottom, then left to right by each symbol's top-left corner). A
+// Micro QR symbol is reported with its MicroVersion set and Version zero.
 //
 // Per-symbol failures are not fatal: a symbol whose finder pattern, format
 // info, or Reed-Solomon blocks cannot be recovered is skipped, and the symbols
@@ -138,7 +161,9 @@ func (r Result) Bounds() image.Rectangle {
 //
 // DecodeAll uses the connected-component detector, so it reads symbols at
 // arbitrary rotation and moderate perspective tilt (see
-// docs/theory/25-multi-symbol-decoding.md). It does not reassemble a
+// docs/theory/25-multi-symbol-decoding.md). Micro QR symbols are found from
+// their single finder pattern among the finders no QR symbol claimed (see
+// docs/theory/27-micro-qr-detection.md). It does not reassemble a
 // structured-append set; use [DecodeStructuredAppend] for that. The existing
 // single-symbol [Decode] is unchanged.
 func DecodeAll(img image.Image) ([]Result, error) {
@@ -148,11 +173,21 @@ func DecodeAll(img image.Image) ([]Result, error) {
 	}
 	results := make([]Result, len(syms))
 	for i, s := range syms {
+		tl := roundPoint(s.tq.tl.center.x, s.tq.tl.center.y)
+		if s.micro != 0 {
+			results[i] = Result{
+				Text:         s.text,
+				Corners:      symbolCorners(s.micro.Size(), s.hg),
+				Finders:      [3]image.Point{tl},
+				MicroVersion: s.micro,
+			}
+			continue
+		}
 		results[i] = Result{
 			Text:    s.text,
-			Corners: symbolCorners(s.v, s.hg),
+			Corners: symbolCorners(s.v.Size(), s.hg),
 			Finders: [3]image.Point{
-				roundPoint(s.tq.tl.center.x, s.tq.tl.center.y),
+				tl,
 				roundPoint(s.tq.tr.center.x, s.tq.tr.center.y),
 				roundPoint(s.tq.bl.center.x, s.tq.bl.center.y),
 			},
@@ -190,13 +225,13 @@ func decodeAllFromImage(img image.Image) []decodedSymbol {
 	return decodeMultipleFromBitmap(sauvolaBinariseFromGray(pixels, w, h))
 }
 
-// symbolCorners returns the four outer corners of a symbol in pixel coordinates
-// by applying its homography to the module-grid outer edges. A symbol of n
-// modules spans module coordinates -0.5..n-0.5, so these are the true (possibly
-// perspective-distorted) corners, not the finder-ring corners. Order is
-// [top-left, top-right, bottom-right, bottom-left].
-func symbolCorners(v Version, hg homography) [4]image.Point {
-	n := float64(v.Size())
+// symbolCorners returns the four outer corners of a symbol of side n modules in
+// pixel coordinates by applying its homography to the module-grid outer edges.
+// The symbol spans module coordinates -0.5..n-0.5, so these are the true
+// (possibly perspective-distorted) corners, not the finder-ring corners. Order
+// is [top-left, top-right, bottom-right, bottom-left].
+func symbolCorners(side int, hg homography) [4]image.Point {
+	n := float64(side)
 	corner := func(col, row float64) image.Point {
 		px, py := hg.apply(col, row)
 		return roundPoint(px, py)

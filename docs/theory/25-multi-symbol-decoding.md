@@ -66,7 +66,7 @@ Planned in MS3/MS4 (see `docs/plan-multi-symbol-decoding.md`):
 
 - `qrgen/decode_finder_cc.go`: `groupFinderTriples` (enumerate, gate by `orderFinderTriple` and a measured cost ceiling, sort, index-based disjoint claim) and `allFinderQuadTriples`.
 - `qrgen/decode_image.go`: `decodeOneQuadTriple(bm, tq) (text, Version, homography, error)`, extracted from the single-symbol projective path with no behaviour change.
-- `qrgen/decode_multi.go`: the `Result` type with `Bounds()`, the symbol-corner derivation from the homography, and the public `DecodeAll` / `DecodeAllBytes`.
+- `qrgen/decode_multi.go`: the `Result` type with `Bounds()`, the symbol-corner derivation from the homography, and the public `DecodeAll` / `DecodeAllBytes`. Since v0.16 the loop also tries every unclaimed finder as a Micro QR symbol (doc 27), reported through `Result.MicroVersion`.
 - Tests composite several rendered symbols onto one canvas and cross-check the `gozxing` `multi/qrcode` reader.
 
 ## References
