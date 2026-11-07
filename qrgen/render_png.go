@@ -73,29 +73,31 @@ func colorEqual(a, b color.Color) bool {
 	return ar == br && ag == bg && ab == bb && aa == ba
 }
 
-// renderPNG rasterises m into PNG bytes per opts. The output side length is
-// opts.moduleSize * (m.size + 2*opts.quietZone) pixels.
+// renderPNG rasterises m into PNG bytes per opts. The output is
+// opts.moduleSize * (m.cols() + 2*opts.quietZone) pixels wide and
+// opts.moduleSize * (m.rows() + 2*opts.quietZone) pixels tall: square for QR
+// and Micro QR, rectangular for rMQR.
 func renderPNG(m *matrix, opts renderOptions) ([]byte, error) {
 	opts = opts.withDefaults()
 	if m == nil {
 		return nil, fmt.Errorf("qrgen: renderPNG: nil matrix")
 	}
 
-	n := m.size
-	side := opts.moduleSize * (n + 2*opts.quietZone)
-	if side <= 0 {
-		return nil, fmt.Errorf("qrgen: renderPNG: invalid side length %d", side)
+	width := opts.moduleSize * (m.cols() + 2*opts.quietZone)
+	height := opts.moduleSize * (m.rows() + 2*opts.quietZone)
+	if width <= 0 || height <= 0 {
+		return nil, fmt.Errorf("qrgen: renderPNG: invalid size %dx%d", width, height)
 	}
 
 	var img image.Image
 	if opts.logo == nil && opts.isMonochromeDefault() {
-		img = renderGray(m, opts, side)
+		img = renderGray(m, opts, width, height)
 	} else {
 		// A logo needs an RGBA canvas to composite onto, even for the otherwise
-		// monochrome default.
-		rgba := renderRGBA(m, opts, side)
+		// monochrome default. Logos go only on square QR symbols.
+		rgba := renderRGBA(m, opts, width, height)
 		if opts.logo != nil {
-			drawLogo(rgba, opts.logo, side)
+			drawLogo(rgba, opts.logo, width)
 		}
 		img = rgba
 	}
@@ -109,15 +111,14 @@ func renderPNG(m *matrix, opts renderOptions) ([]byte, error) {
 
 // renderGray fills an 8-bit grayscale image with the matrix: dark modules at
 // 0x00, light modules and quiet zone at 0xFF.
-func renderGray(m *matrix, opts renderOptions, side int) *image.Gray {
-	img := image.NewGray(image.Rect(0, 0, side, side))
+func renderGray(m *matrix, opts renderOptions, width, height int) *image.Gray {
+	img := image.NewGray(image.Rect(0, 0, width, height))
 	// Light background.
 	for i := range img.Pix {
 		img.Pix[i] = 0xFF
 	}
-	n := m.size
-	for r := 0; r < n; r++ {
-		for c := 0; c < n; c++ {
+	for r := 0; r < m.rows(); r++ {
+		for c := 0; c < m.cols(); c++ {
 			if !m.modules[r][c] {
 				continue
 			}
@@ -137,20 +138,19 @@ func fillSquareGray(img *image.Gray, x0, y0, size int, v uint8) {
 }
 
 // renderRGBA fills an RGBA image using opts.foreground/opts.background.
-func renderRGBA(m *matrix, opts renderOptions, side int) *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, side, side))
+func renderRGBA(m *matrix, opts renderOptions, width, height int) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	bg := color.RGBAModel.Convert(opts.background).(color.RGBA)
 	fg := color.RGBAModel.Convert(opts.foreground).(color.RGBA)
 
 	// Light background.
-	for y := 0; y < side; y++ {
-		for x := 0; x < side; x++ {
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
 			img.SetRGBA(x, y, bg)
 		}
 	}
-	n := m.size
-	for r := 0; r < n; r++ {
-		for c := 0; c < n; c++ {
+	for r := 0; r < m.rows(); r++ {
+		for c := 0; c < m.cols(); c++ {
 			if !m.modules[r][c] {
 				continue
 			}

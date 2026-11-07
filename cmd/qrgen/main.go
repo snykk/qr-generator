@@ -18,6 +18,7 @@
 //	qrgen -text "HELLO" -format ascii                        # ASCII fallback to stdout
 //	echo -n "HELLO" | qrgen -out hello.png                   # text from stdin
 //	qrgen -text "HELLO" -out - > qr.png                      # PNG to stdout
+//	qrgen -text "HELLO RMQR" -rmqr -out rmqr.png             # rectangular rMQR Code
 //	qrgen -decode -in qr.png                                 # decode → stdout
 //	cat qr.png | qrgen -decode                               # decode from stdin
 //	qrgen -decode -in qr.png -out text.txt                   # decode → file
@@ -57,6 +58,10 @@ type cliConfig struct {
 
 	micro        bool   // encode a Micro QR Code instead of a QR Code
 	microVersion string // "M1".."M4" forces a Micro version and implies micro
+
+	rmqr        bool   // encode an rMQR Code instead of a QR Code
+	rmqrVersion string // "R7x43".."R17x139" forces an rMQR version and implies rmqr
+	rmqrHeight  int    // 7..17 fixes the rMQR height and implies rmqr; 0 = free
 }
 
 func main() {
@@ -67,14 +72,17 @@ func main() {
 	flag.StringVar(&cfg.out, "out", "", "output path; default qr.png/qr.svg for encode, stdout for decode. Use \"-\" to force stdout")
 	flag.StringVar(&cfg.format, "format", "", "encode mode: output format png, svg, terminal, or ascii; default png, inferred as svg from a .svg -out extension")
 	flag.IntVar(&cfg.moduleSize, "size", 8, "encode mode: module size in pixels")
-	flag.StringVar(&cfg.ec, "ec", "", "encode mode: error-correction level L, M, Q, or H; unset means M for QR Code, and for Micro QR the smallest symbol at M or L (M1 for short numbers)")
+	flag.StringVar(&cfg.ec, "ec", "", "encode mode: error-correction level L, M, Q, or H; unset means M for QR Code, for Micro QR the smallest symbol at M or L (M1 for short numbers), and for rMQR M, or H when it fits in the same symbol")
 	flag.StringVar(&cfg.fg, "fg", "", "encode mode: foreground hex colour (e.g. #102E57); default black")
 	flag.StringVar(&cfg.bg, "bg", "", "encode mode: background hex colour (e.g. #FFF8E7); default white")
-	flag.IntVar(&cfg.quietZone, "quiet-zone", -1, "encode mode: modules of background around the symbol (-1 = 4 for QR Code, 2 for Micro QR)")
+	flag.IntVar(&cfg.quietZone, "quiet-zone", -1, "encode mode: modules of background around the symbol (-1 = 4 for QR Code, 2 for Micro QR and rMQR)")
 	flag.IntVar(&cfg.version, "version", 0, "encode mode: force QR version 1..40 (0 = auto)")
-	flag.IntVar(&cfg.mask, "mask", -1, "encode mode: force mask 0..7, or 0..3 for Micro QR (-1 = auto)")
+	flag.IntVar(&cfg.mask, "mask", -1, "encode mode: force mask 0..7, or 0..3 for Micro QR (-1 = auto; rMQR has one fixed mask)")
 	flag.BoolVar(&cfg.micro, "micro", false, "encode mode: produce a Micro QR Code (M1..M4) instead of a QR Code")
 	flag.StringVar(&cfg.microVersion, "micro-version", "", "encode mode: force Micro QR version M1..M4 (implies -micro)")
+	flag.BoolVar(&cfg.rmqr, "rmqr", false, "encode mode: produce a rectangular rMQR Code (R7x43..R17x139) instead of a QR Code")
+	flag.StringVar(&cfg.rmqrVersion, "rmqr-version", "", "encode mode: force rMQR version R7x43..R17x139 (implies -rmqr)")
+	flag.IntVar(&cfg.rmqrHeight, "rmqr-height", 0, "encode mode: fix the rMQR height to 7, 9, 11, 13, 15, or 17 modules and pick the narrowest width (implies -rmqr)")
 	flag.BoolVar(&cfg.invert, "invert", false, "encode mode: invert terminal/ascii output for dark-background terminals")
 
 	flag.Usage = func() {
@@ -97,6 +105,8 @@ func main() {
 		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"HELLO\" -out - > qr.png")
 		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"12345\" -micro -out micro.png")
 		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"HELLO\" -micro-version M2 -ec L -format terminal")
+		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"HELLO RMQR\" -rmqr -out rmqr.png")
+		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -text \"12345\" -rmqr-height 7 -format terminal")
 		fmt.Fprintln(flag.CommandLine.Output(), "")
 		fmt.Fprintln(flag.CommandLine.Output(), "Decode examples:")
 		fmt.Fprintln(flag.CommandLine.Output(), "  qrgen -decode -in qr.png")
@@ -156,6 +166,21 @@ func runEncode(cfg cliConfig, stdin io.Reader, stdout io.Writer) error {
 		opts = append(opts, qrgen.WithMicroVersion(mv))
 	} else if cfg.micro {
 		opts = append(opts, qrgen.WithMicro())
+	}
+	// Both rMQR constraints are passed when both are given, so the library
+	// reports a version and height that disagree.
+	if cfg.rmqrVersion != "" {
+		rv, err := parseRMQRVersion(cfg.rmqrVersion)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, qrgen.WithRMQRVersion(rv))
+	}
+	if cfg.rmqrHeight != 0 {
+		opts = append(opts, qrgen.WithRMQRHeight(cfg.rmqrHeight))
+	}
+	if cfg.rmqr && cfg.rmqrVersion == "" && cfg.rmqrHeight == 0 {
+		opts = append(opts, qrgen.WithRMQR())
 	}
 	if cfg.version > 0 {
 		opts = append(opts, qrgen.WithVersion(qrgen.Version(cfg.version)))
@@ -314,6 +339,17 @@ func parseMicroVersion(s string) (qrgen.MicroVersion, error) {
 		return qrgen.M4, nil
 	}
 	return 0, fmt.Errorf("invalid Micro QR version %q (want M1, M2, M3, or M4)", s)
+}
+
+// parseRMQRVersion parses an -rmqr-version value such as "R11x43", in any case.
+func parseRMQRVersion(s string) (qrgen.RMQRVersion, error) {
+	s = strings.TrimSpace(s)
+	for v := qrgen.R7x43; v <= qrgen.R17x139; v++ {
+		if strings.EqualFold(v.String(), s) {
+			return v, nil
+		}
+	}
+	return 0, fmt.Errorf("invalid rMQR version %q (want one of R7x43 to R17x139, such as R11x43)", s)
 }
 
 // parseHexColor accepts #RRGGBB and #RRGGBBAA (with or without the leading

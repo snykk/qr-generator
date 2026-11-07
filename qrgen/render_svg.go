@@ -32,14 +32,14 @@ func renderSVG(m *matrix, opts renderOptions) ([]byte, error) {
 		return nil, fmt.Errorf("qrgen: renderSVG: nil matrix")
 	}
 
-	n := m.size
-	dim := n + 2*opts.quietZone // canvas side in module units
-	if dim <= 0 {
-		return nil, fmt.Errorf("qrgen: renderSVG: invalid dimension %d", dim)
+	dimW := m.cols() + 2*opts.quietZone // canvas width in module units
+	dimH := m.rows() + 2*opts.quietZone // canvas height in module units
+	if dimW <= 0 || dimH <= 0 {
+		return nil, fmt.Errorf("qrgen: renderSVG: invalid dimensions %dx%d", dimW, dimH)
 	}
-	side := opts.moduleSize * dim // canvas side in pixels
-	if side <= 0 {
-		return nil, fmt.Errorf("qrgen: renderSVG: invalid side length %d", side)
+	width, height := opts.moduleSize*dimW, opts.moduleSize*dimH // in pixels
+	if width <= 0 || height <= 0 {
+		return nil, fmt.Errorf("qrgen: renderSVG: invalid size %dx%d", width, height)
 	}
 
 	fgHex, fgOpacity := colorToHex(opts.foreground)
@@ -49,14 +49,14 @@ func renderSVG(m *matrix, opts renderOptions) ([]byte, error) {
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
 	fmt.Fprintf(&b,
 		`<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" shape-rendering="crispEdges">`+"\n",
-		side, side, dim, dim)
+		width, height, dimW, dimH)
 
 	// Background rect over the whole canvas, including the quiet zone.
 	b.WriteString("  ")
 	b.WriteString(`<rect width="`)
-	b.WriteString(strconv.Itoa(dim))
+	b.WriteString(strconv.Itoa(dimW))
 	b.WriteString(`" height="`)
-	b.WriteString(strconv.Itoa(dim))
+	b.WriteString(strconv.Itoa(dimH))
 	b.WriteString(`" fill="`)
 	b.WriteString(bgHex)
 	b.WriteString(`"`)
@@ -67,9 +67,9 @@ func renderSVG(m *matrix, opts renderOptions) ([]byte, error) {
 	// quiet zone. Absolute moveto then relative h/v/h, z to close.
 	var d strings.Builder
 	q := opts.quietZone
-	for r := 0; r < n; r++ {
+	for r := 0; r < m.rows(); r++ {
 		row := m.modules[r]
-		for c := 0; c < n; c++ {
+		for c := 0; c < m.cols(); c++ {
 			if !row[c] {
 				continue
 			}
@@ -88,7 +88,7 @@ func renderSVG(m *matrix, opts renderOptions) ([]byte, error) {
 	}
 
 	if opts.logo != nil && opts.logo.Image != nil {
-		if err := writeSVGLogo(&b, opts.logo, dim); err != nil {
+		if err := writeSVGLogo(&b, opts.logo, dimW); err != nil { // logos go only on square QR symbols
 			return nil, fmt.Errorf("qrgen: renderSVG: logo: %w", err)
 		}
 	}

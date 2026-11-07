@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-07
+
+This release adds **rMQR Code** (Rectangular Micro QR Code, ISO/IEC 23941), the rectangular member of the QR family: all 32 versions, from R7x43 to R17x139, at both of their error-correction levels, through every encoder and renderer, plus matrix-level decoding. As with Micro QR, it was validated against implementations that share none of our code: zint for byte-exact goldens and automatic choices, and zxing-cpp as an independent reader.
+
+### Added
+
+- `WithRMQR()`, `WithRMQRVersion(RMQRVersion)` with constants `R7x43` to `R17x139`, and `WithRMQRHeight(rows)`: `Encode`, `EncodeToFile`, `EncodeSVG`, `EncodeSVGToFile`, `EncodeTerminal`, and `Matrix` produce rMQR Codes. `WithRMQR` picks the smallest-area symbol that fits, `WithRMQRHeight` the narrowest symbol of a given height (7, 9, 11, 13, 15, or 17 modules), and `WithRMQRVersion` forces one; an `RMQRVersion` reports its `Height`, `Width`, and name, such as `R11x43`. Without `WithECLevel` the encoder takes level M and switches to H when the text also fits at H in the same symbol, as zint does; an explicit M or H picks the smallest symbol at that level. Text is segmented across the numeric, alphanumeric, byte, and Kanji modes with rMQR's 3-bit mode indicators and per-version count widths, `WithECI` works as for QR, and the quiet zone defaults to rMQR's 2 modules. Levels L and Q, `WithMask` (rMQR has one fixed mask), `WithVersion`, the Micro QR options, `WithLogo`, a version that contradicts the height, and structured append are rejected with specific errors, and text that does not fit returns an `ErrCapacityExceeded` error instead of a QR symbol.
+- `DecodeMatrix` reads rMQR grids, recognised by their rectangular shape: the version follows from the shape, the level from the nearer of the two format copies within BCH(18,6)'s 3-bit budget, so either copy alone is enough, and the codewords are then deinterleaved, corrected block by block, and parsed with rMQR's field widths. rMQR's FNC1 modes are reported as `ErrCorruptedPayload`.
+- CLI: `-rmqr`, `-rmqr-version R7x43..R17x139` (in any case), and `-rmqr-height` with the six heights; the last two imply `-rmqr`.
+- New reference doc `docs/theory/28-rmqr.md` (English plus Indonesian), plan doc `docs/plan-rmqr.md` (plus Indonesian) with milestones RQ1..RQ6, and a runnable example `examples/encode/rmqr`.
+
+### Changed
+
+- Internals: the matrix, the placement walk, the mask, and the PNG, SVG, and terminal renderers work with separate row and column counts, so the same code draws rectangular symbols; `placeBits` takes the column its walk starts from, and padding takes the terminator length, 4 bits for QR and 3 for rMQR. QR and Micro QR output is unchanged, as the third-party QR and Micro fixtures confirm.
+- `DecodeMatrix` sends a rectangular grid to the rMQR decoder; square grids take the QR and Micro paths as before.
+- Docs: the README covers rMQR in a new section, the CLI examples, the API table, scope, limitations, and roadmap; the CLI's `-ec`, `-quiet-zone`, and `-mask` help mention rMQR.
+
+### Validated
+
+- 70 zint symbols, all 32 versions at both levels with the four modes in rotation plus six special cases (a terminator cut to two bits, two terminators ending exactly on a codeword boundary, UTF-8 and Latin-1 ECI headers, and the shortest symbol), are committed as text fixtures in `qrgen/testdata/thirdparty/rmqr_symbols.txt` together with each symbol's final codeword stream. Our codeword stream matches each one byte for byte, our symbols match module for module, and `DecodeMatrix` reads all of them.
+- Our automatic choice of version and level matches zint's for all 545 `auto` records in the same file: numeric inputs across the whole capacity range, with the level unset, M, or H, and the height free or fixed to each of the six heights. Matching them pinned down zint's level rule: it moves to H only when the data before the terminator is strictly shorter than H's capacity.
+- zxing-cpp 2.3.0 reads 240 of 240 of our symbols rendered as PNG: every version at both levels, with numeric, alphanumeric, byte, and Kanji text wherever it fits.
+- The tables were cross-checked across three implementations: zint and zxing-cpp agree on every one, and rmqrcode 0.3.2 differs only in two block definitions, R13x27-M and R17x43-M, where it is wrong.
+- Shifting the placement walk one column to the right in both the writer and the reader left the round-trip tests passing while all 70 zint symbols failed both the matrix and the decoding goldens: the self-consistency trap these fixtures exist to catch.
+- The worked bit streams of theory doc 28, error correction to the full capacity of three single-block symbols with one damaged codeword more rejected, and damage to either format copy within the 3-bit budget are tested. `go test -race ./...` clean.
+
 ## [0.16.0] - 2026-11-07
 
 This release finds **Micro QR Code symbols in images**: `Decode`, `DecodeBytes`, the CLI's `-decode`, and `DecodeAll` now locate a Micro symbol from its single finder pattern, completing the Micro QR support that v0.15 began with the encoder and the matrix decoder. As with v0.15, it was validated against implementations that share none of our code: zint's symbols rendered into images, and zxing-cpp's reader on the same scenes.
@@ -420,7 +446,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/snykk/qr-generator/releases/tag/v0.17.0
 [0.16.0]: https://github.com/snykk/qr-generator/releases/tag/v0.16.0
 [0.15.0]: https://github.com/snykk/qr-generator/releases/tag/v0.15.0
 [0.14.1]: https://github.com/snykk/qr-generator/releases/tag/v0.14.1

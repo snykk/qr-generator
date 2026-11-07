@@ -144,7 +144,7 @@ func buildMicroMatrix(text string, opts *options) (*matrix, int, error) {
 	}
 	m := newMicroMatrix(sym.version)
 	m.placeMicroFunctionPatterns()
-	if err := m.placeBits(stream.bytes(), sym.streamBits(), -1); err != nil {
+	if err := m.placeBits(stream.bytes(), sym.streamBits(), -1, m.cols()-1); err != nil {
 		return nil, 0, err
 	}
 	mask := opts.mask
