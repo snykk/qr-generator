@@ -361,3 +361,114 @@ func TestDecodeAllEmptyImage(t *testing.T) {
 		t.Errorf("err = %v, want ErrFinderNotFound", err)
 	}
 }
+
+// microTiles renders one Micro symbol of each version, M1 to M4, as tiles.
+func microTiles(t *testing.T) ([]image.Image, []string) {
+	t.Helper()
+	texts := []string{"12345", "MICRO2", "MICRO M3", "Micro M4 tile"}
+	tiles := make([]image.Image, len(texts))
+	for i, text := range texts {
+		tiles[i] = renderQR(t, text, WithMicroVersion(MicroVersion(i+1)))
+	}
+	return tiles, texts
+}
+
+// TestDecodeAllMicroScene: four Micro symbols, M1 to M4, side by side, are all
+// reported, in reading order, with their Micro versions, a single finder, and
+// corners where the tiles put them (8 pixels per module, 2-module quiet zone).
+func TestDecodeAllMicroScene(t *testing.T) {
+	tiles, texts := microTiles(t)
+	var placed []placedTile
+	x := 40
+	for _, tile := range tiles {
+		placed = append(placed, placedTile{img: tile, x: x, y: 50})
+		x += tile.Bounds().Dx() + 30
+	}
+	results, err := DecodeAll(compositeTiles(x+10, 260, placed...))
+	if err != nil {
+		t.Fatalf("DecodeAll: %v", err)
+	}
+	if len(results) != len(texts) {
+		t.Fatalf("got %d results %v, want %d", len(results), resultTexts(results), len(texts))
+	}
+	for i, r := range results {
+		mv := MicroVersion(i + 1)
+		if r.Text != texts[i] || r.MicroVersion != mv || r.Version != 0 {
+			t.Errorf("result %d = (%q, %v, v%d), want (%q, %v, v0)", i, r.Text, r.MicroVersion, r.Version, texts[i], mv)
+		}
+		if r.Finders[1] != (image.Point{}) || r.Finders[2] != (image.Point{}) {
+			t.Errorf("result %d: Finders %v, want only Finders[0] set", i, r.Finders)
+		}
+		// The symbol starts 16 pixels into its tile and spans 8 pixels per module.
+		x0, y0, side := placed[i].x+16, placed[i].y+16, 8*mv.Size()
+		want := [4]image.Point{{x0, y0}, {x0 + side, y0}, {x0 + side, y0 + side}, {x0, y0 + side}}
+		for k := range 4 {
+			if d := r.Corners[k].Sub(want[k]); d.X < -2 || d.X > 2 || d.Y < -2 || d.Y > 2 {
+				t.Errorf("result %d corner %d = %v, want %v within 2 px", i, k, r.Corners[k], want[k])
+			}
+		}
+	}
+}
+
+// TestDecodeAllMicroAndQR: QR and Micro symbols in one image are all found, and
+// each reports the version field of its own kind.
+func TestDecodeAllMicroAndQR(t *testing.T) {
+	tiles, texts := microTiles(t)
+	qr1, qr2 := renderQR(t, "QR LEFT"), renderQR(t, "QR RIGHT")
+	scene := compositeTiles(900, 520,
+		placedTile{img: qr1, x: 20, y: 20},
+		placedTile{img: tiles[1], x: 330, y: 40},
+		placedTile{img: qr2, x: 560, y: 20},
+		placedTile{img: tiles[3], x: 40, y: 330},
+		placedTile{img: tiles[0], x: 400, y: 330},
+	)
+	results, err := DecodeAll(scene)
+	if err != nil {
+		t.Fatalf("DecodeAll: %v", err)
+	}
+	assertTextSet(t, results, "QR LEFT", texts[1], "QR RIGHT", texts[3], texts[0])
+	for _, r := range results {
+		isMicro := r.MicroVersion != 0
+		if isMicro == (r.Version != 0) {
+			t.Errorf("%q: Version %d and MicroVersion %v, want exactly one set", r.Text, r.Version, r.MicroVersion)
+		}
+		if isMicro != (r.Text != "QR LEFT" && r.Text != "QR RIGHT") {
+			t.Errorf("%q reported as Micro=%v", r.Text, isMicro)
+		}
+	}
+}
+
+// TestDecodeAllMicroRotated: Micro tiles turned to arbitrary angles are found.
+func TestDecodeAllMicroRotated(t *testing.T) {
+	tiles, texts := microTiles(t)
+	angles := []float64{17, 38, 64, 81}
+	var placed []placedTile
+	x := 20
+	for i, tile := range tiles {
+		rotated := rotateImage(tile, angles[i])
+		placed = append(placed, placedTile{img: rotated, x: x, y: 20})
+		x += rotated.Bounds().Dx() + 20
+	}
+	results, err := DecodeAll(compositeTiles(x, 320, placed...))
+	if err != nil {
+		t.Fatalf("DecodeAll: %v", err)
+	}
+	assertTextSet(t, results, texts...)
+}
+
+// TestDecodeAllSingleMicroMatchesDecode: on an image of one Micro symbol,
+// DecodeAll reports exactly what Decode reads.
+func TestDecodeAllSingleMicroMatchesDecode(t *testing.T) {
+	img := renderQR(t, "ONE MICRO", WithMicro())
+	want, err := Decode(img)
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	results, err := DecodeAll(img)
+	if err != nil {
+		t.Fatalf("DecodeAll: %v", err)
+	}
+	if len(results) != 1 || results[0].Text != want || results[0].MicroVersion == 0 {
+		t.Errorf("DecodeAll = %+v, want one Micro result %q", results, want)
+	}
+}

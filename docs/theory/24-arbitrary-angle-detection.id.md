@@ -54,8 +54,8 @@ Hasil yang jujur: lintas orientasi, decoder andal membaca kemiringan sampai kira
 
 ## 10. Penunjuk implementasi
 
-- `qrgen/decode_finder_cc.go`: labelling two-pass union-find, pencocok penyarangan, ekstraksi sudut (`extractQuadCorners`, `farthestFrom`, `farthestAcross`), dan `findFinderQuadTriple`, yang mengurutkan quad finder lewat `orderFinderTriple` yang invarian rotasi.
-- `qrgen/decode_image.go`: `homographyFromFinderQuads` (penetapan koordinat-modul sudut) dan `computeHomographyLS` (solve least-squares); `decodeImageProjective` dan `decodeProjectiveFromBitmap` (trial version); serta `decodeImage`, yang mengurutkan percobaan afin lalu projektif.
+- `qrgen/decode_finder_cc.go`: labelling two-pass union-find, pencocok penyarangan, ekstraksi sudut (`extractQuadCorners`, `farthestFrom`, `farthestAcross`), dan `bestFinderQuadTriple`, yang mengurutkan quad finder lewat `orderFinderTriple` yang invarian rotasi.
+- `qrgen/decode_image.go`: `homographyFromFinderQuads` (penetapan koordinat-modul sudut) dan `computeHomographyLS` (solve least-squares); `decodeOneQuadTriple` (trial version), yang dicapai lewat `decodeImageCC` dan `decodeCCFromBitmap`, yang sejak v0.16 juga menjalankan pencarian Micro dari dokumen 27; serta `decodeImage`, yang mengurutkan percobaan afin lalu projektif.
 - `qrgen/decode_tilt_test.go`: warp kemiringan khusus-tes dan round-trip sudut-sembarang, plus penjaga regresi tegak-pakai-afin.
 
 ## Referensi

@@ -54,8 +54,8 @@ The honest result: across orientations the decoder reliably reads tilts to rough
 
 ## 10. Implementation pointers
 
-- `qrgen/decode_finder_cc.go`: two-pass union-find labelling, the nesting matcher, corner extraction (`extractQuadCorners`, `farthestFrom`, `farthestAcross`), and `findFinderQuadTriple`, which orders the finder quads via the existing rotation-invariant `orderFinderTriple`.
-- `qrgen/decode_image.go`: `homographyFromFinderQuads` (corner module-coordinate assignment) and `computeHomographyLS` (the least-squares solve); `decodeImageProjective` and `decodeProjectiveFromBitmap` (the version trial); and `decodeImage`, which sequences the affine and projective attempts.
+- `qrgen/decode_finder_cc.go`: two-pass union-find labelling, the nesting matcher, corner extraction (`extractQuadCorners`, `farthestFrom`, `farthestAcross`), and `bestFinderQuadTriple`, which orders the finder quads via the existing rotation-invariant `orderFinderTriple`.
+- `qrgen/decode_image.go`: `homographyFromFinderQuads` (corner module-coordinate assignment) and `computeHomographyLS` (the least-squares solve); `decodeOneQuadTriple` (the version trial), reached through `decodeImageCC` and `decodeCCFromBitmap`, which since v0.16 also run the Micro search of doc 27; and `decodeImage`, which sequences the affine and projective attempts.
 - `qrgen/decode_tilt_test.go`: the test-only tilt warp and the arbitrary-angle round-trip, plus the upright-uses-affine regression guard.
 
 ## References

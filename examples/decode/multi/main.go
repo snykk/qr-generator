@@ -44,7 +44,11 @@ func report(results []qrgen.Result, err error) {
 	}
 	fmt.Printf("found %d symbol(s):\n", len(results))
 	for _, r := range results {
-		fmt.Printf("  %-16q v%-2d at %v\n", r.Text, r.Version, r.Bounds())
+		kind := fmt.Sprintf("v%d", r.Version)
+		if r.MicroVersion != 0 {
+			kind = r.MicroVersion.String()
+		}
+		fmt.Printf("  %-16q %-3s at %v\n", r.Text, kind, r.Bounds())
 	}
 }
 

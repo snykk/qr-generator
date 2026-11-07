@@ -451,34 +451,45 @@ type finderTripleQuad struct {
 	tl, tr, bl finderQuad
 }
 
-// detectFinderQuads locates finder patterns by connected-component analysis and
+// allFinderQuads locates finder patterns by connected-component analysis and
 // returns each as a quad: its centre plus the four outer corners of its dark
 // ring. Corners come from the ring's own pixels, so they carry the perspective
-// distortion the projective homography then inverts.
-func detectFinderQuads(bm *bitmap) ([]finderQuad, error) {
+// distortion the projective homography then inverts. There is no minimum
+// count: a Micro symbol has a single finder (docs/theory/27-micro-qr-detection.md).
+func allFinderQuads(bm *bitmap) []finderQuad {
 	stats, labelOf := labelComponents(bm)
 	nests := finderNestings(stats)
-	if len(nests) < 3 {
-		return nil, ErrFinderNotFound
-	}
 	quads := make([]finderQuad, 0, len(nests))
 	for _, c := range nests {
 		corners := extractQuadCorners(labelOf, bm.width, stats[c.outer], c.outer)
 		quads = append(quads, finderQuad{center: c.center, corners: corners})
 	}
+	return quads
+}
+
+// detectFinderQuads is allFinderQuads for the QR paths, which need at least
+// three finders and return ErrFinderNotFound otherwise.
+func detectFinderQuads(bm *bitmap) ([]finderQuad, error) {
+	quads := allFinderQuads(bm)
+	if len(quads) < 3 {
+		return nil, ErrFinderNotFound
+	}
 	return quads, nil
 }
 
-// findFinderQuadTriple detects finder quads, selects the three whose centres
-// best fit a square symbol's right-isosceles geometry, and orders them
+// bestFinderQuadTriple selects, among detected finder quads, the three whose
+// centres best fit a square symbol's right-isosceles geometry, and orders them
 // (top-left, top-right, bottom-left) via the rotation-invariant finder ordering
-// while keeping each quad's corners.
-func findFinderQuadTriple(bm *bitmap) (finderTripleQuad, error) {
-	quads, err := detectFinderQuads(bm)
-	if err != nil {
-		return finderTripleQuad{}, err
+// while keeping each quad's corners. It returns ErrFinderNotFound for fewer
+// than three quads, and leaves the caller's slice as it was, so the Micro pass
+// can reuse the same quads.
+func bestFinderQuadTriple(all []finderQuad) (finderTripleQuad, error) {
+	if len(all) < 3 {
+		return finderTripleQuad{}, ErrFinderNotFound
 	}
+	quads := all
 	if len(quads) > maxCCCandidates {
+		quads = append([]finderQuad(nil), all...)
 		sort.Slice(quads, func(i, j int) bool {
 			return quads[i].center.moduleSize > quads[j].center.moduleSize
 		})

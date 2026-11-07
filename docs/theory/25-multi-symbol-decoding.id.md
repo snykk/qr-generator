@@ -8,7 +8,7 @@ Decoder v0.14 membaca setiap simbol QR yang ada dalam satu gambar, bukan hanya y
 
 Menemukan sebuah simbol QR dimulai dari tiga pola findernya. Detektor connected-component v0.13 (dokumen 24) melabeli gambar terbinarisasi dan mencocokkan setiap penyarangan cincin-gelap / cincin-terang / pusat-gelap dengan sisi bounding box 7:5:3. Pencocok itu tak terbatas pada satu simbol: `finderNestings` mengembalikan **setiap** cincin finder di gambar. Foto berisi empat kode QR menghasilkan (sekitar) dua belas kandidat finder.
 
-Pipeline single-symbol lalu membuang sebagian besarnya. `findFinderQuadTriple` menyimpan kandidat, dan `bestFinderTripleIdx` memilih satu triple dengan cost geometri terendah — satu susunan right-isosceles terbaik — lalu men-decode-nya. Semua yang dibutuhkan untuk membaca keempat kode sudah terhitung; pipeline hanya menciut ke satu di langkah seleksi terakhir. Maka multi-symbol decoding bukan detektor baru. Ia adalah *seleksi* yang berbeda: alih-alih satu triple terbaik, temukan **semua triple valid yang disjoint**, dan decode masing-masing lewat pipeline per-simbol yang tak berubah.
+Pipeline single-symbol lalu membuang sebagian besarnya. `bestFinderQuadTriple` menyimpan kandidat, dan `bestFinderTripleIdx` memilih satu triple dengan cost geometri terendah — satu susunan right-isosceles terbaik — lalu men-decode-nya. Semua yang dibutuhkan untuk membaca keempat kode sudah terhitung; pipeline hanya menciut ke satu di langkah seleksi terakhir. Maka multi-symbol decoding bukan detektor baru. Ia adalah *seleksi* yang berbeda: alih-alih satu triple terbaik, temukan **semua triple valid yang disjoint**, dan decode masing-masing lewat pipeline per-simbol yang tak berubah.
 
 ## 2. Masalah grouping
 
@@ -30,7 +30,7 @@ Cap attempt itu harus **berskala dengan jumlah finder**. Grid berisi banyak kode
 
 ## 4. Memakai ulang pipeline per-simbol
 
-Begitu sebuah triple terkelompok dan terurut, men-decode-nya persis seperti yang sudah dilakukan jalur projektif single-symbol: estimasi version dari panjang sisi quad finder, trial kandidat version, fit homografi projektif dua-belas-sudut, sampel grid modul, dan Reed-Solomon decode (dokumen 24). Milestone ini memfaktorkan body itu keluar dari `decodeProjectiveFromBitmap` menjadi helper, `decodeOneQuadTriple`, sehingga baik jalur single-symbol maupun loop multi-symbol memanggil kode per-simbol yang identik. Helper itu memunculkan version dan homography yang dimenangkan, yang dibuang jalur single-symbol tetapi dibutuhkan hasil publik (bagian 5).
+Begitu sebuah triple terkelompok dan terurut, men-decode-nya persis seperti yang sudah dilakukan jalur projektif single-symbol: estimasi version dari panjang sisi quad finder, trial kandidat version, fit homografi projektif dua-belas-sudut, sampel grid modul, dan Reed-Solomon decode (dokumen 24). Milestone ini memfaktorkan body itu keluar dari jalur projektif single-symbol menjadi helper, `decodeOneQuadTriple`, sehingga baik jalur single-symbol maupun loop multi-symbol memanggil kode per-simbol yang identik. Helper itu memunculkan version dan homography yang dimenangkan, yang dibuang jalur single-symbol tetapi dibutuhkan hasil publik (bagian 5).
 
 Karena tiap simbol membawa pitch findernya sendiri ke homografi dan trial version-nya sendiri, simbol beda-ukuran dan beda-tilt hidup berdampingan dalam satu gambar tanpa saling ganggu: grouping menjaga tiga finder tiap triple pada satu pitch, dan semua di hilir bersifat per-triple.
 
@@ -65,8 +65,8 @@ Menyusun ulang set structured-append dari satu gambar komposit di luar cakupan: 
 Direncanakan di MS3/MS4 (lihat `docs/plan-multi-symbol-decoding.md`):
 
 - `qrgen/decode_finder_cc.go`: `groupFinderTriples` (enumerasi, gerbang oleh `orderFinderTriple` dan ceiling cost terukur, sort, klaim disjoint berbasis indeks) dan `allFinderQuadTriples`.
-- `qrgen/decode_image.go`: `decodeOneQuadTriple(bm, tq) (text, Version, homography, error)`, diekstrak dari `decodeProjectiveFromBitmap` tanpa perubahan perilaku.
-- `qrgen/decode_multi.go`: tipe `Result` dengan `Bounds()`, penurunan sudut simbol dari homography, dan `DecodeAll` / `DecodeAllBytes` publik.
+- `qrgen/decode_image.go`: `decodeOneQuadTriple(bm, tq) (text, Version, homography, error)`, diekstrak dari jalur projektif single-symbol tanpa perubahan perilaku.
+- `qrgen/decode_multi.go`: tipe `Result` dengan `Bounds()`, penurunan sudut simbol dari homography, dan `DecodeAll` / `DecodeAllBytes` publik. Sejak v0.16 loop ini juga mencoba setiap finder yang belum diklaim sebagai simbol Micro QR (dokumen 27), yang dilaporkan lewat `Result.MicroVersion`.
 - Test mengomposit beberapa simbol yang di-render ke satu kanvas dan cross-check reader `multi/qrcode` milik `gozxing`.
 
 ## Referensi

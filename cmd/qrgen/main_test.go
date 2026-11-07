@@ -214,6 +214,23 @@ func TestRunDecodeFromStdin(t *testing.T) {
 	}
 }
 
+// TestRunDecodeMicro: -decode reads a Micro QR symbol, located in the image
+// from its single finder pattern (docs/theory/27-micro-qr-detection.md).
+func TestRunDecodeMicro(t *testing.T) {
+	const want = "MICRO 42"
+	pngBytes, err := qrgen.Encode(want, qrgen.WithMicro())
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	var stdout bytes.Buffer
+	if err := run(cliConfig{decode: true}, bytes.NewReader(pngBytes), &stdout); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if got := strings.TrimRight(stdout.String(), "\n"); got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
 func TestRunDecodeWritesOutputFile(t *testing.T) {
 	dir := t.TempDir()
 	in := filepath.Join(dir, "qr.png")
