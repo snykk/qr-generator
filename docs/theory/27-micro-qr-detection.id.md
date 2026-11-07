@@ -85,7 +85,7 @@ Pada 1.836 scene sintetis yang sama, zxing-cpp 2.3.0 dengan opsi reader default-
 
 ## 11. Penunjuk implementasi
 
-Direncanakan di MD3 sampai MD6 (lihat `docs/plan-micro-qr-detection.md`):
+Dibangun di MD3 sampai MD6 (lihat `docs/plan-micro-qr-detection.md`):
 
 - `qrgen/decode_micro.go`: koreksi sudut setengah piksel dan winding sudut, homografi untuk tiap penetapan, tes timing, pembacaan format sisi gambar atas ke-32 word, cek silang timing, penyempurnaan sudut jauh dan fit tepi (`refineMicroHomography`, `edgeFitMicroHomography`, `microHomographyVariants`), dan `decodeMicroQuad`.
 - `qrgen/decode_finder_cc.go`: `allFinderQuads`, setiap finder quad tanpa jumlah minimum.

@@ -85,7 +85,7 @@ On the same 1,836 synthetic scenes, zxing-cpp 2.3.0 with its default reader opti
 
 ## 11. Implementation pointers
 
-Planned in MD3 to MD6 (see `docs/plan-micro-qr-detection.md`):
+Built in MD3 to MD6 (see `docs/plan-micro-qr-detection.md`):
 
 - `qrgen/decode_micro.go`: the half-pixel corner correction and the corner winding, the homography for each assignment, the timing test, image-side format reading over all 32 words, the timing cross-check, the far-corner refinement and the edge fit (`refineMicroHomography`, `edgeFitMicroHomography`, `microHomographyVariants`), and `decodeMicroQuad`.
 - `qrgen/decode_finder_cc.go`: `allFinderQuads`, every finder quad with no minimum count.

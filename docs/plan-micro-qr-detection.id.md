@@ -97,10 +97,10 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah MD5) membaca simbol Micr
 
 ### MD7 — Polish & Rilis `(S)`
 
-- [ ] README (bagian decoding, scope, limitations, roadmap) dan `examples/decode/micro`.
-- [ ] Entri `v0.16.0` di `CHANGELOG.md`, dibiarkan unstaged untuk release branch.
-- [ ] Baris peta kode theory untuk dokumen 27, tanpa tanda direncanakan.
-- [ ] `go test -race ./...` bersih, gofmt bersih.
+- [x] README (bagian decoding, scope, limitations, roadmap) dan `examples/decode/micro`.
+- [x] Entri `v0.16.0` di `CHANGELOG.md`, dibiarkan unstaged untuk release branch.
+- [x] Baris peta kode theory untuk dokumen 27, tanpa tanda direncanakan.
+- [x] `go test -race ./...` bersih, gofmt bersih.
 
 ## 7. Strategi validasi
 

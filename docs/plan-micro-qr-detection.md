@@ -97,10 +97,10 @@ Milestones land sequentially. **Checkpoint A** (after MD5) reads Micro symbols f
 
 ### MD7 — Polish & Release `(S)`
 
-- [ ] README (decoding section, scope, limitations, roadmap) and `examples/decode/micro`.
-- [ ] `CHANGELOG.md` `v0.16.0` entry, left unstaged for the release branch.
-- [ ] The theory code-map row for doc 27, without a planned mark.
-- [ ] `go test -race ./...` clean, gofmt-clean.
+- [x] README (decoding section, scope, limitations, roadmap) and `examples/decode/micro`.
+- [x] `CHANGELOG.md` `v0.16.0` entry, left unstaged for the release branch.
+- [x] The theory code-map row for doc 27, without a planned mark.
+- [x] `go test -race ./...` clean, gofmt-clean.
 
 ## 7. Validation strategy
 
