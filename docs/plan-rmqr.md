@@ -39,7 +39,7 @@ gozxing has no rMQR support, so as in v0.15 the milestone uses reference impleme
 - **zxing-cpp's reader** decodes rMQR: an independent decoder for our output. Its source (QRVersion, QRFormatInformation, QRBitMatrixParser, QRCodecMode) was read as a second transcription of the tables.
 - **rmqrcode 0.3.2**, a Python encoder, is a third transcription. It agrees with the other two everywhere except two block definitions, R13x27-M (14 data codewords where zint and zxing-cpp have 12) and R17x43-M (60 codewords per block where they have 61), so, like segno in v0.15, it confirms tables but never supplies goldens.
 - **Already checked while planning.** The three sources agree on every size, codeword count, block structure, character-count width, and alignment column; the 64 format words of each copy are reproduced exactly by the BCH computation and the two masks; and a layout model built from the facts above matches 64 zint symbols, every version at both levels, on every function module and both format copies, with remainder bits that agree with rmqrcode.
-- **zint's automatic choice.** With no level requested, zint takes the smallest-area version that fits at M, then uses H instead when the data also fits at H in that same version. With a level requested, it takes the smallest-area version that fits at that level. R7x99 ties R9x77 in area (693 modules) but is never chosen automatically, since a smaller symbol always holds more.
+- **zint's automatic choice.** With no level requested, zint takes the smallest-area version that fits at M, then uses H instead when the data, without its terminator, is shorter than H's capacity in that same version: a probe of every slack from 0 to 3 bits showed it never upgrades when the data fills H exactly. With a level requested, it takes the smallest-area version that fits at that level. R7x99 ties R9x77 in area (693 modules) but is never chosen automatically, since a smaller symbol always holds more.
 
 ## 4. Approach, grounded in the code
 
@@ -53,7 +53,7 @@ A read of the encoder and decoder after v0.16 sorts the work into three groups.
 
 - **API by options (open question 1).** `WithRMQR()` selects the smallest symbol that fits; `WithRMQRVersion(v RMQRVersion)` forces one, with constants `R7x43` to `R17x139` named as the standard names them; and `WithRMQRHeight(rows int)` fixes the height and lets the width follow, the case rMQR exists for (zint offers the same choice as R7xW to R17xW). One branch in `buildMatrix` gives rMQR to `Encode`, `EncodeToFile`, `EncodeSVG`, `EncodeSVGToFile`, `EncodeTerminal`, and `Matrix`.
 - **Validation.** Rejected with specific errors: `WithVersion`, `WithMicro` or `WithMicroVersion` together with rMQR; `WithMask` (rMQR's mask is fixed); `WithLogo` (a 7 to 17 module tall symbol has no room for one); EC levels L and Q; `EncodeStructuredAppend` (rMQR defines none). `WithECI` is allowed, since rMQR defines ECI: the header is the 3-bit indicator `111` followed by the same designator as QR.
-- **Level and size policy: zint's.** With no level set, the smallest-area version that fits at M, then H if the data also fits at H in that version: the extra correction costs nothing. An explicit M or H selects the smallest-area version at that level. With a height fixed, the same rules apply among that height's widths. If nothing fits, an `ErrCapacityExceeded` error, never a silent QR symbol.
+- **Level and size policy: zint's.** With no level set, the smallest-area version that fits at M, then H if the data leaves at least one bit spare at H in that version: the extra correction costs nothing. An explicit M or H selects the smallest-area version at that level. With a height fixed, the same rules apply among that height's widths. If nothing fits, an `ErrCapacityExceeded` error, never a silent QR symbol.
 - **Rectangular matrices.** The `matrix` type gains separate row and column counts; the renderers, `Matrix`, `applyMask`, and `placeBits` read them; QR and Micro keep square matrices and byte-identical output.
 - **Quiet zone.** 2 modules by default, as the standard asks; an explicit `WithQuietZone` still wins.
 - **Matrix decoding.** `DecodeMatrix` sends a rectangular grid whose shape is one of the 32 rMQR sizes to `decodeRMQRMatrix`. It reads both format copies, decodes each against its own 64 words within 3 bits, takes the nearer, and requires the version to match the grid's shape. Then it unmasks, reads the stream from the second column, deinterleaves, corrects each block, and parses the segments, ECI included.
@@ -73,10 +73,10 @@ Milestones land sequentially. **Checkpoint A** (after RQ5) round-trips every rMQ
 
 ### RQ3 — Tables and Bit Stream `(L)`
 
-- [ ] `RMQRVersion`, the 32-version table (size, total and data codewords per level, block counts, remainder bits, alignment columns), and the count-width table.
-- [ ] The rMQR cost model for the segmentation DP; `encodeRMQRText`: version and level selection, segments (with ECI), terminator, padding, block split, Reed-Solomon, interleaving, and remainder bits.
-- [ ] A BCH(18,6) word function, tested against QR's version-information table (same generator) and against zint's 64 format words of each copy.
-- [ ] Tests: data codewords and final streams read back from zint symbols, and the zint automatic choices.
+- [x] `RMQRVersion`, the 32-version table (size, total and data codewords per level, block counts, remainder bits, alignment columns), and the count-width table.
+- [x] The rMQR cost model for the segmentation DP; `encodeRMQRText`: version and level selection, segments (with ECI), terminator, padding, block split, Reed-Solomon, and interleaving (remainder bits come with placement in RQ4). One DP run under the narrowest count widths bounds every version's cost from below, so most versions are ruled out without a DP of their own.
+- [x] A BCH(18,6) word function, tested against QR's version-information table (same generator) and against zint's 64 format words of each copy.
+- [x] Tests: 70 final codeword streams read back from zint symbols match byte for byte, and our automatic choices match zint's in all 545 auto records.
 
 ### RQ4 — Rectangular Matrix, Layout, and Options `(L)`
 
