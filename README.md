@@ -7,7 +7,7 @@
 
 A pure-Go QR code generator **and decoder** implemented from scratch, following **ISO/IEC 18004:2015**, with no runtime dependencies beyond the Go standard library.
 
-The encoder produces scannable PNG output for every QR version (1–40), every error-correction level (L/M/Q/H), and all four data modes (numeric, alphanumeric, byte, Kanji), as of v0.15 also Micro QR Code (M1–M4), and as of v0.17 rMQR Code (32 rectangular sizes, R7x43 to R17x139). The decoder closes the loop: given a PNG, a JPEG, or a raw `image.Image` holding a QR symbol or, as of v0.16, a Micro QR symbol, it runs binarisation, finder-pattern detection, perspective transform, alignment refinement, Reed–Solomon error correction, and segment parsing to return the original string. The library is shipped together with a thin CLI (`cmd/qrgen`).
+The encoder produces scannable PNG output for every QR version (1–40), every error-correction level (L/M/Q/H), and all four data modes (numeric, alphanumeric, byte, Kanji), as of v0.15 also Micro QR Code (M1–M4), and as of v0.17 rMQR Code (32 rectangular sizes, R7x43 to R17x139). The decoder closes the loop: given a PNG, a JPEG, or a raw `image.Image` holding a QR symbol or, as of v0.16, a Micro QR symbol, it runs binarisation, finder-pattern detection, perspective transform, alignment refinement, Reed–Solomon error correction, and segment parsing to return the original string. The library is shipped together with a thin CLI (`cmd/qrgen`) and, as of v0.18, a [web demo](#web-demo) that runs it in the browser through WebAssembly.
 
 ## Contents
 
@@ -15,6 +15,7 @@ The encoder produces scannable PNG output for every QR version (1–40), every e
 - [Library usage](#library-usage)
 - [Decoding QR codes](#decoding-qr-codes)
 - [CLI usage](#cli-usage)
+- [Web demo](#web-demo)
 - [API summary](#api-summary)
 - [Compatibility](#compatibility)
 - [Scope](#scope)
@@ -216,6 +217,20 @@ rMQR has two error-correction levels, M and H. Without `WithECLevel` the encoder
 
 `DecodeMatrix` reads rMQR grids, recognised by their rectangular shape; finding rMQR symbols in images is not supported yet. The encoder reproduces 70 zint symbols module for module, covering every version at both levels, and zxing-cpp's independent reader decodes our rendered symbols; see [docs/theory/28-rmqr.md](docs/theory/28-rmqr.md) and the demo in [examples/encode/rmqr](examples/encode/rmqr/main.go).
 
+## Inspecting a symbol
+
+`Inspect` encodes exactly as `Matrix` does and takes the result apart, for study and visualisation: the segments the text was split into, the codewords and Reed-Solomon blocks, every candidate mask with its score, and, for each module, its role (finder, timing, format, data, and so on), its value before masking, and the codeword bit it carries:
+
+```go
+in, err := qrgen.Inspect("HELLO WORLD")
+// in.Symbology, in.Version, in.ECLevel, in.Mask:  QR Code 1 M 0
+// in.MaskScores: [311 406 442 463 367 528 395 445], so mask 0 has the lowest penalty
+// in.Segments[0]: Alphanumeric "HELLO WORLD", 4 + 9 + 61 = 74 bits
+// in.Roles[20][20] is qrgen.RoleData: bit in.ModuleBit[20][20] (7) of codeword in.ModuleCodeword[20][20] (0)
+```
+
+It accepts every option `Matrix` does, for QR Code, Micro QR, and rMQR alike, and its `Modules` equal `Matrix`'s output for the same arguments. See [docs/theory/29-symbol-inspection.md](docs/theory/29-symbol-inspection.md); the [web demo](#web-demo) draws all of it.
+
 ## Decoding QR codes
 
 `qrgen.DecodeBytes` reads PNG, JPEG, or GIF bytes back into the original text:
@@ -311,6 +326,15 @@ qrgen -decode -in micro.png
 
 Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: …` message on invalid input, oversize payloads, or undecodable images.
 
+## Web demo
+
+[web/](web/README.md) holds a static page that runs the library in the browser, compiled to WebAssembly and running in a Web Worker, so nothing leaves the machine: create QR Code, Micro QR, and rMQR symbols with every option and download them as PNG or SVG, look inside a symbol with `Inspect` (module roles, the symbol before masking, codewords and blocks, and every mask's score), and scan image files or the camera with `DecodeAll`. It is published to GitHub Pages, at https://snykk.github.io/qr-generator/, on every push to `master`. To run it locally:
+
+```sh
+sh web/build.sh
+python3 -m http.server 8080 --directory web/site
+```
+
 ## API summary
 
 **Encoding:**
@@ -324,6 +348,7 @@ Run `qrgen -h` for the full flag list. The binary exits 1 with a clear `qrgen: �
 | `EncodeTerminal(text, opts...) (string, error)` | Text → multi-line block-character string for printing to a terminal. |
 | `EncodeStructuredAppend(text, parts, opts...) ([][]byte, error)` | Text → a set of `parts` (2..16) linked PNG symbols. |
 | `Matrix(text, opts...) ([][]bool, error)` | Text → raw boolean module grid for custom rendering. |
+| `Inspect(text, opts...) (*Inspection, error)` | Text → the symbol taken apart: segments, codewords and blocks, mask scores, and each module's role, unmasked value, and codeword bit. |
 | `WithECLevel(ec)` | Error-correction level (`ECLevelL`, `ECLevelM`, `ECLevelQ`, `ECLevelH`). Default `M`; for Micro QR, unset means the smallest symbol at M or L; for rMQR, only M and H exist, and unset means M, or H when it fits in the same symbol. |
 | `WithVersion(v)` | Force QR version `1..40`. Default `0` (auto-select smallest fitting). |
 | `WithMicro()` | Produce a Micro QR Code (M1..M4), choosing the smallest symbol that fits. |
@@ -394,6 +419,7 @@ In scope as of v0.2.0:
 - Centred logo overlay on PNG and SVG with an automatic EC-H bump (as of v0.12).
 - Micro QR Code, M1 to M4 at every EC level they define, through every encoder and renderer, plus decoding from a matrix (as of v0.15) and from images (as of v0.16).
 - rMQR Code, all 32 rectangular versions at levels M and H, through every encoder and renderer, plus decoding from a matrix (as of v0.17).
+- Symbol inspection with `Inspect`, and a browser demo that runs the library through WebAssembly (as of v0.18).
 - Image decoding (PNG / JPEG / GIF / `image.Image`) with binarisation, finder detection, perspective transform, and alignment refinement.
 - Matrix decoding from `[][]bool` for callers that already have a clean grid.
 
@@ -425,7 +451,7 @@ Candidates for future minor releases (post-v0.2.0):
 - **Micro QR & rMQR:** Micro QR encoding and matrix decoding shipped in v0.15 and finding Micro symbols in images in v0.16; rMQR encoding and matrix decoding shipped in v0.17, and finding rMQR symbols in images (a finder and a finder sub-pattern at opposite corners) is next.
 - **Structured-append extensions:** auto part-count, SVG/terminal output, and ECI combination. (Core PNG structured-append shipped in v0.10.)
 - **Decoder robustness:** pushing tilt past ~55 degrees (sub-pixel corner refinement, alignment-grid sampling), tunable Sauvola parameters (k, window) plus morphological cleanup so heavier within-symbol contrast loss can also be recovered.
-- **Performance:** reduce allocations on the hot encode and decode paths.
+- **Performance:** reduce allocations on the hot encode and decode paths, and speed up the finder search on frames of fine noise, where every speck is a candidate (about 0.7 s for a 640 by 480 frame, which the web demo works around by scanning a smaller square).
 
 Contributions for any of these are welcome — please open an issue first so we can sketch the API together.
 
@@ -434,6 +460,7 @@ Contributions for any of these are welcome — please open an issue first so we 
 - [Encoder plan](docs/plan.md) — encoder milestones M1..M11 ([Indonesian](docs/plan.id.md)).
 - [Decoder plan](docs/plan-decoder.md) — decoder milestones D1..D14 ([Indonesian](docs/plan-decoder.id.md)).
 - [Theory & references](docs/theory/README.md) — bilingual literature review covering every encoder and decoder stage (data encoding, GF(2⁸), Reed–Solomon both encoding and decoding, matrix construction, masking, BCH, rendering, image processing, decoder pipeline, plus data tables and a worked end-to-end example for `"HELLO WORLD"`).
+- [Web demo](web/README.md) — how the browser demo is built, run, and deployed ([plan](docs/plan-web-demo.md), [Indonesian](docs/plan-web-demo.id.md)).
 - [CHANGELOG](CHANGELOG.md) — release notes.
 
 ## Development

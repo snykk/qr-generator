@@ -19,6 +19,11 @@ type matrix struct {
 	version  Version
 	modules  [][]bool // dark/light state; true == dark module
 	reserved [][]bool // true if the module is functional/reserved
+
+	// trace, when set, records the role of every module and the stream bit
+	// each data module carries. Only Inspect turns it on, so the encoders do
+	// no extra work.
+	trace *matrixTrace
 }
 
 // newMatrix returns an all-light, all-unreserved matrix sized for v.
@@ -52,6 +57,23 @@ func (m *matrix) get(row, col int) bool        { return m.modules[row][col] }
 func (m *matrix) set(row, col int, dark bool)  { m.modules[row][col] = dark }
 func (m *matrix) isReserved(row, col int) bool { return m.reserved[row][col] }
 func (m *matrix) reserve(row, col int)         { m.reserved[row][col] = true }
+
+// tag records role for module (row, col) when the matrix is traced.
+func (m *matrix) tag(row, col int, role ModuleRole) {
+	if m.trace != nil {
+		m.trace.roles[row][col] = role
+	}
+}
+
+// reserveAs reserves module (row, col) and tags it with role, unless an
+// earlier pattern already reserved it: QR's format area takes in the timing
+// modules (6, 8) and (8, 6), which stay timing modules.
+func (m *matrix) reserveAs(row, col int, role ModuleRole) {
+	if !m.reserved[row][col] {
+		m.tag(row, col, role)
+	}
+	m.reserve(row, col)
+}
 
 // placeFunctionalPatterns writes finders + separators, timing strips, alignment
 // patterns, the always-dark module, and marks the format/version-info areas as
@@ -90,12 +112,14 @@ func (m *matrix) placeSingleFinder(r0, c0 int) {
 				// Separator: light + reserved.
 				m.set(r, c, false)
 				m.reserve(r, c)
+				m.tag(r, c, RoleSeparator)
 				continue
 			}
 			isBorder := dr == 0 || dr == 6 || dc == 0 || dc == 6
 			isCenter := dr >= 2 && dr <= 4 && dc >= 2 && dc <= 4
 			m.set(r, c, isBorder || isCenter)
 			m.reserve(r, c)
+			m.tag(r, c, RoleFinder)
 		}
 	}
 }
@@ -110,9 +134,11 @@ func (m *matrix) placeTimingPatterns() {
 		// Row 6
 		m.set(6, i, dark)
 		m.reserve(6, i)
+		m.tag(6, i, RoleTiming)
 		// Column 6
 		m.set(i, 6, dark)
 		m.reserve(i, 6)
+		m.tag(i, 6, RoleTiming)
 	}
 }
 
@@ -151,6 +177,7 @@ func (m *matrix) placeSingleAlignment(rc, cc int) {
 			isCenter := dr == 0 && dc == 0
 			m.set(r, c, isOuter || isCenter)
 			m.reserve(r, c)
+			m.tag(r, c, RoleAlignment)
 		}
 	}
 }
@@ -162,6 +189,7 @@ func (m *matrix) placeDarkModule() {
 	c := 8
 	m.set(r, c, true)
 	m.reserve(r, c)
+	m.tag(r, c, RoleDarkModule)
 }
 
 // reserveFormatInfoArea reserves the 15-bit format-info modules in both
@@ -171,16 +199,16 @@ func (m *matrix) reserveFormatInfoArea() {
 	n := m.size
 	// Around the top-left finder: row 8 cols 0..8 plus column 8 rows 0..8.
 	for i := 0; i <= 8; i++ {
-		m.reserve(8, i)
-		m.reserve(i, 8)
+		m.reserveAs(8, i, RoleFormat)
+		m.reserveAs(i, 8, RoleFormat)
 	}
 	// Right side: row 8, cols n-8..n-1.
 	for i := n - 8; i < n; i++ {
-		m.reserve(8, i)
+		m.reserveAs(8, i, RoleFormat)
 	}
 	// Bottom side: column 8, rows n-7..n-1.
 	for i := n - 7; i < n; i++ {
-		m.reserve(i, 8)
+		m.reserveAs(i, 8, RoleFormat)
 	}
 }
 
@@ -194,13 +222,13 @@ func (m *matrix) reserveVersionInfoArea() {
 	// 6×3 block above the bottom-left finder.
 	for r := 0; r < 6; r++ {
 		for c := n - 11; c <= n-9; c++ {
-			m.reserve(r, c)
+			m.reserveAs(r, c, RoleVersion)
 		}
 	}
 	// 3×6 block to the left of the top-right finder.
 	for r := n - 11; r <= n-9; r++ {
 		for c := 0; c < 6; c++ {
-			m.reserve(r, c)
+			m.reserveAs(r, c, RoleVersion)
 		}
 	}
 }
@@ -246,6 +274,9 @@ func (m *matrix) placeBits(stream []byte, totalBits, skipCol, firstCol int) erro
 					return fmt.Errorf("qrgen: data walk found more unreserved cells than bits available (extra cell at row=%d col=%d)", row, cc)
 				}
 				m.set(row, cc, bitAt(stream, bitIdx))
+				if m.trace != nil {
+					m.trace.bits[row][cc] = bitIdx
+				}
 				bitIdx++
 			}
 		}

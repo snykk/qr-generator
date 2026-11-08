@@ -62,11 +62,7 @@ func encodeMicroText(text string, force MicroVersion, ec ECLevel, ecSet bool) (m
 		if !ok || bits > sym.dataBits {
 			continue
 		}
-		data := &bitBuffer{}
-		for _, s := range segs {
-			writeMicroSegment(data, s, sym.version)
-		}
-		microPadToCapacity(data, sym)
+		data := microData(segs, sym)
 		return sym, microFinalStream(data, sym), nil
 	}
 
@@ -79,6 +75,17 @@ func encodeMicroText(text string, force MicroVersion, ec ECLevel, ecSet bool) (m
 		return microSymbol{}, nil, &microCapacityError{fmt.Sprintf("Micro QR %v cannot encode this text: it supports %s", last.version, modes)}
 	}
 	return microSymbol{}, nil, &microCapacityError{fmt.Sprintf("payload exceeds the capacity of Micro QR %v", last)}
+}
+
+// microData writes segs with sym's field widths and pads them to sym's data
+// capacity, returning the data bit stream.
+func microData(segs []segment, sym microSymbol) *bitBuffer {
+	data := &bitBuffer{}
+	for _, s := range segs {
+		writeMicroSegment(data, s, sym.version)
+	}
+	microPadToCapacity(data, sym)
+	return data
 }
 
 // writeMicroSegment writes one segment with Micro's mode-indicator and

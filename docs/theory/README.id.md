@@ -83,6 +83,10 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 28. [rMQR Code](28-rmqr.id.md) — anggota keluarga QR yang berbentuk persegi panjang (ISO/IEC 23941): 32 versi dari R7x43 sampai R17x139 beserta tabel codeword, blok, remainder, dan lebar count-nya, mode indicator 3 bit, terminator dan padding, error correction pada level M dan H dengan interleaving milik QR, tata letak dengan finder sub-pattern, corner pattern, timing di tepi, dan kolom alignment, dua salinan format 18 bit di bawah BCH(18,6) dengan mask masing-masing, penempatan dari kolom kedua, satu mask tetap, perbandingan dengan QR dan Micro QR, dan bit stream contoh yang dicek terhadap zint.
 
+### Inspeksi simbol dan web demo (v0.18.0)
+
+29. [Inspeksi Simbol](29-symbol-inspection.id.md) — membedah lagi simbol yang sudah jadi dengan `Inspect`: lapisan fungsi dan lapisan pesan, sensus setiap peran modul beserta tumpang-tindih yang menentukannya (alignment di atas timing, area format QR, finder pada R7), pencatatan peran dan bit stream di kode penempatan milik encoder sendiri, pemetaan bit stream ke codeword termasuk half codeword Micro QR, simbol sebelum masking dan skor setiap kandidat mask, anggaran bit pesan, lokasi tiap codeword di bloknya, dan menjalankan library di browser lewat WebAssembly, beserta biaya memindai frame kamera.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -130,5 +134,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 26-micro-qr.id.md                       | `qrgen/micro.go`, `qrgen/micro_encode.go`, `qrgen/micro_matrix.go`, `qrgen/micro_decode.go` |
 | 27-micro-qr-detection.id.md             | `qrgen/decode_micro.go`, `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go`, `qrgen/decode_multi.go` |
 | 28-rmqr.id.md                           | `qrgen/rmqr.go`, `qrgen/rmqr_encode.go`, `qrgen/rmqr_matrix.go`, `qrgen/rmqr_decode.go` |
+| 29-symbol-inspection.id.md              | `qrgen/inspect.go`, `web/internal/bridge/bridge.go`, `web/site/inspect.js` |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.

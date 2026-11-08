@@ -45,12 +45,14 @@ func (m *matrix) placeMicroFunctionPatterns() {
 		dark := i%2 == 0
 		m.set(0, i, dark)
 		m.reserve(0, i)
+		m.tag(0, i, RoleTiming)
 		m.set(i, 0, dark)
 		m.reserve(i, 0)
+		m.tag(i, 0, RoleTiming)
 	}
 	for i := 1; i <= 8; i++ {
-		m.reserve(i, 8)
-		m.reserve(8, i)
+		m.reserveAs(i, 8, RoleFormat)
+		m.reserveAs(8, i, RoleFormat)
 	}
 }
 
@@ -143,6 +145,9 @@ func buildMicroMatrix(text string, opts *options) (*matrix, int, error) {
 		return nil, 0, err
 	}
 	m := newMicroMatrix(sym.version)
+	if opts.trace {
+		m.startTrace()
+	}
 	m.placeMicroFunctionPatterns()
 	if err := m.placeBits(stream.bytes(), sym.streamBits(), -1, m.cols()-1); err != nil {
 		return nil, 0, err
