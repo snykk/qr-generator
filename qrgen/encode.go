@@ -267,6 +267,9 @@ func buildMatrix(text string, opts *options) (*matrix, int, error) {
 func matrixFromData(data []byte, v Version, opts *options) (*matrix, int, error) {
 	stream := rsEncode(data, v, opts.ec)
 	m := newMatrix(v)
+	if opts.trace {
+		m.startTrace()
+	}
 	m.placeFunctionalPatterns()
 	if err := m.placeData(stream, v.RemainderBits()); err != nil {
 		return nil, 0, err

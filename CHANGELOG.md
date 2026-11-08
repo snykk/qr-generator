@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-08
+
+This release adds a **web demo** and **`qrgen.Inspect`**. The demo is a static page, published to GitHub Pages, that runs the library itself in the browser through WebAssembly: it creates QR Code, Micro QR, and rMQR symbols with every option, takes a symbol apart layer by layer, and scans images and the camera. `Inspect` is the public API behind the demo's teaching view: it encodes exactly as `Matrix` does and reports how the symbol was built.
+
+### Added
+
+- `Inspect(text, opts...) (*Inspection, error)`, with `Inspection`, `InspectSegment`, `InspectBlock`, and `ModuleRole` (data, remainder, finder, separator, timing, alignment, format, version, dark module, finder sub-pattern, and corner pattern, with `String` and `IsFunction`). For QR, Micro QR, and rMQR alike, it reports the symbology, version, and level (`DetectionOnly` for M1); the mask and the score of every candidate (`MaskScores`, plus `MaskPenalties` with QR's four rules), computed even when the mask is forced; the segments with the widths of their fields; the data, terminator, and capacity bit counts; the Reed-Solomon blocks; the codewords in placement order; and per-module layers: `Modules` (equal to `Matrix`'s output), `Unmasked`, `MaskPattern`, `Roles`, `ModuleCodeword`, and `ModuleBit`.
+- A web demo in `web/`: the page (`web/site`, plain HTML, CSS, and JavaScript with no build step), the WebAssembly entry point (`web/wasm`), and the operations it calls (`web/internal/bridge`), built by `web/build.sh`. Create encodes text or a payload (Wi-Fi, vCard, email, phone, SMS, location) as any of the three symbologies with every option, a logo and structured append included, with PNG and SVG downloads and the terminal rendering. Inside the symbol shows a module map coloured by role with before-mask and mask-pattern layers, the bit budget and segments, the codewords by block linked to their modules, and every mask with its score. Scan reads image files (picked, dropped, or pasted) with `DecodeAll` and outlines what it finds, reassembles structured-append sets, and scans the camera.
+- `.github/workflows/pages.yml` publishes the page to GitHub Pages on every push to `master` and on demand, and CI builds the WebAssembly module on every push.
+- New reference doc `docs/theory/29-symbol-inspection.md` (English plus Indonesian) and plan doc `docs/plan-web-demo.md` (plus Indonesian) with milestones WD1..WD6.
+
+### Changed
+
+- Internals: when a matrix is traced, the QR, Micro QR, and rMQR placement code tags each module with its role and `placeBits` records the stream bit in each data module. Only `Inspect` traces, and every encoder's output is unchanged, as the third-party QR, Micro, and rMQR fixtures confirm. The Micro data writer is shared as `microData`.
+- Docs: the README covers `Inspect` and the web demo in new sections, the API table, scope, roadmap, and documentation list.
+
+### Validated
+
+- `Inspect`'s `Modules` equal `Matrix`'s output across all three symbologies and the options that change the encoding (versions, levels, masks, ECI, Kanji, a logo, and every Micro type). Every unmasked data module holds the codeword bit it is said to carry, each bit exactly once; remainder modules are light before masking; and function modules are never masked.
+- Facts from outside `Inspect` match: the `HELLO WORLD` V1-M codewords of theory doc 10, two R11x27-M streams of doc 28 that come from zint (one with its terminator cut to 2 bits), and the module census of QR V1 and V7, Micro M1, and rMQR R7x43 and R11x27, worked out by hand from the layouts. The census caught R7's bottom-left corner modules labelled as corner pattern on top of the finder they belong to; only the labels changed.
+- The automatic mask is the lowest QR penalty or the highest Micro score in `MaskScores`, and forcing a mask leaves the scores unchanged.
+- The bridge's tests pass natively and compiled to WebAssembly in Node. A camera-sized frame with a symbol decodes in about 6 ms natively and 20 ms in WebAssembly; a frame of fine random noise takes about 0.7 s and 2.6 s, which the page bounds by scanning a centre square of at most 480 pixels in a worker.
+- Headless Chrome drove every view of the page, the camera included through a fake video device, in light and dark themes and at phone width, with no console errors. `go test -race ./...` clean.
+
 ## [0.17.0] - 2026-11-07
 
 This release adds **rMQR Code** (Rectangular Micro QR Code, ISO/IEC 23941), the rectangular member of the QR family: all 32 versions, from R7x43 to R17x139, at both of their error-correction levels, through every encoder and renderer, plus matrix-level decoding. As with Micro QR, it was validated against implementations that share none of our code: zint for byte-exact goldens and automatic choices, and zxing-cpp as an independent reader.
@@ -446,7 +470,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/snykk/qr-generator/releases/tag/v0.18.0
 [0.17.0]: https://github.com/snykk/qr-generator/releases/tag/v0.17.0
 [0.16.0]: https://github.com/snykk/qr-generator/releases/tag/v0.16.0
 [0.15.0]: https://github.com/snykk/qr-generator/releases/tag/v0.15.0

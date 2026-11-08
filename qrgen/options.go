@@ -49,6 +49,10 @@ type options struct {
 	// detection-only M1), and an unset quiet zone is Micro's 2 modules.
 	ecSet        bool
 	quietZoneSet bool
+
+	// trace makes the encoder record each module's role and stream bit for
+	// Inspect. No option sets it.
+	trace bool
 }
 
 // defaultOptions returns the spec-conformant defaults.

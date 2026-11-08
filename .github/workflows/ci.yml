@@ -28,3 +28,6 @@ jobs:
 
       - name: go test
         run: go test -race -count=1 ./...
+
+      - name: go build (web demo, WebAssembly)
+        run: GOOS=js GOARCH=wasm go build -o /dev/null ./web/wasm
