@@ -81,6 +81,10 @@ This folder contains the literature review and theoretical foundation for the `q
 
 28. [rMQR Code](28-rmqr.md) — the rectangular member of the QR family (ISO/IEC 23941): the 32 versions from R7x43 to R17x139 with their codeword, block, remainder, and count-width tables, the 3-bit mode indicator, terminator and padding, error correction at levels M and H with QR's interleaving, the layout with its finder sub-pattern, corner patterns, edge timing, and alignment columns, the two 18-bit format copies under BCH(18,6) with their own masks, placement from the second column, the single fixed mask, a comparison with QR and Micro QR, and worked bit streams checked against zint.
 
+### Symbol inspection and the web demo (v0.18.0)
+
+29. [Symbol Inspection](29-symbol-inspection.md) — taking a finished symbol apart again with `Inspect`: the function and message layers, the census of every module role and the overlaps that decide it (alignment over timing, QR's format area, R7's finder), recording roles and stream bits in the encoder's own placement code, mapping stream bits to codewords including Micro QR's half codeword, the symbol before masking and the score of every candidate mask, the message's bit budget, locating each codeword in its block, and running the library in a browser through WebAssembly, with the cost of scanning camera frames.
+
 ## Primary references
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* The normative source.
@@ -128,5 +132,6 @@ Additional references appear at the end of each document.
 | 26-micro-qr.md                      | `qrgen/micro.go`, `qrgen/micro_encode.go`, `qrgen/micro_matrix.go`, `qrgen/micro_decode.go` |
 | 27-micro-qr-detection.md            | `qrgen/decode_micro.go`, `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go`, `qrgen/decode_multi.go` |
 | 28-rmqr.md                          | `qrgen/rmqr.go`, `qrgen/rmqr_encode.go`, `qrgen/rmqr_matrix.go`, `qrgen/rmqr_decode.go` |
+| 29-symbol-inspection.md             | `qrgen/inspect.go`, `web/internal/bridge/bridge.go`, `web/site/inspect.js` |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.
