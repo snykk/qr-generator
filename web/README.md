@@ -3,7 +3,7 @@
 A static page that runs the qrgen library in the browser: the Go code is compiled to WebAssembly and runs in a Web Worker, so nothing is sent to a server. It has two views.
 
 - **Create**: encode text, a URL, or a structured payload (Wi-Fi, vCard, email, phone, SMS, location) as a QR Code, Micro QR Code, or rMQR Code, with every option of the library: error-correction level, version, mask, ECI, quiet zone, module size, colours, a logo, and structured append. Download the symbol as PNG or SVG, or copy its text rendering. The "Inside the symbol" tab takes the symbol apart with `qrgen.Inspect`: a module map coloured by role, with the symbol before the mask and the mask pattern as extra layers; the segments and the bit budget of the message; the codewords and Reed-Solomon blocks, each codeword linked to its eight modules; and every candidate mask with its score.
-- **Scan**: read symbols from image files (picked, dropped, or pasted) with `qrgen.DecodeAll`, drawing each symbol's outline and finder centres, reassemble a structured-append set, or scan with the camera.
+- **Scan**: read QR Code, Micro QR, and rMQR symbols from image files (picked, dropped, or pasted) with `qrgen.DecodeAll`, drawing each symbol's outline and finder centres, reassemble a structured-append set, or scan with the camera.
 
 ## Layout
 

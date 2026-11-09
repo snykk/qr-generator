@@ -7,7 +7,7 @@
 
 A pure-Go QR code generator **and decoder** implemented from scratch, following **ISO/IEC 18004:2015**, with no runtime dependencies beyond the Go standard library.
 
-The encoder produces scannable PNG output for every QR version (1–40), every error-correction level (L/M/Q/H), and all four data modes (numeric, alphanumeric, byte, Kanji), as of v0.15 also Micro QR Code (M1–M4), and as of v0.17 rMQR Code (32 rectangular sizes, R7x43 to R17x139). The decoder closes the loop: given a PNG, a JPEG, or a raw `image.Image` holding a QR symbol or, as of v0.16, a Micro QR symbol, it runs binarisation, finder-pattern detection, perspective transform, alignment refinement, Reed–Solomon error correction, and segment parsing to return the original string. The library is shipped together with a thin CLI (`cmd/qrgen`) and, as of v0.18, a [web demo](#web-demo) that runs it in the browser through WebAssembly.
+The encoder produces scannable PNG output for every QR version (1–40), every error-correction level (L/M/Q/H), and all four data modes (numeric, alphanumeric, byte, Kanji), as of v0.15 also Micro QR Code (M1–M4), and as of v0.17 rMQR Code (32 rectangular sizes, R7x43 to R17x139). The decoder closes the loop: given a PNG, a JPEG, or a raw `image.Image` holding a QR symbol, as of v0.16 a Micro QR symbol, or as of v0.19 an rMQR symbol, it runs binarisation, finder-pattern detection, perspective transform, alignment refinement, Reed–Solomon error correction, and segment parsing to return the original string. The library is shipped together with a thin CLI (`cmd/qrgen`) and, as of v0.18, a [web demo](#web-demo) that runs it in the browser through WebAssembly.
 
 ## Contents
 
@@ -215,7 +215,7 @@ grid, err := qrgen.Matrix("RECTANGULAR", qrgen.WithRMQR())                      
 
 rMQR has two error-correction levels, M and H. Without `WithECLevel` the encoder takes the smallest symbol that fits at M and switches to H when the text also fits at H in that same symbol, as zint does; an explicit M or H picks the smallest symbol at that level, and L or Q is rejected. The quiet zone defaults to 2 modules and `WithECI` works as for QR. Every rMQR symbol uses one fixed mask, so `WithMask` is rejected, as are `WithLogo`, `WithVersion`, and structured append, each with a specific error. If the text does not fit, the encoder returns an `ErrCapacityExceeded` error rather than quietly producing a QR symbol.
 
-`DecodeMatrix` reads rMQR grids, recognised by their rectangular shape; finding rMQR symbols in images is not supported yet. The encoder reproduces 70 zint symbols module for module, covering every version at both levels, and zxing-cpp's independent reader decodes our rendered symbols; see [docs/theory/28-rmqr.md](docs/theory/28-rmqr.md) and the demo in [examples/encode/rmqr](examples/encode/rmqr/main.go).
+As of v0.19 the decoders read rMQR symbols too: `Decode`, `DecodeBytes`, and the CLI's `-decode` find an rMQR symbol in an image from its finder and the finder sub-pattern at the far corner, `DecodeAll` reports rMQR symbols next to QR and Micro QR ones with their `RMQRVersion`, and `DecodeMatrix` recognises rMQR grids by their rectangular shape. The encoder reproduces 70 zint symbols module for module, covering every version at both levels; rendered into images, those symbols read at any rotation from 3 pixels per module up and under perspective tilt to 55 degrees at 10, where zxing-cpp's reader, on the same scenes, reads the upright ones. See [docs/theory/28-rmqr.md](docs/theory/28-rmqr.md), [docs/theory/30-rmqr-detection.md](docs/theory/30-rmqr-detection.md), and the demos in [examples/encode/rmqr](examples/encode/rmqr/main.go) and [examples/decode/rmqr](examples/decode/rmqr/main.go).
 
 ## Inspecting a symbol
 
@@ -380,10 +380,10 @@ python3 -m http.server 8080 --directory web/site
 
 | Symbol | Purpose |
 |---|---|
-| `Decode(img image.Image) (string, error)` | Image → text. Runs the full image pipeline; reads QR and Micro QR symbols. |
+| `Decode(img image.Image) (string, error)` | Image → text. Runs the full image pipeline; reads QR, Micro QR, and rMQR symbols. |
 | `DecodeBytes(data []byte) (string, error)` | PNG / JPEG / GIF bytes → text. Convenience wrapper around `Decode`. |
 | `DecodeMatrix(grid [][]bool) (string, error)` | Boolean module grid → text. Skips the image pipeline. Also reads Micro QR grids (11, 13, 15, 17 modules) and rMQR grids (any of the 32 rectangular sizes). |
-| `DecodeAll(img image.Image) ([]Result, error)` | Image → every QR and Micro QR symbol in it, each a `Result` (text, corners, finder centres, version or Micro version), in reading order. |
+| `DecodeAll(img image.Image) ([]Result, error)` | Image → every QR, Micro QR, and rMQR symbol in it, each a `Result` (text, corners, finder centres, and its version, Micro version, or rMQR version), in reading order. |
 | `DecodeAllBytes(data []byte) ([]Result, error)` | PNG / JPEG / GIF bytes → all symbols. Convenience wrapper around `DecodeAll`. |
 | `DecodeStructuredAppend(symbols [][]byte) (string, error)` | A set of structured-append symbols (any order) → reassembled text. |
 
@@ -418,12 +418,12 @@ In scope as of v0.2.0:
 - Structured append: split a long message across up to 16 linked symbols and reassemble them (as of v0.10).
 - Centred logo overlay on PNG and SVG with an automatic EC-H bump (as of v0.12).
 - Micro QR Code, M1 to M4 at every EC level they define, through every encoder and renderer, plus decoding from a matrix (as of v0.15) and from images (as of v0.16).
-- rMQR Code, all 32 rectangular versions at levels M and H, through every encoder and renderer, plus decoding from a matrix (as of v0.17).
+- rMQR Code, all 32 rectangular versions at levels M and H, through every encoder and renderer, plus decoding from a matrix (as of v0.17) and from images (as of v0.19).
 - Symbol inspection with `Inspect`, and a browser demo that runs the library through WebAssembly (as of v0.18).
 - Image decoding (PNG / JPEG / GIF / `image.Image`) with binarisation, finder detection, perspective transform, and alignment refinement.
 - Matrix decoding from `[][]bool` for callers that already have a clean grid.
 
-Still out of scope (kept open as roadmap items): locating rMQR symbols in images, JPEG/PDF renderers, decoding QR symbols at near-grazing angles beyond about 55 degrees of tilt.
+Still out of scope (kept open as roadmap items): JPEG/PDF renderers, decoding QR symbols at near-grazing angles beyond about 55 degrees of tilt.
 
 ## Limitations
 
@@ -435,7 +435,7 @@ The library covers the encoder and the decoder end-to-end as of v0.2.0; the foll
 - **Structured-append is opt-in and PNG-only.** `EncodeStructuredAppend` (v0.10) splits a long message across 2..16 linked symbols and `DecodeStructuredAppend` reassembles them, but the encoder returns PNG bytes only (no SVG or terminal variant yet), takes an explicit part count rather than auto-sizing, and does not combine with `WithECI`. A single `Encode` still caps at one symbol (V40 ~2,953 bytes in byte mode at EC-L).
 - **Logo size is the caller's responsibility.** `WithLogo` (v0.12) forces EC-H and defaults to a safe ~20%-width logo, but it does not stop an oversized logo from exceeding the recovery budget; keep the logo modest and clear of the corner finder patterns.
 - **Arbitrary-angle decoding is bounded.** v0.4 handles the axis-aligned rotations and soft tilts to ~30 degrees; v0.13 adds a projective connected-component fallback that reads real perspective tilt reliably to ~35–40 degrees across orientations and up to ~55 degrees at favourable rotations. Beyond ~55–60 degrees the finder patterns themselves stop being detectable, so near-grazing angles, heavy blur, and glare that breaks a finder's nesting still fail.
-- **rMQR decodes from a matrix only.** `WithRMQR` (v0.17) encodes all 32 versions and `DecodeMatrix` reads rMQR grids, but `Decode`, `DecodeBytes`, and `DecodeAll` do not look for rMQR symbols in images yet. rMQR's FNC1 modes are neither written nor read.
+- **rMQR detection has limits.** `Decode`, `DecodeBytes`, and `DecodeAll` (v0.19) find rMQR symbols with the connected-component detector only, and only after QR and Micro QR detection have failed on the same finders. Measured on zint's symbols rotated in 5 degree steps, they read 1255 of 1260 scenes at 4 pixels per module, 1228 at 3, and 984 at 2, the longest symbols near 45 degrees being the hardest, and under perspective tilt every scene to 55 degrees at 10 pixels per module and to 30 degrees at 5. A symbol whose two format copies are both unreadable is not found, and mirrored symbols are not read. rMQR's FNC1 modes are neither written nor read.
 - **Multi-symbol decoding is best-effort.** `DecodeAll` (v0.14) uses the connected-component detector only, so a blurry or low-resolution upright symbol the single-symbol `Decode` reads via the line scanner may be missed. Each symbol's finder patterns must be fully within the frame — a symbol running off the edge is skipped, not partially recovered — and two symbols packed tightly enough to merge their quiet zones can lose an edge finder. It does not reassemble a structured-append set from one image; use `DecodeStructuredAppend` for that.
 - **Adaptive thresholding only on the quiet zone.** v0.3 added a Sauvola fallback that recovers QR codes whose quiet zone has been darkened by uneven lighting or soft shadows, but mutations that compress the QR's own ink-paper contrast (very dim photos, heavy gradient across the symbol itself) still defeat both Otsu and Sauvola at default parameters.
 - **Rule-4 mask penalty.** The dark-ratio bucket boundary uses the Thonky-style floor formula; other implementations use a ceiling-style formula and may pick a different mask for the same input. Output remains spec-compliant either way.
@@ -448,7 +448,7 @@ Candidates for future minor releases (post-v0.2.0):
 - **Encoding completeness:** complete — the numeric, alphanumeric, byte, and Kanji data modes plus ECI. (Mixed-mode segmentation shipped in v0.6, ECI in v0.9, Kanji in v0.11.)
 - **More payload builders:** calendar event (VEVENT), crypto/EPC payment, MeCard. (Wi-Fi, vCard, mailto, tel, SMS, and geo shipped in v0.7.)
 - **Logo embedding:** shipped in v0.12 — a centred logo with an automatic EC-H bump on PNG and SVG.
-- **Micro QR & rMQR:** Micro QR encoding and matrix decoding shipped in v0.15 and finding Micro symbols in images in v0.16; rMQR encoding and matrix decoding shipped in v0.17, and finding rMQR symbols in images (a finder and a finder sub-pattern at opposite corners) is next.
+- **Micro QR & rMQR:** complete — Micro QR encoding and matrix decoding shipped in v0.15 and image detection in v0.16, rMQR encoding and matrix decoding in v0.17 and image detection in v0.19.
 - **Structured-append extensions:** auto part-count, SVG/terminal output, and ECI combination. (Core PNG structured-append shipped in v0.10.)
 - **Decoder robustness:** pushing tilt past ~55 degrees (sub-pixel corner refinement, alignment-grid sampling), tunable Sauvola parameters (k, window) plus morphological cleanup so heavier within-symbol contrast loss can also be recovered.
 - **Performance:** reduce allocations on the hot encode and decode paths, and speed up the finder search on frames of fine noise, where every speck is a candidate (about 0.7 s for a 640 by 480 frame, which the web demo works around by scanning a smaller square).

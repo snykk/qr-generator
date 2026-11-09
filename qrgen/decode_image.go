@@ -745,10 +745,16 @@ func refineHomography(bm *bitmap, h0 homography, tri finderTriple, v Version) ho
 //
 // See docs/theory/12-image-processing.md §8.
 func sampleMatrix(bm *bitmap, h homography, n int) [][]bool {
-	grid := make([][]bool, n)
-	for r := range n {
-		grid[r] = make([]bool, n)
-		for c := range n {
+	return sampleGrid(bm, h, n, n)
+}
+
+// sampleGrid is sampleMatrix for a grid of rows by cols modules, the shape of
+// an rMQR symbol.
+func sampleGrid(bm *bitmap, h homography, rows, cols int) [][]bool {
+	grid := make([][]bool, rows)
+	for r := range rows {
+		grid[r] = make([]bool, cols)
+		for c := range cols {
 			grid[r][c] = moduleDark(bm, h, c, r)
 		}
 	}
@@ -760,16 +766,16 @@ func sampleMatrix(bm *bitmap, h homography, n int) [][]bool {
 // 1:1:3:1:1 line scanner and the three-finder-centre homography, which is
 // optimal for upright and rotated symbols and unchanged from before. If that
 // fails to produce a decodable grid -- the signature of perspective tilt, whose
-// foreshortening an affine map cannot undo, or of a Micro symbol, which has a
-// single finder -- it falls back to the connected-component attempt, which
-// tries the projective QR pipeline and then the Micro search on the same
-// finders (decodeCCFromBitmap). The affine attempt's error is preferred on
-// total failure so existing error messages are unchanged, except that a
-// convincing Micro symbol's own error is reported when the affine attempt
-// found no finder triple at all.
+// foreshortening an affine map cannot undo, or of a Micro or rMQR symbol, which
+// has a single finder -- it falls back to the connected-component attempt,
+// which tries the projective QR pipeline, then the Micro search, then the rMQR
+// search on the same finders (decodeCCFromBitmap). The affine attempt's error
+// is preferred on total failure so existing error messages are unchanged,
+// except that a convincing Micro or rMQR symbol's own error is reported when
+// the affine attempt found no finder triple at all.
 //
-// See docs/theory/24-arbitrary-angle-detection.md and
-// docs/theory/27-micro-qr-detection.md.
+// See docs/theory/24-arbitrary-angle-detection.md,
+// docs/theory/27-micro-qr-detection.md, and docs/theory/30-rmqr-detection.md.
 func decodeImage(img image.Image) (string, error) {
 	text, _, err := decodeImageWhich(img)
 	return text, err
@@ -777,8 +783,8 @@ func decodeImage(img image.Image) (string, error) {
 
 // decodeImageWhich is decodeImage that also reports which pipeline decoded the
 // symbol: "affine" (the line-scan fast path), "projective" (the tilt fallback),
-// or "micro" (a Micro QR symbol). Package-internal, used by the tests to assert
-// which path carries a given image.
+// "micro" (a Micro QR symbol), or "rmqr" (an rMQR symbol). Package-internal,
+// used by the tests to assert which path carries a given image.
 func decodeImageWhich(img image.Image) (text, path string, err error) {
 	grid, aerr := imageToGrid(img)
 	if aerr == nil {
@@ -792,12 +798,20 @@ func decodeImageWhich(img image.Image) (text, path string, err error) {
 	if cc.path != "" {
 		return cc.text, cc.path, nil
 	}
-	// A Micro symbol whose timing pattern checks out but whose format or data
-	// cannot be read is better described by its own error than by "finder
-	// patterns not found"; weaker Micro evidence keeps the affine error, since
-	// QR finders often pass the first Micro gates (theory doc 27, section 8).
-	if errors.Is(aerr, ErrFinderNotFound) && cc.microStage >= microStageTimed {
-		return "", "", cc.microErr
+	// A Micro or rMQR symbol that was found but whose format or data cannot
+	// be read is better described by its own error than by "finder patterns
+	// not found"; weaker evidence keeps the affine error, since QR finders
+	// often pass the first Micro and rMQR gates (theory doc 27, section 8, and
+	// doc 30, section 7). A located rMQR symbol, finder and sub-pattern with
+	// agreeing timing rows, outranks a Micro symbol that only passed Micro's
+	// timing check, which an rMQR finder of height 9 can do.
+	if errors.Is(aerr, ErrFinderNotFound) {
+		switch {
+		case cc.rmqrStage >= rmqrStageLocated:
+			return "", "", cc.rmqrErr
+		case cc.microStage >= microStageTimed:
+			return "", "", cc.microErr
+		}
 	}
 	return "", "", aerr
 }
@@ -826,12 +840,25 @@ func imageToGrid(img image.Image) ([][]bool, error) {
 
 // ccOutcome is the result of the connected-component attempt: the decoded text
 // and the path that produced it ("projective" for a QR symbol, "micro" for a
-// Micro symbol), or, when nothing decoded (path empty), how far the Micro
-// search got and its error, which decodeImageWhich's error contract reads.
+// Micro symbol, "rmqr" for an rMQR symbol), or, when nothing decoded (path
+// empty), how far the Micro and rMQR searches got and their errors, which
+// decodeImageWhich's error contract reads.
 type ccOutcome struct {
 	text, path string
 	microStage microStage
 	microErr   error
+	rmqrStage  rmqrStage
+	rmqrErr    error
+}
+
+// further reports whether o is the more convincing failure of the two: the
+// one whose rMQR search located a symbol, or else whose Micro search got
+// further.
+func (o ccOutcome) further(than ccOutcome) bool {
+	if (o.rmqrStage >= rmqrStageLocated) != (than.rmqrStage >= rmqrStageLocated) {
+		return o.rmqrStage >= rmqrStageLocated
+	}
+	return o.microStage > than.microStage
 }
 
 // decodeImageCC is the connected-component attempt decodeImage falls back to:
@@ -855,31 +882,38 @@ func decodeImageCC(img image.Image) ccOutcome {
 		return first
 	}
 	second := decodeCCFromBitmap(sauvolaBinariseFromGray(pixels, w, h)) // reactive Sauvola
-	if second.path != "" || second.microStage > first.microStage {
+	if second.path != "" || second.further(first) {
 		return second
 	}
 	return first
 }
 
 // decodeCCFromBitmap runs the connected-component attempt on one binarised
-// bitmap. It labels the bitmap once and uses the finder quads twice. First the
-// projective QR pipeline: the best-fitting finder triple, decoded by the
-// version trial of decodeOneQuadTriple, because a foreshortened symbol cannot
-// report its version reliably. Then, only if that does not decode, each quad
-// as the finder of a Micro symbol (decodeMicroFromQuads), so a Micro candidate
-// never preempts a QR triple on the same bitmap.
+// bitmap. It labels the bitmap once and uses the finder quads three times.
+// First the projective QR pipeline: the best-fitting finder triple, decoded by
+// the version trial of decodeOneQuadTriple, because a foreshortened symbol
+// cannot report its version reliably. Then, only if that does not decode, each
+// quad as the finder of a Micro symbol (decodeMicroFromQuads), and only if
+// that does not decode either, each quad as the finder of an rMQR symbol
+// (decodeRMQRFromQuads), so neither single-finder search ever preempts a
+// symbol an earlier one reads on the same bitmap.
 func decodeCCFromBitmap(bm *bitmap) ccOutcome {
-	quads := allFinderQuads(bm)
+	scan := scanComponents(bm)
+	quads := scan.quads
 	if tq, err := bestFinderQuadTriple(quads); err == nil {
 		if text, _, _, derr := decodeOneQuadTriple(bm, tq); derr == nil {
 			return ccOutcome{text: text, path: "projective"}
 		}
 	}
-	text, stage, err := decodeMicroFromQuads(bm, quads)
-	if err == nil {
-		return ccOutcome{text: text, path: "micro", microStage: stage}
+	text, mstage, merr := decodeMicroFromQuads(bm, quads)
+	if merr == nil {
+		return ccOutcome{text: text, path: "micro", microStage: mstage}
 	}
-	return ccOutcome{microStage: stage, microErr: err}
+	text, rstage, rerr := decodeRMQRFromQuads(bm, scan, quads)
+	if rerr == nil {
+		return ccOutcome{text: text, path: "rmqr", microStage: mstage, rmqrStage: rstage}
+	}
+	return ccOutcome{microStage: mstage, microErr: merr, rmqrStage: rstage, rmqrErr: rerr}
 }
 
 // decodeOneQuadTriple decodes a single ordered finder-quad triple. Because a
