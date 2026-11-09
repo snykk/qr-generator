@@ -77,8 +77,8 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah RD4) membaca setiap simb
 
 ### RD6 — Pengukuran dan Web Demo `(M)`
 
-- [ ] Sweep skala, rotasi, kemiringan, dan quiet zone atas simbol-simbol zint, serta zxing-cpp pada scene yang sama, dilaporkan di commit.
-- [ ] Tampilan Scan di web demo memberi label simbol rMQR; satu putaran browser dengan simbol rMQR lewat file dan kamera.
+- [x] Sweep skala, rotasi, kemiringan, dan quiet zone atas simbol-simbol zint, serta zxing-cpp pada scene yang sama, dilaporkan di commit.
+- [x] Tampilan Scan di web demo memberi label simbol rMQR; satu putaran browser dengan simbol rMQR lewat file dan kamera.
 
 ### RD7 — Polish & Rilis `(S)`
 

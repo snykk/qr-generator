@@ -77,8 +77,8 @@ Milestones land sequentially. **Checkpoint A** (after RD4) reads every zint symb
 
 ### RD6 — Measurement and the Web Demo `(M)`
 
-- [ ] Sweeps of scale, rotation, tilt, and quiet zone over the zint symbols, and zxing-cpp on the same scenes, reported in the commit.
-- [ ] The web demo's Scan view labels rMQR symbols; a browser run with an rMQR symbol through a file and the camera.
+- [x] Sweeps of scale, rotation, tilt, and quiet zone over the zint symbols, and zxing-cpp on the same scenes, reported in the commit.
+- [x] The web demo's Scan view labels rMQR symbols; a browser run with an rMQR symbol through a file and the camera.
 
 ### RD7 — Polish & Release `(S)`
 

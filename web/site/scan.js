@@ -105,25 +105,26 @@ async function scanFiles(list) {
   }
 }
 
-/** Builds a sample photo-like scene: a tilted QR symbol and a Micro QR symbol. */
+/** Builds a sample photo-like scene: a tilted QR symbol, a Micro QR symbol, and an rMQR strip. */
 async function sampleScene() {
-  const [qr, micro] = await Promise.all([
-    call('encode', { text: 'https://github.com/snykk/qr-generator', settings: { moduleSize: 6, mask: -1, quietZone: -1 }, formats: ['png'] }),
-    call('encode', { text: '12345', settings: { symbology: 'micro', moduleSize: 8, mask: -1, quietZone: -1 }, formats: ['png'] }),
-  ]);
-  const [qrImg, microImg] = await Promise.all([
-    loadImage(new Blob([Uint8Array.from(atob(qr.png), (c) => c.charCodeAt(0))], { type: 'image/png' })),
-    loadImage(new Blob([Uint8Array.from(atob(micro.png), (c) => c.charCodeAt(0))], { type: 'image/png' })),
+  const pngImage = async (text, settings) => {
+    const res = await call('encode', { text, settings: { mask: -1, quietZone: -1, ...settings }, formats: ['png'] });
+    return loadImage(new Blob([Uint8Array.from(atob(res.png), (c) => c.charCodeAt(0))], { type: 'image/png' }));
+  };
+  const [qrImg, microImg, rmqrImg] = await Promise.all([
+    pngImage('https://github.com/snykk/qr-generator', { moduleSize: 6 }),
+    pngImage('12345', { symbology: 'micro', moduleSize: 8 }),
+    pngImage('RECTANGULAR MICRO QR', { symbology: 'rmqr', rmqrHeight: 7, moduleSize: 4 }),
   ]);
   const canvas = el('canvas');
   canvas.width = 720;
-  canvas.height = 420;
+  canvas.height = 520;
   const g = canvas.getContext('2d');
-  const bg = g.createLinearGradient(0, 0, 720, 420);
+  const bg = g.createLinearGradient(0, 0, 720, 520);
   bg.addColorStop(0, '#d9d4cb');
   bg.addColorStop(1, '#a9a197');
   g.fillStyle = bg;
-  g.fillRect(0, 0, 720, 420);
+  g.fillRect(0, 0, 720, 520);
   const place = (img, x, y, angle) => {
     g.save();
     g.translate(x, y);
@@ -131,10 +132,11 @@ async function sampleScene() {
     g.drawImage(img, -img.width / 2, -img.height / 2);
     g.restore();
   };
-  place(qrImg, 230, 210, -14);
-  place(microImg, 560, 200, 9);
+  place(qrImg, 230, 200, -14);
+  place(microImg, 560, 190, 9);
+  place(rmqrImg, 380, 445, 4);
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-  return new File([blob], 'sample: a tilted QR Code and a Micro QR Code.png', { type: 'image/png' });
+  return new File([blob], 'sample: a tilted QR Code, a Micro QR Code, and an rMQR Code.png', { type: 'image/png' });
 }
 
 // Camera scanning: a centred square of each frame, at most 480 pixels wide, is

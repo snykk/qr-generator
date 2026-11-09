@@ -280,6 +280,24 @@ func TestDecodeImageFile(t *testing.T) {
 	}
 }
 
+// TestDecodeRMQRImage: an rMQR symbol in an image file is reported as one,
+// with its version, outline, and finder.
+func TestDecodeRMQRImage(t *testing.T) {
+	raw, err := qrgen.Encode("RECTANGULAR MICRO QR", qrgen.WithRMQRHeight(7), qrgen.WithModuleSize(4))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var res DecodeResult
+	call(t, "decode", map[string]any{}, [][]byte{raw}, &res)
+	if len(res.Symbols) != 1 {
+		t.Fatalf("found %+v", res)
+	}
+	s := res.Symbols[0]
+	if s.Text != "RECTANGULAR MICRO QR" || s.Symbology != "rMQR Code" || s.Version != "R7x77" || len(s.Corners) != 4 || len(s.Finders) != 1 {
+		t.Errorf("got %+v", s)
+	}
+}
+
 func TestDecodePixels(t *testing.T) {
 	img := scene(t)
 	var res DecodeResult

@@ -617,10 +617,14 @@ func readImage(img image.Image) DecodeResult {
 	if err == nil && len(results) > 0 {
 		for _, r := range results {
 			f := Found{Text: r.Text}
-			if r.MicroVersion != 0 {
+			switch {
+			case r.MicroVersion != 0:
 				f.Symbology, f.Version = "Micro QR Code", r.MicroVersion.String()
 				f.Finders = [][2]int{{r.Finders[0].X - b.Min.X, r.Finders[0].Y - b.Min.Y}}
-			} else {
+			case r.RMQRVersion != 0:
+				f.Symbology, f.Version = "rMQR Code", r.RMQRVersion.String()
+				f.Finders = [][2]int{{r.Finders[0].X - b.Min.X, r.Finders[0].Y - b.Min.Y}}
+			default:
 				f.Symbology, f.Version = "QR Code", fmt.Sprint(int(r.Version))
 				for _, p := range r.Finders {
 					f.Finders = append(f.Finders, [2]int{p.X - b.Min.X, p.Y - b.Min.Y})
