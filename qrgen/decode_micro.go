@@ -92,11 +92,11 @@ func windCorners(c [4][2]float64) [4][2]float64 {
 	return c
 }
 
-// microFinderHomography maps module coordinates to pixels under assignment k:
+// finderHomography maps module coordinates to pixels under assignment k:
 // finder ring corner i (top-left, top-right, bottom-right, bottom-left) goes to
 // wound image corner (i+k) mod 4, so k picks which image corner is the
 // symbol's outer corner.
-func microFinderHomography(corners [4][2]float64, k int) (homography, error) {
+func finderHomography(corners [4][2]float64, k int) (homography, error) {
 	var dst [4][2]float64
 	for i := range 4 {
 		dst[i] = corners[(i+k)%4]
@@ -173,7 +173,7 @@ func locateMicro(bm *bitmap, q finderQuad) ([]microCandidate, microStage) {
 	stage := microStageNone
 	var out []microCandidate
 	for k := range 4 {
-		hg, err := microFinderHomography(corners, k)
+		hg, err := finderHomography(corners, k)
 		if err != nil {
 			continue
 		}

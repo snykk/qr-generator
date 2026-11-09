@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-09
+
+This release finds **rMQR Code symbols in images**: `Decode`, `DecodeBytes`, the CLI's `-decode`, and `DecodeAll` now locate an rMQR symbol from its finder and the finder sub-pattern at its far corner, completing the rMQR support that v0.17 began with the encoder and the matrix decoder, and the web demo's Scan view reads them too. As before, it was validated against material that shares none of our code: zint's symbols rendered into images, and zxing-cpp's reader on the same scenes.
+
+### Added
+
+- `Decode`, `DecodeBytes`, and the CLI's `-decode` read rMQR symbols from images. When no QR or Micro QR symbol decodes, each finder is tried as the finder of an rMQR symbol: the top timing row picks the quarter turn, the format copy beside the finder names the version, and the finder sub-pattern, found by its light ring around a one-module centre, is looked for where that version puts it, through an affine prediction corrected for perspective. The corners of both patterns give a homography that a fit along the symbol's long edges then refines, and when the finder-side format copy is unreadable the copy beside the sub-pattern names the version instead.
+- `DecodeAll` reports rMQR symbols next to QR and Micro QR symbols: after the QR triples and the Micro search have claimed their finders, every finder still unclaimed is tried as an rMQR finder. `Result` gains `RMQRVersion`, zero for QR and Micro QR symbols; an rMQR result has `Version` and `MicroVersion` zero, its finder in `Finders[0]`, and its rectangular outline in `Corners`.
+- A runnable example `examples/decode/rmqr`; the web demo's Scan view labels rMQR symbols, and its sample scene adds an rMQR strip.
+- New reference doc `docs/theory/30-rmqr-detection.md` (English plus Indonesian) and plan doc `docs/plan-rmqr-detection.md` (plus Indonesian) with milestones RD1..RD7.
+
+### Changed
+
+- Errors: on total failure `Decode` still returns the error of its first (affine) attempt, except that a located rMQR symbol, a finder and a sub-pattern whose top and bottom timing rows read correctly, reports its own `ErrFormatUnreadable` or `ErrTooManyErrors` instead of `ErrFinderNotFound`, and outranks a Micro symbol that only passed Micro's timing check.
+- Internals: one connected-component labelling (`scanComponents`) serves the QR, Micro QR, and rMQR searches; `sampleGrid` samples rectangular grids; the finder homography is shared as `finderHomography`; and the test helpers that render grids accept rectangles. The rMQR search runs last on each binarisation, so QR and Micro QR results are unchanged, and every existing test passes.
+- CI: the GitHub Actions moved to their Node 24 releases (checkout v7, setup-go v7, configure-pages v6, upload-pages-artifact v5, deploy-pages v5, and action-gh-release v3), which ends the Node 20 deprecation warnings.
+- Docs: the README covers rMQR detection in the rMQR section, the API tables, scope, limitations, and roadmap, and the CLI's `-decode` help names all three symbologies.
+
+### Validated
+
+- All 70 zint rMQR symbols, rendered into images, decode at every quarter turn at 3 and 5 pixels per module; in 5 degree steps of rotation, 1255 of 1260 scenes at 4 pixels per module, 1228 at 3, and 984 at 2; under perspective tilt with four in-plane rotations, every scene to 55 degrees at 10 pixels per module (278 of 280 at 60) and every scene at 30 degrees at 5 (262 of 280 at 45); and with any quiet zone from none to four modules.
+- zxing-cpp 2.3.0, run on 1680 of these scenes, reads 409 of them against this decoder's 1674: every upright scene, but few of the turned or tilted ones. It reads no scene this decoder misses and never returns a different text.
+- No finder of 224 QR symbols (versions 1 to 7, every EC level and mask) or of the zint Micro symbols is located as rMQR, no rMQR symbol at any quarter turn reads as Micro QR, and `DecodeAll` reports a scene mixing all three kinds once each, as its own kind. With the finder-side format copy destroyed, every symbol still reads through the other copy.
+- The geometry was measured, not assumed: extrapolated to the far end, the finder's homography was off by up to 27 percent of the distance and its affine fit by under 7 percent; the fit along the long edges read 73 small rotated scenes where the eight-point homography read 31; and on a frame of pure noise, the worst case, the rMQR search adds about a tenth to `Decode`. `go test -race ./...` clean.
+
 ## [0.18.0] - 2026-11-08
 
 This release adds a **web demo** and **`qrgen.Inspect`**. The demo is a static page, published to GitHub Pages, that runs the library itself in the browser through WebAssembly: it creates QR Code, Micro QR, and rMQR symbols with every option, takes a symbol apart layer by layer, and scans images and the camera. `Inspect` is the public API behind the demo's teaching view: it encodes exactly as `Matrix` does and reports how the symbol was built.
@@ -470,7 +495,8 @@ First public release. The encoder is feature-complete for the v0.1 scope and its
 - Over 80 unit tests including per-version sweeps that verify every spec lookup table and a 160-combination data-plus-EC-equals-total invariant check.
 - Race detector clean (`go test -race ./...`).
 
-[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/snykk/qr-generator/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/snykk/qr-generator/releases/tag/v0.19.0
 [0.18.0]: https://github.com/snykk/qr-generator/releases/tag/v0.18.0
 [0.17.0]: https://github.com/snykk/qr-generator/releases/tag/v0.17.0
 [0.16.0]: https://github.com/snykk/qr-generator/releases/tag/v0.16.0

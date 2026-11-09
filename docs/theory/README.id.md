@@ -87,6 +87,10 @@ Folder ini berisi tinjauan pustaka dan landasan teori untuk library `qrgen`. Set
 
 29. [Inspeksi Simbol](29-symbol-inspection.id.md) — membedah lagi simbol yang sudah jadi dengan `Inspect`: lapisan fungsi dan lapisan pesan, sensus setiap peran modul beserta tumpang-tindih yang menentukannya (alignment di atas timing, area format QR, finder pada R7), pencatatan peran dan bit stream di kode penempatan milik encoder sendiri, pemetaan bit stream ke codeword termasuk half codeword Micro QR, simbol sebelum masking dan skor setiap kandidat mask, anggaran bit pesan, lokasi tiap codeword di bloknya, dan menjalankan library di browser lewat WebAssembly, beserta biaya memindai frame kamera.
 
+### Deteksi rMQR (v0.19.0)
+
+30. [Deteksi rMQR](30-rmqr-detection.id.md) — menemukan simbol rMQR di dalam gambar dari satu finder dan finder sub-pattern di sudut seberang: kenapa satu finder tidak bisa menempatkan ujung jauh simbol yang panjangnya sampai 139 modul, orientasi dari timing pattern atas, salinan format di sisi finder dan seberapa lemah sebuah kecocokan, menemukan sub-pattern lewat cincin terangnya karena cincin gelapnya tidak punya separator, memprediksi letaknya dengan peta afine yang dikoreksi untuk perspektif, homografi delapan titik dan fit di sepanjang tepi panjang, salinan format kedua sebagai cadangan, timing rows yang memastikan sebuah simbol beserta stage-stage error contract yang dibangun di atasnya, tempat pencarian ini bergabung ke pipeline setelah QR dan Micro QR, dan zxing-cpp sebagai prior art.
+
 ## Referensi utama
 
 - **ISO/IEC 18004:2015** — *Information technology — Automatic identification and data capture techniques — QR code bar code symbology specification.* Sumber normatif.
@@ -135,5 +139,6 @@ Referensi tambahan ada di akhir tiap dokumen.
 | 27-micro-qr-detection.id.md             | `qrgen/decode_micro.go`, `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go`, `qrgen/decode_multi.go` |
 | 28-rmqr.id.md                           | `qrgen/rmqr.go`, `qrgen/rmqr_encode.go`, `qrgen/rmqr_matrix.go`, `qrgen/rmqr_decode.go` |
 | 29-symbol-inspection.id.md              | `qrgen/inspect.go`, `web/internal/bridge/bridge.go`, `web/site/inspect.js` |
+| 30-rmqr-detection.id.md                 | `qrgen/decode_rmqr.go`, `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go`, `qrgen/decode_multi.go` |
 
 Bila mengubah algoritma, mohon perbarui dokumen terkait di folder ini. Dokumen teori adalah penjelasan tahan lama tentang *mengapa* kode terlihat seperti sekarang.
