@@ -31,7 +31,7 @@ import (
 // symbols, in-plane rotation leaves the true centre within 4 percent of the
 // distance of the affine prediction along the axis and 5 percent across it;
 // perspective tilt moves it up to 79 percent along and 15 percent across, and
-// the correction brings the along error under 28 percent, but no lower, since
+// the correction brings the along error under 40 percent, but no lower, since
 // binarisation thickens dark modules and so measures the sub-pattern's light
 // ring about a fifth small. Tilt also makes the far modules up to 2.8 times
 // the finder's along the axis; rmqrModuleRatio bounds the measured ratio

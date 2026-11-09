@@ -82,10 +82,10 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah RD4) membaca setiap simb
 
 ### RD7 — Polish & Rilis `(S)`
 
-- [ ] README (bagian decoding, tabel API, scope, limitations, roadmap) dan peta kode theory.
-- [ ] GitHub Actions dinaikkan ke rilis Node 24-nya (checkout, setup-go, configure-pages, upload-pages-artifact, deploy-pages), dengan run yang bebas dari peringatan Node 20.
-- [ ] Entri `v0.19.0` di `CHANGELOG.md`, dibiarkan unstaged untuk release branch.
-- [ ] `go test -race ./...` bersih, gofmt bersih.
+- [x] README (bagian decoding, tabel API, scope, limitations, roadmap) dan peta kode theory.
+- [x] GitHub Actions dinaikkan ke rilis Node 24-nya (checkout, setup-go, configure-pages, upload-pages-artifact, deploy-pages), dengan run yang bebas dari peringatan Node 20.
+- [x] Entri `v0.19.0` di `CHANGELOG.md`, dibiarkan unstaged untuk release branch.
+- [x] `go test -race ./...` bersih, gofmt bersih.
 
 ## 7. Strategi validasi
 

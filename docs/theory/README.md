@@ -87,7 +87,7 @@ This folder contains the literature review and theoretical foundation for the `q
 
 ### rMQR detection (v0.19.0)
 
-30. [rMQR Detection](30-rmqr-detection.md) — locating rMQR symbols in images from a single finder and the finder sub-pattern at the far corner: why one finder cannot place the far end of a symbol up to 139 modules long, orientation from the top timing pattern, the finder-side format copy and how weak a match is, finding the sub-pattern by its light ring because its dark ring has no separator, pairing it by predicted position, the eight-point homography and the fit along the long edges, the second format copy as confirmation and fallback, the stages behind the error contract, where the search joins the pipeline after QR and Micro QR, and zxing-cpp as prior art.
+30. [rMQR Detection](30-rmqr-detection.md) — locating rMQR symbols in images from a single finder and the finder sub-pattern at the far corner: why one finder cannot place the far end of a symbol up to 139 modules long, orientation from the top timing pattern, the finder-side format copy and how weak a match is, finding the sub-pattern by its light ring because its dark ring has no separator, predicting where it lies with an affine map corrected for perspective, the eight-point homography and the fit along the long edges, the second format copy as a fallback, the timing rows that confirm a symbol and the stages of the error contract built on them, where the search joins the pipeline after QR and Micro QR, and zxing-cpp as prior art.
 
 ## Primary references
 
@@ -137,6 +137,6 @@ Additional references appear at the end of each document.
 | 27-micro-qr-detection.md            | `qrgen/decode_micro.go`, `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go`, `qrgen/decode_multi.go` |
 | 28-rmqr.md                          | `qrgen/rmqr.go`, `qrgen/rmqr_encode.go`, `qrgen/rmqr_matrix.go`, `qrgen/rmqr_decode.go` |
 | 29-symbol-inspection.md             | `qrgen/inspect.go`, `web/internal/bridge/bridge.go`, `web/site/inspect.js` |
-| 30-rmqr-detection.md                | `qrgen/decode_rmqr.go`, `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go`, `qrgen/decode_multi.go` (planned, RD3–RD5) |
+| 30-rmqr-detection.md                | `qrgen/decode_rmqr.go`, `qrgen/decode_finder_cc.go`, `qrgen/decode_image.go`, `qrgen/decode_multi.go` |
 
 If you change an algorithm, please update the corresponding document in this folder. The theory docs are the durable explanation of *why* the code looks the way it does.

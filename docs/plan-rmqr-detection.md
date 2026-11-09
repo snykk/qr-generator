@@ -82,10 +82,10 @@ Milestones land sequentially. **Checkpoint A** (after RD4) reads every zint symb
 
 ### RD7 — Polish & Release `(S)`
 
-- [ ] README (decoding section, API table, scope, limitations, roadmap) and the theory code map.
-- [ ] GitHub Actions bumped to their Node 24 releases (checkout, setup-go, configure-pages, upload-pages-artifact, deploy-pages), with runs free of the Node 20 warning.
-- [ ] `CHANGELOG.md` `v0.19.0` entry, left unstaged for the release branch.
-- [ ] `go test -race ./...` clean, gofmt-clean.
+- [x] README (decoding section, API table, scope, limitations, roadmap) and the theory code map.
+- [x] GitHub Actions bumped to their Node 24 releases (checkout, setup-go, configure-pages, upload-pages-artifact, deploy-pages), with runs free of the Node 20 warning.
+- [x] `CHANGELOG.md` `v0.19.0` entry, left unstaged for the release branch.
+- [x] `go test -race ./...` clean, gofmt-clean.
 
 ## 7. Validation strategy
 
