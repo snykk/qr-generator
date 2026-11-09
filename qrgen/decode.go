@@ -18,8 +18,8 @@ import (
 	"strings"
 )
 
-// Decode reads a QR code or a Micro QR code from an image and returns the
-// original text. The image stage (binarisation, finder-pattern detection,
+// Decode reads a QR code, a Micro QR code, or an rMQR code from an image and
+// returns the original text. The image stage (binarisation, finder-pattern detection,
 // perspective transform, alignment refinement, module sampling) runs first;
 // the resulting boolean module grid is then handed off to [DecodeMatrix] for
 // the matrix stage.
@@ -27,8 +27,12 @@ import (
 // A Micro QR symbol has a single finder pattern. When no QR symbol decodes,
 // Decode tries each finder in the image as a Micro finder, using its corners,
 // the timing patterns beside it, and its format information to orient and size
-// the symbol (see docs/theory/27-micro-qr-detection.md). An image that holds
-// both kinds is read as its QR symbol.
+// the symbol (see docs/theory/27-micro-qr-detection.md). When no Micro symbol
+// decodes either, Decode tries each finder as the finder of an rMQR symbol,
+// finding the finder sub-pattern at the far corner where the format
+// information beside the finder puts it (see
+// docs/theory/30-rmqr-detection.md). An image that holds more than one kind is
+// read as its QR symbol first, then its Micro QR symbol.
 //
 // Any stage may fail with a typed sentinel error: [ErrFinderNotFound] if the
 // image's finder patterns can't be located, [ErrInvalidVersion] if the
@@ -36,8 +40,9 @@ import (
 // the format-info strips can't be decoded, [ErrTooManyErrors] if any RS
 // block exceeds its correction budget, or [ErrCorruptedPayload] if the
 // recovered bit stream contains an unparseable segment header. For a Micro
-// symbol whose timing pattern checks out, its own format or Reed-Solomon error
-// is reported rather than [ErrFinderNotFound].
+// symbol whose timing pattern checks out, or an rMQR symbol whose finder,
+// sub-pattern, and timing rows were all found, its own format or Reed-Solomon
+// error is reported rather than [ErrFinderNotFound].
 //
 // See docs/theory/13-decoder-pipeline.md for the full stage-by-stage flow.
 func Decode(img image.Image) (string, error) {

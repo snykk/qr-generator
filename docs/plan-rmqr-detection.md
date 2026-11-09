@@ -72,8 +72,8 @@ Milestones land sequentially. **Checkpoint A** (after RD4) reads every zint symb
 
 ### RD5 — Pipeline `(M)`
 
-- [ ] The rMQR pass in `Decode` and `DecodeBytes` after the Micro pass, with the error contract; the rMQR pass in `DecodeAll` and `Result.RMQRVersion`; `examples/decode/rmqr`.
-- [ ] Tests: composites of QR, Micro QR, and rMQR symbols; no QR or Micro finder decodes as rMQR, and no rMQR symbol as Micro QR.
+- [x] The rMQR pass in `Decode` and `DecodeBytes` after the Micro pass, with the error contract; the rMQR pass in `DecodeAll` and `Result.RMQRVersion`; `examples/decode/rmqr`.
+- [x] Tests: composites of QR, Micro QR, and rMQR symbols; no QR or Micro finder decodes as rMQR, and no rMQR symbol as Micro QR.
 
 ### RD6 — Measurement and the Web Demo `(M)`
 

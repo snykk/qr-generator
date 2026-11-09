@@ -18,11 +18,13 @@ import (
 // decodedSymbol is one symbol recovered from a bitmap by the multi-symbol
 // loop: its text plus the geometry needed to locate it (the winning version and
 // homography, and the ordered finder triple). For a Micro QR symbol, micro is
-// its version, v is zero, and tq.tl holds its single finder.
+// its version, v is zero, and tq.tl holds its single finder; an rMQR symbol is
+// the same with rmqr in place of micro.
 type decodedSymbol struct {
 	text  string
 	v     Version
 	micro MicroVersion
+	rmqr  RMQRVersion
 	hg    homography
 	tq    finderTripleQuad
 }
@@ -41,12 +43,14 @@ type decodedSymbol struct {
 //
 // After the QR triples, every finder no QR symbol claimed is tried as the
 // single finder of a Micro QR symbol and claimed if it decodes, so a QR finder
-// is never offered to the Micro search once its symbol has decoded.
+// is never offered to the Micro search once its symbol has decoded; the
+// finders still unclaimed are then tried as the finder of an rMQR symbol.
 //
-// See docs/theory/25-multi-symbol-decoding.md and
-// docs/theory/27-micro-qr-detection.md.
+// See docs/theory/25-multi-symbol-decoding.md,
+// docs/theory/27-micro-qr-detection.md, and docs/theory/30-rmqr-detection.md.
 func decodeMultipleFromBitmap(bm *bitmap) []decodedSymbol {
-	quads := allFinderQuads(bm)
+	scan := scanComponents(bm)
+	quads := scan.quads
 	if len(quads) == 0 {
 		return nil
 	}
@@ -92,6 +96,15 @@ func decodeMultipleFromBitmap(bm *bitmap) []decodedSymbol {
 			out = append(out, decodedSymbol{text: text, micro: mv, hg: hg, tq: finderTripleQuad{tl: q}})
 		}
 	}
+	for i, q := range quads {
+		if claimed[i] {
+			continue
+		}
+		if text, rv, hg, _, err := decodeRMQRQuad(bm, scan, q); err == nil {
+			claimed[i] = true
+			out = append(out, decodedSymbol{text: text, rmqr: rv, hg: hg, tq: finderTripleQuad{tl: q}})
+		}
+	}
 	return out
 }
 
@@ -110,17 +123,22 @@ type Result struct {
 
 	// Finders are the centres of the three finder patterns in pixel
 	// coordinates: [0]=top-left, [1]=top-right, [2]=bottom-left. With Corners
-	// they pin down the symbol's orientation. A Micro QR symbol has a single
-	// finder, in Finders[0]; the other two entries are zero.
+	// they pin down the symbol's orientation. A Micro QR or rMQR symbol has a
+	// single finder, in Finders[0]; the other two entries are zero.
 	Finders [3]image.Point
 
-	// Version is the decoded QR version, 1..40, and zero for a Micro QR
-	// symbol.
+	// Version is the decoded QR version, 1..40, and zero for a Micro QR or
+	// rMQR symbol.
 	Version Version
 
-	// MicroVersion is the version of a Micro QR symbol, M1..M4, and zero for
-	// a QR symbol. It is the way to tell the two kinds apart.
+	// MicroVersion is the version of a Micro QR symbol, M1..M4, and zero
+	// otherwise.
 	MicroVersion MicroVersion
+
+	// RMQRVersion is the version of an rMQR symbol, R7x43..R17x139, and zero
+	// otherwise. With MicroVersion it tells the three kinds apart: a QR symbol
+	// has both zero.
+	RMQRVersion RMQRVersion
 }
 
 // Bounds returns the axis-aligned bounding rectangle of the symbol in
@@ -147,10 +165,11 @@ func (r Result) Bounds() image.Rectangle {
 	return image.Rect(minX, minY, maxX+1, maxY+1)
 }
 
-// DecodeAll finds and decodes every QR and Micro QR symbol present in img and
-// returns one Result per symbol that decoded successfully, in reading order
-// (top to bottom, then left to right by each symbol's top-left corner). A
-// Micro QR symbol is reported with its MicroVersion set and Version zero.
+// DecodeAll finds and decodes every QR, Micro QR, and rMQR symbol present in
+// img and returns one Result per symbol that decoded successfully, in reading
+// order (top to bottom, then left to right by each symbol's top-left corner).
+// A Micro QR symbol is reported with its MicroVersion set and Version zero, an
+// rMQR symbol with its RMQRVersion set and Version zero.
 //
 // Per-symbol failures are not fatal: a symbol whose finder pattern, format
 // info, or Reed-Solomon blocks cannot be recovered is skipped, and the symbols
@@ -163,7 +182,9 @@ func (r Result) Bounds() image.Rectangle {
 // arbitrary rotation and moderate perspective tilt (see
 // docs/theory/25-multi-symbol-decoding.md). Micro QR symbols are found from
 // their single finder pattern among the finders no QR symbol claimed (see
-// docs/theory/27-micro-qr-detection.md). It does not reassemble a
+// docs/theory/27-micro-qr-detection.md), and rMQR symbols from their finder and
+// finder sub-pattern among the finders still unclaimed (see
+// docs/theory/30-rmqr-detection.md). It does not reassemble a
 // structured-append set; use [DecodeStructuredAppend] for that. The existing
 // single-symbol [Decode] is unchanged.
 func DecodeAll(img image.Image) ([]Result, error) {
@@ -180,6 +201,15 @@ func DecodeAll(img image.Image) ([]Result, error) {
 				Corners:      symbolCorners(s.micro.Size(), s.hg),
 				Finders:      [3]image.Point{tl},
 				MicroVersion: s.micro,
+			}
+			continue
+		}
+		if s.rmqr != 0 {
+			results[i] = Result{
+				Text:        s.text,
+				Corners:     gridCorners(s.rmqr.Height(), s.rmqr.Width(), s.hg),
+				Finders:     [3]image.Point{tl},
+				RMQRVersion: s.rmqr,
 			}
 			continue
 		}
@@ -231,16 +261,22 @@ func decodeAllFromImage(img image.Image) []decodedSymbol {
 // (possibly perspective-distorted) corners, not the finder-ring corners. Order
 // is [top-left, top-right, bottom-right, bottom-left].
 func symbolCorners(side int, hg homography) [4]image.Point {
-	n := float64(side)
+	return gridCorners(side, side, hg)
+}
+
+// gridCorners is symbolCorners for a symbol of rows by cols modules, the
+// shape of an rMQR symbol.
+func gridCorners(rows, cols int, hg homography) [4]image.Point {
+	w, h := float64(cols), float64(rows)
 	corner := func(col, row float64) image.Point {
 		px, py := hg.apply(col, row)
 		return roundPoint(px, py)
 	}
 	return [4]image.Point{
 		corner(-0.5, -0.5),
-		corner(n-0.5, -0.5),
-		corner(n-0.5, n-0.5),
-		corner(-0.5, n-0.5),
+		corner(w-0.5, -0.5),
+		corner(w-0.5, h-0.5),
+		corner(-0.5, h-0.5),
 	}
 }
 

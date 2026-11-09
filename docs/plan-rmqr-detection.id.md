@@ -72,8 +72,8 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah RD4) membaca setiap simb
 
 ### RD5 — Pipeline `(M)`
 
-- [ ] Pass rMQR di `Decode` dan `DecodeBytes` setelah pass Micro, beserta error contract-nya; pass rMQR di `DecodeAll` dan `Result.RMQRVersion`; `examples/decode/rmqr`.
-- [ ] Test: komposit simbol QR, Micro QR, dan rMQR; tidak ada finder QR atau Micro yang ter-decode sebagai rMQR, dan tidak ada simbol rMQR yang ter-decode sebagai Micro QR.
+- [x] Pass rMQR di `Decode` dan `DecodeBytes` setelah pass Micro, beserta error contract-nya; pass rMQR di `DecodeAll` dan `Result.RMQRVersion`; `examples/decode/rmqr`.
+- [x] Test: komposit simbol QR, Micro QR, dan rMQR; tidak ada finder QR atau Micro yang ter-decode sebagai rMQR, dan tidak ada simbol rMQR yang ter-decode sebagai Micro QR.
 
 ### RD6 — Pengukuran dan Web Demo `(M)`
 

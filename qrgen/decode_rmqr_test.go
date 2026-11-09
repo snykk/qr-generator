@@ -363,3 +363,187 @@ func TestRMQREdgeModules(t *testing.T) {
 		}
 	}
 }
+
+// TestDecodeRMQRZintImages: Decode reads every zint symbol rendered as an
+// image, upright and rotated, through the rMQR path.
+func TestDecodeRMQRZintImages(t *testing.T) {
+	for _, g := range rmqrForcedGoldens(t) {
+		want := rmqrGoldenText(t, g)
+		for _, a := range []float64{0, 30} {
+			text, path, err := decodeImageWhich(rotateImage(gridImage(g.grid, 4, 2), a))
+			if err != nil || text != want || path != "rmqr" {
+				t.Errorf("%v-%v %q rotated %.0f: (%q, %q, %v)", g.version, g.ec, g.note, a, text, path, err)
+			}
+		}
+	}
+}
+
+// rmqrScene composites symbols, each encoded by the public API at 4 pixels per
+// module and turned by its angle, one above another on a white canvas.
+func rmqrScene(t *testing.T, symbols []sceneSymbol) image.Image {
+	t.Helper()
+	const gap = 24
+	var tiles []*image.Gray
+	width, height := 0, gap
+	for _, s := range symbols {
+		grid, err := Matrix(s.text, s.opts...)
+		if err != nil {
+			t.Fatalf("Matrix(%q): %v", s.text, err)
+		}
+		tile := rotateImage(gridImage(grid, 4, 2), s.angle)
+		tiles = append(tiles, tile)
+		width = max(width, tile.Bounds().Dx())
+		height += tile.Bounds().Dy() + gap
+	}
+	canvas := image.NewGray(image.Rect(0, 0, width+2*gap, height))
+	for i := range canvas.Pix {
+		canvas.Pix[i] = 255
+	}
+	y := gap
+	for _, tile := range tiles {
+		b := tile.Bounds()
+		for ty := range b.Dy() {
+			for tx := range b.Dx() {
+				canvas.SetGray(gap+tx, y+ty, tile.GrayAt(b.Min.X+tx, b.Min.Y+ty))
+			}
+		}
+		y += b.Dy() + gap
+	}
+	return canvas
+}
+
+type sceneSymbol struct {
+	text  string
+	opts  []Option
+	angle float64
+}
+
+// TestDecodeAllWithRMQR: DecodeAll reports every symbol of a scene mixing QR,
+// Micro QR, and rMQR symbols once, each as its own kind, and gives an rMQR
+// symbol its version, its finder, and an outline around it.
+func TestDecodeAllWithRMQR(t *testing.T) {
+	img := rmqrScene(t, []sceneSymbol{
+		{"QR CODE", nil, 0},
+		{"https://example.com/rmqr", []Option{WithRMQRHeight(7)}, 0},
+		{"12345", []Option{WithMicro()}, 20},
+		{"RECTANGULAR MICRO QR", []Option{WithRMQRVersion(R13x77)}, 15},
+	})
+	results, err := DecodeAll(img)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kinds := map[string]string{}
+	for _, r := range results {
+		switch {
+		case r.RMQRVersion != 0:
+			kinds[r.Text] = r.RMQRVersion.String()
+			b := r.Bounds()
+			f := r.Finders[0]
+			if !image.Pt(f.X, f.Y).In(b) || b.Dx() < 4*r.RMQRVersion.Width()*9/10 {
+				t.Errorf("%q: finder %v, outline %v for a %v symbol at 4 px/module", r.Text, f, b, r.RMQRVersion)
+			}
+			if r.Version != 0 || r.MicroVersion != 0 {
+				t.Errorf("%q: rMQR result with Version %d, MicroVersion %v", r.Text, r.Version, r.MicroVersion)
+			}
+		case r.MicroVersion != 0:
+			kinds[r.Text] = r.MicroVersion.String()
+		default:
+			kinds[r.Text] = fmt.Sprintf("V%d", r.Version)
+		}
+	}
+	want := map[string]string{
+		"QR CODE":                  "V1",
+		"https://example.com/rmqr": "R7x99",
+		"12345":                    "M1",
+		"RECTANGULAR MICRO QR":     "R13x77",
+	}
+	if len(results) != len(want) {
+		t.Errorf("%d results, want %d: %v", len(results), len(want), kinds)
+	}
+	for text, kind := range want {
+		if kinds[text] != kind {
+			t.Errorf("%q: %q, want %q", text, kinds[text], kind)
+		}
+	}
+}
+
+// TestRMQRIgnoresQRAndMicroFinders: no finder of a QR symbol (versions 1 to 7,
+// every level and mask) or of a zint Micro symbol decodes as an rMQR symbol,
+// or even gets located as one: a QR or Micro finder can pass the orientation
+// and format gates by chance, but not a sub-pattern with agreeing timing rows.
+func TestRMQRIgnoresQRAndMicroFinders(t *testing.T) {
+	check := func(name string, bm *bitmap) {
+		text, stage, err := decodeRMQRBitmap(bm)
+		if err == nil || stage >= rmqrStageLocated {
+			t.Errorf("%s: read as rMQR (%q, stage %d, %v)", name, text, stage, err)
+		}
+	}
+	for v := Version(1); v <= 7; v++ {
+		for _, ec := range []ECLevel{ECLevelL, ECLevelM, ECLevelQ, ECLevelH} {
+			for mask := range 8 {
+				grid, err := Matrix("rMQR?", WithVersion(v), WithECLevel(ec), WithMask(mask))
+				if err != nil {
+					t.Fatal(err)
+				}
+				check(fmt.Sprintf("QR V%d-%v mask %d", v, ec, mask), paintGrid(grid, 3, 4))
+			}
+		}
+	}
+	for _, g := range loadMicroGoldens(t) {
+		for quarter := range 4 {
+			check(fmt.Sprintf("Micro %s turned %d", g.typ, quarter), paintGrid(rotateGrid(g.grid, quarter), 3, 2))
+		}
+	}
+}
+
+// TestRMQRNotReadAsMicro: no zint rMQR symbol, at any quarter turn, decodes as
+// a Micro QR symbol, although an R9 finder can pass Micro's timing check.
+func TestRMQRNotReadAsMicro(t *testing.T) {
+	for _, g := range rmqrForcedGoldens(t) {
+		for quarter := range 4 {
+			bm := paintGrid(rotateGrid(g.grid, quarter), 3, 2)
+			if text, _, err := decodeMicroFromQuads(bm, allFinderQuads(bm)); err == nil {
+				t.Errorf("%v %q turned %d: read as Micro QR %q", g.version, g.note, quarter, text)
+			}
+		}
+	}
+}
+
+// TestDecodeRMQRErrorContract: an rMQR symbol whose data modules are
+// destroyed is still located, so the connected-component attempt reports its
+// Reed-Solomon error and Decode does not call it missing; with both format
+// copies destroyed as well nothing names its version, so it is not located and
+// the rMQR search's error is ErrFinderNotFound. (Decode itself may then report
+// the affine attempt's error: its line scanner can take the finder and two
+// other patterns of an rMQR symbol for a QR triple and fail on what it reads.)
+func TestDecodeRMQRErrorContract(t *testing.T) {
+	far := rmqrFarWord(t)
+	for _, g := range rmqrHeightGoldens(t) {
+		grid := cloneGrid(g.grid)
+		m := newRMQRMatrix(g.version)
+		m.placeRMQRFunctionPatterns()
+		flip := false
+		for r := range grid {
+			for c := range grid[r] {
+				if !m.isReserved(r, c) {
+					if flip {
+						grid[r][c] = !grid[r][c]
+					}
+					flip = !flip
+				}
+			}
+		}
+		img := gridImage(grid, 4, 2)
+		if cc := decodeImageCC(img); cc.rmqrStage != rmqrStageLocated || !errors.Is(cc.rmqrErr, ErrTooManyErrors) {
+			t.Errorf("%v with its data destroyed: rMQR stage %d, error %v; want located, ErrTooManyErrors", g.version, cc.rmqrStage, cc.rmqrErr)
+		}
+		if _, err := Decode(img); err == nil || errors.Is(err, ErrFinderNotFound) {
+			t.Errorf("%v with its data destroyed: Decode error %v, want the symbol's own error", g.version, err)
+		}
+		overwriteRMQRFormat(grid, far, false)
+		overwriteRMQRFormat(grid, far, true)
+		if cc := decodeImageCC(gridImage(grid, 4, 2)); cc.rmqrStage >= rmqrStageLocated || !errors.Is(cc.rmqrErr, ErrFinderNotFound) {
+			t.Errorf("%v with its format copies destroyed too: rMQR stage %d, error %v; want unlocated, ErrFinderNotFound", g.version, cc.rmqrStage, cc.rmqrErr)
+		}
+	}
+}

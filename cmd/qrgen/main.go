@@ -66,7 +66,7 @@ type cliConfig struct {
 
 func main() {
 	cfg := cliConfig{}
-	flag.BoolVar(&cfg.decode, "decode", false, "decode mode: read a QR image and print its text")
+	flag.BoolVar(&cfg.decode, "decode", false, "decode mode: read a QR Code, Micro QR, or rMQR image and print its text")
 	flag.StringVar(&cfg.in, "in", "", "decode mode: input image path (default: read from stdin)")
 	flag.StringVar(&cfg.text, "text", "", "encode mode: text to encode; if empty, read from stdin")
 	flag.StringVar(&cfg.out, "out", "", "output path; default qr.png/qr.svg for encode, stdout for decode. Use \"-\" to force stdout")
