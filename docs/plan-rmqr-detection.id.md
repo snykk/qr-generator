@@ -56,7 +56,7 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah RD4) membaca setiap simb
 
 ### RD2 — Dokumen Referensi `(S)`
 
-- [ ] `docs/theory/30-rmqr-detection.md` (EN + ID): apa yang belum ditentukan satu finder pada simbol yang panjang; orientasi dari timing di tepi atas; salinan format di sisi finder dan seberapa lemah sebuah kecocokan; ciri sub-pattern dan kenapa cincin terangnya, bukan cincin gelapnya, yang dicari; pemasangan berdasarkan posisi prediksi; homografi delapan titik dan edge fit; salinan format kedua; tempat pencarian ini bergabung ke pipeline; dan zxing-cpp sebagai prior art. Ditambah entri di README theory dan baris peta kodenya.
+- [x] `docs/theory/30-rmqr-detection.md` (EN + ID): apa yang belum ditentukan satu finder pada simbol yang panjang; orientasi dari timing di tepi atas; salinan format di sisi finder dan seberapa lemah sebuah kecocokan; ciri sub-pattern dan kenapa cincin terangnya, bukan cincin gelapnya, yang dicari; pemasangan berdasarkan posisi prediksi; homografi delapan titik dan edge fit; salinan format kedua; tempat pencarian ini bergabung ke pipeline; dan zxing-cpp sebagai prior art. Ditambah entri di README theory dan baris peta kodenya.
 
 ### RD3 — Menemukan Simbol `(L)`
 

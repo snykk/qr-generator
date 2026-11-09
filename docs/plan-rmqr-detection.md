@@ -56,7 +56,7 @@ Milestones land sequentially. **Checkpoint A** (after RD4) reads every zint symb
 
 ### RD2 — Reference Doc `(S)`
 
-- [ ] `docs/theory/30-rmqr-detection.md` (EN + ID): what one finder leaves open in a long symbol; orientation from the top timing; the finder-side format copy and how weak a match is; the sub-pattern's signature and why its light ring, not its dark ring, is the one to find; pairing by predicted position; the eight-point homography and the edge fit; the second format copy; where the search joins the pipeline; and zxing-cpp as prior art. Plus the theory README entry and code-mapping row.
+- [x] `docs/theory/30-rmqr-detection.md` (EN + ID): what one finder leaves open in a long symbol; orientation from the top timing; the finder-side format copy and how weak a match is; the sub-pattern's signature and why its light ring, not its dark ring, is the one to find; pairing by predicted position; the eight-point homography and the edge fit; the second format copy; where the search joins the pipeline; and zxing-cpp as prior art. Plus the theory README entry and code-mapping row.
 
 ### RD3 — Locate `(L)`
 
