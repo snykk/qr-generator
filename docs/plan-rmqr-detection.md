@@ -60,13 +60,13 @@ Milestones land sequentially. **Checkpoint A** (after RD4) reads every zint symb
 
 ### RD3 — Locate `(L)`
 
-- [ ] Orientation and format gates, sub-pattern candidates, pairing, the eight-point homography, rectangular sampling, and a decoder for one finder quad.
-- [ ] Tests: every zint symbol, rendered upright at several scales and at every quarter turn, decodes through the new search.
+- [x] Orientation and format gates, sub-pattern candidates, pairing, the eight-point homography, rectangular sampling, and a decoder for one finder quad.
+- [x] Tests: every zint symbol, rendered upright at several scales and at every quarter turn, decodes through the new search.
 
 ### RD4 — Refine and Confirm `(M)`
 
-- [ ] The edge fit and the variants; the sub-pattern-side format copy as confirmation and as fallback; the stages.
-- [ ] Tests: rotation and tilt bands, a damaged finder-side format copy, and what each refinement adds.
+- [x] The edge fit and the variants; the sub-pattern-side format copy as confirmation and as fallback; the stages.
+- [x] Tests: rotation and tilt bands, a damaged finder-side format copy, and what each refinement adds.
 
 ### Checkpoint A — every zint rMQR symbol reads from rotated and tilted images.
 

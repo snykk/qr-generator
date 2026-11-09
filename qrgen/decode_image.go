@@ -745,10 +745,16 @@ func refineHomography(bm *bitmap, h0 homography, tri finderTriple, v Version) ho
 //
 // See docs/theory/12-image-processing.md §8.
 func sampleMatrix(bm *bitmap, h homography, n int) [][]bool {
-	grid := make([][]bool, n)
-	for r := range n {
-		grid[r] = make([]bool, n)
-		for c := range n {
+	return sampleGrid(bm, h, n, n)
+}
+
+// sampleGrid is sampleMatrix for a grid of rows by cols modules, the shape of
+// an rMQR symbol.
+func sampleGrid(bm *bitmap, h homography, rows, cols int) [][]bool {
+	grid := make([][]bool, rows)
+	for r := range rows {
+		grid[r] = make([]bool, cols)
+		for c := range cols {
 			grid[r][c] = moduleDark(bm, h, c, r)
 		}
 	}

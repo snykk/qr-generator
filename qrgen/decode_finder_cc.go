@@ -457,6 +457,24 @@ type finderTripleQuad struct {
 // distortion the projective homography then inverts. There is no minimum
 // count: a Micro symbol has a single finder (docs/theory/27-micro-qr-detection.md).
 func allFinderQuads(bm *bitmap) []finderQuad {
+	return scanComponents(bm).quads
+}
+
+// ccScan is one connected-component labelling of a bitmap and the finder quads
+// found in it, kept together so the rMQR search can look for finder
+// sub-patterns in the same labelling without labelling the bitmap again.
+type ccScan struct {
+	stats   []ccStats
+	labelOf []int
+	width   int
+	quads   []finderQuad
+
+	subs     []subPattern // the sub-pattern candidates, found on first use
+	subsDone bool
+}
+
+// scanComponents labels bm once and extracts its finder quads.
+func scanComponents(bm *bitmap) *ccScan {
 	stats, labelOf := labelComponents(bm)
 	nests := finderNestings(stats)
 	quads := make([]finderQuad, 0, len(nests))
@@ -464,7 +482,87 @@ func allFinderQuads(bm *bitmap) []finderQuad {
 		corners := extractQuadCorners(labelOf, bm.width, stats[c.outer], c.outer)
 		quads = append(quads, finderQuad{center: c.center, corners: corners})
 	}
-	return quads
+	return &ccScan{stats: stats, labelOf: labelOf, width: bm.width, quads: quads}
+}
+
+// subPattern is a candidate rMQR finder sub-pattern, or anything of the same
+// shape, such as a QR alignment pattern: a closed light ring around a
+// one-module dark centre. Only the light ring is used, because the dark ring
+// around it has no separator and merges with the modules beside it
+// (docs/theory/30-rmqr-detection.md, section 4).
+type subPattern struct {
+	x, y       float64 // centre, in pixels
+	moduleSize float64 // a third of the light ring's side
+	light      int     // stats index of the light ring
+}
+
+// Sub-pattern shape limits. The light ring is 3 modules across around a
+// 1-module centre, so the centre's side is a third of the ring's; the
+// tolerances follow the finder nesting's (nestSideTol, concentricFrac).
+const (
+	minSubRingPx = 3.0 // a light ring under 1 pixel per module is unresolvable
+	maxSubAspect = 3.0 // as maxFinderAspect: tilt stretches the bounding box
+)
+
+// subPatterns returns the sub-pattern candidates of the scan, finding them on
+// the first call. Each small dark component is a possible centre; the light
+// component enclosing it is the one holding the pixel just above its bounding
+// box, so the search is linear in the number of components rather than a
+// comparison of every pair.
+func (s *ccScan) subPatterns() []subPattern {
+	if s.subsDone {
+		return s.subs
+	}
+	s.subsDone = true
+	for ci, c := range s.stats {
+		if !c.dark || c.minY == 0 {
+			continue
+		}
+		x := int(math.Round(c.cx()))
+		if x < c.minX || x > c.maxX {
+			continue
+		}
+		li := s.labelOf[(c.minY-1)*s.width+x]
+		l := s.stats[li]
+		if l.dark || l.side() < minSubRingPx || l.aspect() > maxSubAspect || li == ci {
+			continue
+		}
+		if l.minX == 0 || l.minY == 0 || l.maxX == s.width-1 || l.maxY == len(s.labelOf)/s.width-1 {
+			continue // a ring is enclosed; this light region reaches the image edge
+		}
+		if c.minX < l.minX || c.minY < l.minY || c.maxX > l.maxX || c.maxY > l.maxY {
+			continue // the light component does not enclose the centre
+		}
+		if e := math.Abs(c.side()/l.side()-1.0/3.0) * 3; e > nestSideTol {
+			continue
+		}
+		if math.Hypot(c.cx()-l.cx(), c.cy()-l.cy()) > concentricFrac*l.side() {
+			continue
+		}
+		s.subs = append(s.subs, subPattern{
+			x:          (c.cx() + l.cx()) / 2,
+			y:          (c.cy() + l.cy()) / 2,
+			moduleSize: l.side() / 3,
+			light:      li,
+		})
+	}
+	return s.subs
+}
+
+// ringCorners returns the outer corners of the sub-pattern's light ring, the
+// boundary between it and the dark ring, wound as windCorners winds them. As
+// in outerRingCorners, each extreme pixel's centre is moved half a pixel
+// outward to the pixel's own boundary.
+func (s *ccScan) ringCorners(sp subPattern) [4][2]float64 {
+	l := s.stats[sp.light]
+	c := extractQuadCorners(s.labelOf, s.width, l, sp.light)
+	for i, p := range c {
+		dx, dy := p[0]-l.cx(), p[1]-l.cy()
+		if m := math.Max(math.Abs(dx), math.Abs(dy)); m > 0 {
+			c[i] = [2]float64{p[0] + 0.5*dx/m, p[1] + 0.5*dy/m}
+		}
+	}
+	return windCorners(c)
 }
 
 // detectFinderQuads is allFinderQuads for the QR paths, which need at least

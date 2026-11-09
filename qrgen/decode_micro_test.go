@@ -16,21 +16,22 @@ import (
 	"testing"
 )
 
-// paintGrid renders a module grid into a bitmap at scale pixels per module,
-// with a light quiet zone of quiet modules on every side.
+// paintGrid renders a module grid, square or rectangular, into a bitmap at
+// scale pixels per module, with a light quiet zone of quiet modules on every
+// side.
 func paintGrid(grid [][]bool, scale, quiet int) *bitmap {
-	n := len(grid)
-	side := (n + 2*quiet) * scale
-	bm := newBlankBitmap(side, side)
-	for r := range n {
-		for c := range n {
+	rows, cols := len(grid), len(grid[0])
+	width, height := (cols+2*quiet)*scale, (rows+2*quiet)*scale
+	bm := newBlankBitmap(width, height)
+	for r := range rows {
+		for c := range cols {
 			if !grid[r][c] {
 				continue
 			}
 			for dy := range scale {
 				for dx := range scale {
 					x, y := (quiet+c)*scale+dx, (quiet+r)*scale+dy
-					bm.pixels[y*side+x] = true
+					bm.pixels[y*width+x] = true
 				}
 			}
 		}
@@ -38,14 +39,15 @@ func paintGrid(grid [][]bool, scale, quiet int) *bitmap {
 	return bm
 }
 
-// rotateGrid90 returns grid turned a quarter turn clockwise.
+// rotateGrid90 returns grid, square or rectangular, turned a quarter turn
+// clockwise.
 func rotateGrid90(g [][]bool) [][]bool {
-	n := len(g)
-	out := make([][]bool, n)
-	for r := range n {
-		out[r] = make([]bool, n)
-		for c := range n {
-			out[r][c] = g[n-1-c][r]
+	rows, cols := len(g), len(g[0])
+	out := make([][]bool, cols)
+	for r := range cols {
+		out[r] = make([]bool, rows)
+		for c := range rows {
+			out[r][c] = g[rows-1-c][r]
 		}
 	}
 	return out
@@ -76,7 +78,7 @@ func gatedAssignments(bm *bitmap, q finderQuad) int {
 	corners := windCorners(outerRingCorners(q))
 	n := 0
 	for k := range 4 {
-		hg, err := microFinderHomography(corners, k)
+		hg, err := finderHomography(corners, k)
 		if err == nil && moduleDark(bm, hg, 8, 0) && moduleDark(bm, hg, 0, 8) {
 			n++
 		}
@@ -101,17 +103,17 @@ func writeFarFormatWord(grid [][]bool) {
 	}
 }
 
-// gridImage renders a module grid as a grayscale image: scale pixels per
-// module, black modules on white, with quiet modules of white margin.
+// gridImage renders a module grid, square or rectangular, as a grayscale
+// image: scale pixels per module, black modules on white, with quiet modules
+// of white margin.
 func gridImage(grid [][]bool, scale, quiet int) *image.Gray {
-	n := len(grid)
-	side := (n + 2*quiet) * scale
-	img := image.NewGray(image.Rect(0, 0, side, side))
+	rows, cols := len(grid), len(grid[0])
+	img := image.NewGray(image.Rect(0, 0, (cols+2*quiet)*scale, (rows+2*quiet)*scale))
 	for i := range img.Pix {
 		img.Pix[i] = 255
 	}
-	for r := range n {
-		for c := range n {
+	for r := range rows {
+		for c := range cols {
 			if !grid[r][c] {
 				continue
 			}
@@ -408,7 +410,7 @@ func TestMicroIgnoresQRFinders(t *testing.T) {
 					stages[stage]++
 					corners := windCorners(outerRingCorners(q))
 					for k := range 4 {
-						hg, err := microFinderHomography(corners, k)
+						hg, err := finderHomography(corners, k)
 						if err != nil || !moduleDark(bm, hg, 8, 0) || !moduleDark(bm, hg, 0, 8) {
 							continue
 						}
@@ -559,7 +561,7 @@ func TestMicroRefinementValue(t *testing.T) {
 				for _, q := range allFinderQuads(bm) {
 					corners := windCorners(outerRingCorners(q))
 					for k := range 4 {
-						hg, err := microFinderHomography(corners, k)
+						hg, err := finderHomography(corners, k)
 						if err != nil || !moduleDark(bm, hg, 8, 0) || !moduleDark(bm, hg, 0, 8) {
 							continue
 						}

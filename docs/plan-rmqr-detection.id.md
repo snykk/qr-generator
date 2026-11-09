@@ -60,13 +60,13 @@ Milestone mendarat berurutan. **Checkpoint A** (setelah RD4) membaca setiap simb
 
 ### RD3 — Menemukan Simbol `(L)`
 
-- [ ] Gate orientasi dan format, kandidat sub-pattern, pemasangan, homografi delapan titik, sampling persegi panjang, dan decoder untuk satu finder quad.
-- [ ] Test: setiap simbol zint, dirender tegak di beberapa skala dan di setiap seperempat putaran, ter-decode lewat pencarian baru ini.
+- [x] Gate orientasi dan format, kandidat sub-pattern, pemasangan, homografi delapan titik, sampling persegi panjang, dan decoder untuk satu finder quad.
+- [x] Test: setiap simbol zint, dirender tegak di beberapa skala dan di setiap seperempat putaran, ter-decode lewat pencarian baru ini.
 
 ### RD4 — Refinement dan Konfirmasi `(M)`
 
-- [ ] Edge fit dan varian-variannya; salinan format di sisi sub-pattern sebagai konfirmasi dan cadangan; stage-stage-nya.
-- [ ] Test: rentang rotasi dan kemiringan, salinan format sisi finder yang rusak, dan apa yang ditambahkan tiap refinement.
+- [x] Edge fit dan varian-variannya; salinan format di sisi sub-pattern sebagai konfirmasi dan cadangan; stage-stage-nya.
+- [x] Test: rentang rotasi dan kemiringan, salinan format sisi finder yang rusak, dan apa yang ditambahkan tiap refinement.
 
 ### Checkpoint A — setiap simbol rMQR zint terbaca dari gambar yang terputar dan miring.
 
